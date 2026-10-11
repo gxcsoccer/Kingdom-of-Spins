@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {flipStartOnce, flipTap, flipImage, markTap} from './api.js';
+import {flipStartOnce, flipTapFree as flipTap, flipImage, markTap} from './api.js';
 import {useFlipbook} from './store.js';
 import ChapterBook from './ChapterBook.jsx';
 import {chapterById, chapterForCard, chapterForMoment} from './chapters.js';

@@ -583,3 +583,34 @@ export function templateAsk(question='') {
 }
 
 export {CARDS};
+
+// ── 绘本好奇心支线：只讲本章的知识卡（≤3 句、每句 ≤28 字）。模型不可用 / 写超长时用这里的句子。 ──
+export const BRANCH_LINE = {
+  'ph-inertia':'重量越靠外圈，转动惯量越大，越难被弄停。', 'ph-figure-skater':'滑冰手张开手臂转得慢，收紧手臂转得快。',
+  'gd-ring-slider':'外圈配重比例越高，转动惯量就越大。', 'mt-metal':'金属比塑料重得多，放在外圈惯量大增。',
+  'ph-friction-area':'碰地面积越小，摩擦越小，转速掉得越慢。', 'ph-needle':'尖轴只用一个小点碰地，转速掉得慢。',
+  'ph-flat':'平轴抓地强，像轮子一样满场冲，转速掉得快。', 'ph-momentum':'动量＝质量×速度，越重越难被撞飞。',
+  'ph-impulse':'碰撞只有一眨眼，力却很大，这叫冲量。', 'ph-mass-tradeoff':'更重更难撞飞，但同样发射力转得没那么快。',
+  'ph-gyro-stability':'转得快角动量大，重力推它也只会慢慢画圈。', 'ph-precession':'歪着转时，轴会慢慢绕圈，这叫进动。',
+  'ph-angular-momentum':'角动量＝转动惯量×转速，越大越站得稳。', 'ph-tilt-fall':'转速变低，角动量不够，陀螺就越晃越歪。',
+  'geo-tides':'月球引力拉着海水，大多数海边一天涨两次潮。', 'geo-altitude-cold':'海拔每升高100米，气温大约降低0.6°C。',
+  'geo-snowline':'雪线以上积雪终年不化，压成冰就是冰川。',
+};
+// Which drawn objects belong to which card (template path: tapped label → card).
+export const BRANCH_KEYS = {
+  'ph-inertia':/外圈|配重|边缘|rim|weight|惯量|圆盘|陀螺/i, 'ph-figure-skater':/滑冰|手臂|运动员|skater|arm|冰/i, 'gd-ring-slider':/比例|刻度|滑杆|slider|scale/i, 'mt-metal':/金属|银|铁|metal|steel/i,
+  'ph-friction-area':/接触|碰地|地面|摩擦|火花|friction|contact/i, 'ph-needle':/尖|冰鞋|needle|skate/i, 'ph-flat':/平|运动鞋|跑|flat|sneaker|dust/i,
+  'ph-momentum':/撞|碰撞|动量|重|collision|momentum/i, 'ph-impulse':/火花|冲击|一瞬|spark|impact/i, 'ph-mass-tradeoff':/轻|重量|天平|mass|scale/i,
+  'ph-gyro-stability':/中心|轴|直立|stable|axis/i, 'ph-precession':/画圈|歪|倾斜|进动|tilt|wobble|precess/i, 'ph-angular-momentum':/箭头|转速|旋转|arrow|spin/i, 'ph-tilt-fall':/倒|停|晃|fall/i,
+  'geo-tides':/./, 'geo-altitude-cold':/山|温度|雪|海拔|mountain|thermo|snow/i, 'geo-snowline':/冰川|雪线|积雪|glacier|snowline/i,
+};
+export const branchCardFor = (label='', allowed=[]) => allowed.find(id=>BRANCH_KEYS[id]?.test(label)) || null;
+// One branch page. offTopic → a short "back to the chapter" page with no new content.
+export function templateFlipBranch({chapter={}, tapped='', cardId=null, offTopic=false}={}) {
+  const q = chapter.question || '本章的问题', what = String(tapped||'这里').slice(0,8);
+  if (offTopic || !cardId) return {id:'br-off-'+shortHash(what+q), title:'离本章有点远', offTopic:true, tapped:what, cardId:null,
+    panels:[{text:`你点的是「${what}」。`},{text:'这个和本章的秘密有点远。'},{text:`我们回到「${q.slice(0,18)}」`}]};
+  const card = getCard(cardId);
+  return {id:'br-'+shortHash(cardId+what), title:(card?.title||'').slice(0,12), tapped:what, cardId, offTopic:false,
+    panels:[{text:`你点的是「${what}」！`},{text:BRANCH_LINE[cardId]||(card?.body||'').slice(0,28)},{text:`想一想：${q.slice(0,22)}`}]};
+}

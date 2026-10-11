@@ -112,3 +112,30 @@
 .cb-guess .cb-next-inline{flex-basis:100%;max-width:max-content}
 @keyframes fbPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 .rp-arrow.next:not(:disabled){animation:fbPulse 1.2s ease-in-out infinite}
+
+/* Hotspots v2: dot stays on the object; the label sits on whichever side is free (layoutSpots). */
+.fb-hot{width:34px;height:34px;display:block;pointer-events:auto}
+.fb-hot i{display:block}
+.fb-hot span{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:13px;padding:2px 8px;pointer-events:none}
+.fb-hot.side-below span{top:calc(100% + 3px);left:50%;transform:translateX(-50%)}
+.fb-hot.side-above span{bottom:calc(100% + 3px);left:50%;transform:translateX(-50%)}
+.fb-hot.side-right span{left:calc(100% + 5px);top:50%;transform:translateY(-50%)}
+.fb-hot.side-left span{right:calc(100% + 5px);top:50%;transform:translateY(-50%)}
+.fb-hot em{display:none;font-style:normal;font-size:12px;color:#fff;font-weight:800}
+.fb-hot:hover em,.fb-hot.on em{display:block}
+.fb-hot:hover,.fb-hot.on{z-index:6}
+/* Branch "magnifier": the main picture zoomed around the tap. */
+.cb-mag-img{position:absolute;inset:0;background-repeat:no-repeat;animation:cbZoomIn .45s cubic-bezier(.2,.8,.25,1) both}
+@keyframes cbZoomIn{from{transform:scale(.55);opacity:.2}to{transform:none;opacity:1}}
+.cb-mag-lens{position:absolute;width:30%;aspect-ratio:1;margin:-15% 0 0 -15%;border-radius:50%;border:7px solid #111;box-shadow:0 0 0 4px #fff,0 0 0 8px #111,inset 0 0 0 4px rgba(255,255,255,.85),inset 0 0 30px rgba(255,255,255,.35);pointer-events:none;z-index:2;animation:fbPop .4s .2s cubic-bezier(.2,1.5,.4,1) both}
+.cb-mag-lens::before{content:'';position:absolute;left:14%;top:12%;width:26%;height:14%;border-radius:50%;background:rgba(255,255,255,.7);transform:rotate(-35deg)}
+.cb-mag-lens i{position:absolute;left:88%;top:88%;width:42%;height:14%;background:#111;border:3px solid #fff;outline:3px solid #111;border-radius:6px;transform:rotate(45deg);transform-origin:0 50%}
+.cb-mag-mini{position:absolute;right:8px;top:8px;width:22%;aspect-ratio:4/3;border:3px solid #111;box-shadow:3px 3px 0 #111;background:#fff;overflow:hidden;z-index:4}
+.cb-mag-mini img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cb-mag-mini b{position:absolute;border:2.5px solid #ff1a1a;box-shadow:0 0 0 999px rgba(0,0,0,.28)}
+.cb-mag-tag{position:absolute;left:8px;top:8px;z-index:4;background:#111;color:#ffd400;font-weight:900;font-family:var(--display);padding:3px 10px;border:2px solid #ffd400}
+.cb-depth{margin-left:10px;background:#fff;color:#111;padding:1px 9px;border:2px solid #111;font-size:13px}
+.cb-texts.branch .cb-text{font-size:clamp(19px,2vw,24px);line-height:1.4}
+.cb-branch-nav .btn.big{font-size:clamp(17px,1.7vw,21px);padding:10px 18px}
+.cb-cardart{background:#fff}
+.cb-cardart img{object-fit:contain;transition:opacity .3s}

@@ -4,7 +4,7 @@
 // 3) Workers AI gpt-oss-120b → 4) deterministic template (in each route). Each step falls back on error.
 import Anthropic from '@anthropic-ai/sdk';
 // Every route returns a deterministic template fallback when the model fails or times out.
-import {kidName, wishLook, diversifyLooks, specialMoveFor, sanitizeLook, LOOK_ENUMS, sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, decisiveMetric, contradictsVerdict, textbookExpectation, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE, bankGate, GATE_BANK} from '../src/ai/fallback.js';
+import {kidName, wishLook, diversifyLooks, specialMoveFor, sanitizeLook, LOOK_ENUMS, sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, decisiveMetric, contradictsVerdict, textbookExpectation, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, templateFlipBranch, branchCardFor, BRANCH_LINE, FLIP_STYLE, bankGate, GATE_BANK} from '../src/ai/fallback.js';
 import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 import {regionById} from '../src/game/regions.js';
@@ -12,6 +12,7 @@ import {prototypeOf} from '../src/game/prototypes.js';
 import {SCENES, sceneByKey, START_SCENE} from '../src/game/scenes.js';
 import {BEYS} from '../src/game/beys.js';
 import {BLADERS} from '../src/game/story.js';
+import {CHAPTERS} from '../src/flipbook/chapters.js';
 
 export const MODEL = globalThis.process?.env?.AI_MODEL || '@cf/openai/gpt-oss-120b';
 // Per-route budgets: Claude gets CLAUDE_MS, the Workers AI fallback gets TIMEOUT_MS after that.
@@ -439,7 +440,57 @@ ${FLIP_LAYOUT}
     return json({page: sanitizePage(out, card?.id || cards[0]?.id), via: out.__via, aiNote: out.__note||undefined});
   } catch (e) { return json({page: fallback(), fallback:true, error:String(e.message||e).slice(0,200)}); }
 }
+// 好奇心支线：只能讲本章的知识卡（排除上一层已经讲过的），按孩子点的物体选 1 张；和本章无关的东西 → 引导回主线。
+function chapterOf(body) {
+  const c = CHAPTERS.find(x=>x.id===body?.chapter?.id);
+  if (c) return {id:c.id, title:c.title, question:c.question, cards:c.cards};
+  const cards = (Array.isArray(body?.chapter?.cards) ? body.chapter.cards : []).filter(id=>getCard(id));
+  return {id:'', title:String(body?.chapter?.title||'').slice(0,20), question:String(body?.chapter?.question||'').slice(0,30), cards:cards.length ? cards : ['ph-inertia']};
+}
+const branchText = (v, n) => clean2(String(v||'').replace(/\s+/g,''), 80).slice(0, 80);
 async function flipTap(body, env) {
+  const ch = chapterOf(body), x = Math.max(0, Math.min(1, +body.x||.5)), y = Math.max(0, Math.min(1, +body.y||.5));
+  const exclude = new Set((Array.isArray(body.exclude) ? body.exclude : []).map(String));
+  const allowed = ch.cards.filter(id=>!exclude.has(id));
+  const pool = allowed.length ? allowed : ch.cards;
+  const spots = (Array.isArray(body.spots) ? body.spots : []).slice(0,6).map(sp=>({x:+sp.x, y:+sp.y, label:clean2(sp.label,8), cardId:ch.cards.includes(sp.cardId) ? sp.cardId : null})).filter(sp=>Number.isFinite(sp.x)&&Number.isFinite(sp.y));
+  const near = spots.map(sp=>({...sp, d:Math.hypot(sp.x-x, sp.y-y)})).sort((a,b)=>a.d-b.d)[0];
+  const hit = near && near.d < .07 && near.cardId && pool.includes(near.cardId) ? near : null;   // tapped right on a hotspot
+  const fallback = () => {
+    if (hit) return templateFlipBranch({chapter:ch, tapped:hit.label, cardId:hit.cardId});
+    const label = near && near.d < .15 ? near.label : '';
+    const cardId = label ? (near.cardId && pool.includes(near.cardId) ? near.cardId : branchCardFor(label, pool)) : null;
+    return templateFlipBranch({chapter:ch, tapped:label || '这里', cardId, offTopic:!cardId});
+  };
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.imageDataUrl||''));
+  const page = body.page || {};
+  const user = `孩子在读科学绘本「${ch.title}」，本章问题：「${ch.question}」。
+当前页：「${String(page.title||'').slice(0,20)}」${(Array.isArray(page.text)?page.text:[]).join('').slice(0,160)}
+画面上的红圈 = 孩子刚点的位置（x=${x.toFixed(2)}, y=${y.toFixed(2)}）。${spots.length ? '画里已经标出的东西：' + spots.map(sp=>`${sp.label}(${sp.x.toFixed(2)},${sp.y.toFixed(2)})`).join('、') : ''}${hit ? `\n孩子点的正是「${hit.label}」，对应知识卡 ${hit.cardId}。` : ''}
+本章知识卡（只能从这里选，不能讲卡以外的新知识）：
+${pool.map(id=>{const c=getCard(id);return `${id} ${c.title}：${c.body}`;}).join('\n')}
+任务：
+1. 看红圈，判断孩子点的是画里的什么东西（tapped，中文≤8字，用画里真实的物体名）。
+2. 判断它和本章问题有没有关系（related）。观众、灯光、天空、背景墙、地板花纹这类和本章知识无关的东西 → related=false。
+3. related=true：从上面的知识卡里选 1 张和这个东西最相关的（cardId），写 title（≤10字，围绕这张卡）和正好 3 句 panels：
+   第1句以“你点的是”开头，说出这个东西；第2句用这个东西打比方，讲这张卡的内容；第3句把话题拉回本章问题（例如“这就是外圈重的陀螺转得更久的原因！”或一个通顺的问句）。
+   每句不超过 26 个字，短句、10 岁孩子能懂，不要编号，不要出现卡片 id。
+只输出 JSON：{"tapped":"外圈配重","related":true,"cardId":"${pool[0]}","title":"…","panels":["你点的是…","…","…"]}`;
+  try {
+    const out = await llm(env, {system:'你是“融合博士”，给 10 岁孩子讲科学绘本。只依据给出的知识卡，物理必须正确。只输出 JSON。', user, images: m ? [{mediaType:m[1], data:m[2]}] : [], maxTokens:500, kind:'flip'});
+    const tapped = clean2(out.tapped, 8) || hit?.label || '这里';
+    if (out.related === false && !hit) return json({page: templateFlipBranch({chapter:ch, tapped, offTopic:true}), via: out.__via});
+    const cardId = pool.includes(out.cardId) ? out.cardId : hit?.cardId || branchCardFor(tapped, pool) || pool[0];   // server-side retrieval check
+    const t = templateFlipBranch({chapter:ch, tapped, cardId});
+    const raw = (Array.isArray(out.panels) ? out.panels : []).slice(0,3).map(v=>branchText(typeof v==='string' ? v : v?.text));
+    // Each line ≤28 字; line 1 must name what was tapped; anything off-spec falls back to the card's own line.
+    const panels = t.panels.map((p,i)=>{ const r = raw[i]; if (!r || r.length > 28 || (i===0 && !/你点的/.test(r))) return p; return {text:r}; });
+    const title = clean2(out.title, 12) || t.title;
+    return json({page:{...t, title, panels}, via: out.__via});
+  } catch (e) { return json({page: fallback(), fallback:true, error:String(e.message||e).slice(0,200)}); }
+}
+// Free AI exploration (no built-in chapter): the original open-ended tap.
+async function flipTapFree(body, env) {
   const page = body.page || {}, x = Math.max(0, Math.min(1, +body.x||.5)), y = Math.max(0, Math.min(1, +body.y||.5));
   const trail = (Array.isArray(body.trail) ? body.trail : []).slice(-8).map(String);
   const fallback = () => templateFlipTap(page, x, y);
@@ -465,18 +516,13 @@ async function flipImage(body, env) {
   if (!prompt) return json({error:'empty prompt'}, 400);
   if (!env?.AI) return json({error:'no image model'}, 503);
   const full = `${prompt}. ${FLIP_STYLE}`, errors = [];
-  // Primary: FLUX.2 klein 9B (multipart, 4:3). Through AI Gateway the binding's multipart path currently fails
-  // (stream → 'ReadableStreams not supported', buffered → 8001 Invalid input), so after such an error skip it for 10 min.
-  if (Date.now() >= kleinDownUntil) try {
-    const form = new FormData(); form.append('prompt', full); form.append('width', '1024'); form.append('height', '768');
-    const fr = new Response(form), ct = fr.headers.get('content-type');
-    // AI Gateway rejects ReadableStream bodies → buffer the multipart payload first.
-    const buf = await fr.blob();
-    const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-2-klein-9b', {multipart:{body:buf, contentType:ct}}, gw(env)), 20000);
-    const img = r?.image || r?.result?.image;
-    if (img) return json({image:`data:image/jpeg;base64,${img}`, model:'flux-2-klein-9b'});
-    errors.push('klein: no image');
-  } catch (e) { const m = String(e.message||e); errors.push('klein: '+m.slice(0,120)); if (/8001|ReadableStream|Invalid input/i.test(m)) kleinDownUntil = Date.now() + 600_000; }
+  // Primary: Leonardo lucid-origin — bold anime line art, no garbled text, ~4–5 s through AI Gateway (same as schnell).
+  // (FLUX.2 needs multipart, which AI Gateway can't proxy; without the gateway it hits the free daily neuron cap.)
+  try {
+    const r = await withTimeout(env.AI.run('@cf/leonardo/lucid-origin', {prompt:full, width:1024, height:768}, gw(env)), 15000);
+    if (r?.image) return json({image:`data:image/jpeg;base64,${r.image}`, model:'lucid-origin'});
+    errors.push('lucid: no image');
+  } catch (e) { errors.push('lucid: '+String(e.message||e).slice(0,120)); }
   try {
     const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-1-schnell', {prompt:full, steps:4}, gw(env)), 25000);
     if (r?.image) return json({image:`data:image/jpeg;base64,${r.image}`, model:'flux-1-schnell', note:errors.join('; ')});
@@ -490,14 +536,20 @@ async function flipLocate(body, env) {
   const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.imageDataUrl||''));
   if (!m) return json({error:'bad image'}, 400);
   const ctx = body.context || {};
+  const ch = body.chapter ? chapterOf(body) : null;
+  const cards = ch ? ch.cards.map(getCard).filter(Boolean) : [];
   const user = `这是儿童科学漫画绘本的一页插图。本页主题：「${String(ctx.title||'').slice(0,30)}」。${String(ctx.text||'').slice(0,200)}
-请在图里找出 3 个孩子可能好奇、和本页科学知识有关、而且确实清楚画在图里的东西（例如陀螺外圈的金属块、轴尖、滑冰者的手臂、火花）。
-对每个东西给出它在图中的中心位置：x 从左到右 0~1，y 从上到下 0~1（要准确落在物体上）；label 是中文≤6字；hint 是一句英文，说明它背后可以深入讲的科学。
-如果图里没画某样东西，就不要编。只输出 JSON：{"spots":[{"x":0.5,"y":0.5,"label":"外圈配重","hint":"rim weights raise moment of inertia"}]}`;
+${ch ? `本章问题：「${ch.question}」。本章知识卡：\n${cards.map(c=>`${c.id} ${c.title}：${c.body}`).join('\n')}
+请在图里找出 2~4 个确实清楚画出来的东西，每个都必须能用上面某一张知识卡来解释（例如外圈的金属配重 → 转动惯量，滑冰运动员张开的手臂 → 花样滑冰的秘密）。观众、灯光、背景、地板花纹这类和本章知识无关的东西不要选。每个东西给出 cardId（只能用上面的 id）。` : '请在图里找出 3 个孩子可能好奇、和本页科学知识有关、而且确实清楚画在图里的东西。'}
+对每个东西给出它在图中的中心位置：x 从左到右 0~1，y 从上到下 0~1（要准确落在物体上）；label 是物体的中文名≤6字；hint 是一句英文，说明它背后的科学。
+如果图里没画某样东西，就不要编。只输出 JSON：{"spots":[{"x":0.5,"y":0.5,"label":"外圈配重","cardId":"${cards[0]?.id||'ph-inertia'}","hint":"rim weights raise moment of inertia"}]}`;
   try {
-    const out = await llm(env, {system:'You locate objects in illustrations precisely. Output JSON only.', user, images:[{mediaType:m[1], data:m[2]}], maxTokens:500, kind:'locate', claudeOnly:true});
-    const spots = (Array.isArray(out.spots)?out.spots:[]).slice(0,4).map(sp=>({x:Math.max(.03,Math.min(.97,+sp.x||.5)), y:Math.max(.03,Math.min(.97,+sp.y||.5)), label:clean2(sp.label,6)||'看看', hint:String(sp.hint||'').slice(0,140)})).filter(sp=>Number.isFinite(sp.x)&&Number.isFinite(sp.y));
-    return json({spots, via:out.__via});
+    const out = await llm(env, {system:'You locate objects in illustrations precisely. Output JSON only.', user, images:[{mediaType:m[1], data:m[2]}], maxTokens:600, kind:'locate', claudeOnly:true});
+    let spots = (Array.isArray(out.spots)?out.spots:[]).slice(0,5).map(sp=>({x:Math.max(.03,Math.min(.97,+sp.x||.5)), y:Math.max(.03,Math.min(.97,+sp.y||.5)), label:clean2(sp.label,6)||'看看', cardId:String(sp.cardId||''), hint:String(sp.hint||'').slice(0,140)})).filter(sp=>Number.isFinite(sp.x)&&Number.isFinite(sp.y));
+    // Every hotspot must map to one of this chapter's cards; drop near-duplicates (< 0.08 apart).
+    if (ch) spots = spots.map(sp=>({...sp, cardId: ch.cards.includes(sp.cardId) ? sp.cardId : branchCardFor(sp.label+' '+sp.hint, ch.cards)})).filter(sp=>sp.cardId);
+    const kept = []; for (const sp of spots) if (!kept.some(k=>Math.hypot(k.x-sp.x, k.y-sp.y) < .08)) kept.push(sp);
+    return json({spots:kept.slice(0,4), via:out.__via});
   } catch (e) { return json({spots:[], error:String(e.message||e).slice(0,160)}); }
 }
 
@@ -720,7 +772,7 @@ export async function handle(request, env) {
     if (path.endsWith('/experiment')) return json(templateExperiment(body));
     if (path.endsWith('/sketch')) return json({needKey:true, error:'需要家长开启高级 AI'}, 503);
     if (path.endsWith('/flip/start')) return json({page:templateFlipPage({cardId:body.cardId, topic:body.topic}), fallback:true});
-    if (path.endsWith('/flip/tap')) return json({page:templateFlipTap(body.page||{}, body.x, body.y), fallback:true});
+    if (path.endsWith('/flip/tap')) return body.chapter ? flipTap(body, env) : json({page:templateFlipTap(body.page||{}, body.x, body.y), fallback:true});
     if (path.endsWith('/flip/image')) return json({error:'no image model'}, 503);
   }
   if (path.endsWith('/fusion/chat')) return fusionChat(body, env);
@@ -730,7 +782,7 @@ export async function handle(request, env) {
   if (path.endsWith('/experiment')) return experiment(body, env);
   if (path.endsWith('/sketch')) return sketch(body, env);
   if (path.endsWith('/flip/start')) return flipStart(body, env);
-  if (path.endsWith('/flip/tap')) return flipTap(body, env);
+  if (path.endsWith('/flip/tap')) return body.chapter ? flipTap(body, env) : flipTapFree(body, env);
   if (path.endsWith('/flip/image')) return flipImage(body, env);
   if (path.endsWith('/flip/locate')) return flipLocate(body, env);
   if (path.endsWith('/explore/step')) return exploreStep(body, env);

@@ -1,5 +1,5 @@
 // Flipbook API client. Never throws for page JSON (template fallback); image may resolve to null.
-import {templateFlipPage, templateFlipTap} from '../ai/fallback.js';
+import {templateFlipPage, templateFlipTap, templateFlipBranch, branchCardFor} from '../ai/fallback.js';
 
 async function post(path, body, ms) {
   const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(), ms);
@@ -15,8 +15,19 @@ export async function flipStart(start={}) {
   try { const out = await post('/api/ai/flip/start', start, 36000); if (out.page) return out.page; throw new Error('empty'); }
   catch { return templateFlipPage({cardId:start.cardId, topic:start.topic}); }
 }
+// Curiosity branch: chapter = {id, title, question, cards}; exclude = cards already used by the branch above. → {page}
+export async function flipTap({chapter, page, imageDataUrl, x, y, spots=[], exclude=[]}) {
+  try { const out = await post('/api/ai/flip/tap', {chapter, page, imageDataUrl, x, y, spots, exclude}, 36000); if (out.page) return {page:out.page}; throw new Error('empty'); }
+  catch {
+    const pool = chapter.cards.filter(id=>!exclude.includes(id));
+    const near = spots.map(sp=>({...sp, d:Math.hypot(sp.x-x, sp.y-y)})).sort((a,b)=>a.d-b.d)[0];
+    const label = near && near.d < .15 ? near.label : '';
+    const cardId = label ? (pool.includes(near.cardId) ? near.cardId : branchCardFor(label, pool)) : null;
+    return {page:templateFlipBranch({chapter, tapped:label||'这里', cardId, offTopic:!cardId})};
+  }
+}
 // → {page, tapped}
-export async function flipTap({page, imageDataUrl, x, y, trail}) {
+export async function flipTapFree({page, imageDataUrl, x, y, trail}) {
   try { const out = await post('/api/ai/flip/tap', {page, imageDataUrl, x, y, trail}, 36000); if (out.page) return {page:out.page, tapped:out.tapped}; throw new Error('empty'); }
   catch { return {page:templateFlipTap(page, x, y), tapped:''}; }
 }
