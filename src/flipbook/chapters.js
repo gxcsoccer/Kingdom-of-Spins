@@ -72,7 +72,8 @@ export const CHAPTERS = [
   },
   {
     id: 'tides', title: '月亮拉海水', question: '海水为什么每天涨落两次？', color: '#29b6ff', badge: '潮汐观察员',
-    cards: ['geo-tides'],   // 只列这一章真正讲到的卡：“翻开绘本”按它跳转 experiment: 'tides', quiz: 'geo-tides',
+    // cards 只列这一章真正讲到的卡：知识卡上的“翻开绘本”按它跳转
+    cards: ['geo-tides'], experiment: 'tides', quiz: 'geo-tides',
     pages: [
       {kind:'hook', title:'消失的小路', text:['早上，海边露出一条沙滩小路，能走到小岛上。','到了下午，小路不见了，小岛被海水围住！','你猜，是谁把海水拉来拉去？'], guess:['月亮','风','大鱼'], answer:0,
         prompt:'a small rocky island with a pointed-spire abbey connected to the shore by a wet sandy path at low tide, the same island in a small inset surrounded by sea at high tide with the path underwater, seagulls, bright sky'},
