@@ -123,11 +123,22 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
   function toggleVoice() {
     setVoiceOn(v=>{ const n=!v; try { localStorage.setItem('kos.voice', n?'on':'off'); } catch {} if (!n) stopSpeaking(); return n; });
   }
-  async function onPickImage(e) {
-    const f = e.target.files?.[0]; e.target.value=''; if (!f) return;
+  async function useImageFile(f) {
+    if (!f || !/^image\//.test(f.type)) return setSk(s=>({...s, msg:'这不是图片哦，换一张试试？'}));
     try { const img = await fileToDataUrl(f, 1024); setSk(s=>({...s, img, result:null, msg:''})); }
     catch { setSk(s=>({...s, msg:'这张图片打不开，换一张试试？'})); }
   }
+  async function onPickImage(e) {
+    const f = e.target.files?.[0]; e.target.value=''; if (f) useImageFile(f);
+  }
+  // 在“画一个陀螺”这一步可以直接粘贴图片（⌘V / Ctrl+V）或把图片拖进来。
+  const [dragOver, setDragOver] = useState(false);
+  useEffect(() => {
+    if (step !== 'sketch') return;
+    const onPaste = e => { const f = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'))?.getAsFile(); if (f) { e.preventDefault(); useImageFile(f); } };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [step]);// eslint-disable-line
   async function runSketch() {
     if (!sk.img || sk.busy) return;
     setSk(s=>({...s, busy:true, msg:'', result:null}));
@@ -228,8 +239,8 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
           </div>
           {!sk.result && (
           <div className="sketch-grid mt2">
-              <div className="panel sketch-drop" onClick={()=>fileRef.current?.click()}>
-                {sk.img ? <img src={sk.img} alt="你的画"/> : <div className="sketch-empty"><span style={{fontSize:56}}>📷</span><b>拍照 / 选一张画</b><span className="muted">画在纸上就行，越清楚越好</span></div>}
+              <div className={`panel sketch-drop ${dragOver?'drag':''}`} onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)} onDrop={e=>{e.preventDefault();setDragOver(false);useImageFile(e.dataTransfer.files?.[0]);}}>
+                {sk.img ? <img src={sk.img} alt="你的画"/> : <div className="sketch-empty"><span style={{fontSize:56}}>📷</span><b>拍照 / 选一张画</b><span className="muted">画在纸上就行，越清楚越好</span><span className="sketch-paste">也可以直接粘贴图片 <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd>，或把图片拖进来</span></div>}
                 <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={onPickImage}/>
               </div>
               <div className="col">

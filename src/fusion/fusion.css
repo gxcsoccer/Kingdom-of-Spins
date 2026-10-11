@@ -293,3 +293,6 @@ button.codex-tile:hover{transform:translate(-2px,-2px)}
 .hc-holo{-webkit-mask-image:linear-gradient(to bottom,transparent 0 46%,#000 58%);mask-image:linear-gradient(to bottom,transparent 0 46%,#000 58%)}
 .hc-art:not(.spinning) .hc-aura{animation-play-state:paused;opacity:.55}
 .hc-art{cursor:pointer}
+.sketch-paste{margin-top:6px;font-size:13px;font-weight:800;color:#555}
+.sketch-paste kbd{display:inline-block;border:2px solid #111;border-bottom-width:4px;border-radius:5px;background:#fff;padding:0 6px;font:inherit;font-size:12px;margin:0 2px}
+.sketch-drop.drag{outline:5px dashed var(--red);outline-offset:-12px;background:#fff1c2}
