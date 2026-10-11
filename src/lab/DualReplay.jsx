@@ -34,7 +34,7 @@ function Side({ label, tone, player, visible, rpmRef, kidName }) {
     <div className="dr-side">
       <div className={`dr-label ${tone}`}>{label}</div>
       <div className="dr-stage">
-        <BattleScene player={player} frameloop={visible ? 'always' : 'never'} style={{ position: 'absolute', inset: 0 }} />
+        <BattleScene player={player} frameloop="always" style={{ position: 'absolute', inset: 0 }} />
       </div>
       <div className="dr-rpm">
         <span className="dr-rpm-n">{kidName}</span>
@@ -64,7 +64,7 @@ export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, l
   useEffect(() => {
     let raf;
     const loop = () => {
-      const t = clock.clock;
+      const t = clock.tick(); // drive the shared clock here, not only from canvas frames
       if (headRef.current) headRef.current.style.left = `${(t / clock.end) * 100}%`;
       if (timeRef.current) timeRef.current.textContent = `${t.toFixed(1)}s / ${clock.end.toFixed(1)}s`;
       for (const [p, r] of [[pA, rpmA], [pB, rpmB]]) {

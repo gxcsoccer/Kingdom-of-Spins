@@ -251,30 +251,56 @@ export const QUESTIONS = [
 ];
 export { VAR_LABEL };
 
-/** Step ① — big comic question cards. */
-export function QuestionPicker({ onPick }) {
+/** Small visual previews of each variable's options (real part shapes, not emoji). */
+function OptPreview({ k, base }) {
+  if (k === 'bit') {
+    const shapes = { needle: 'M14 4 L22 4 L18 30 Z', ball: 'M12 4 L24 4 L24 20 Q18 32 12 20 Z', flat: 'M12 4 L24 4 L25 26 L11 26 Z', rush: 'M10 4 L26 4 L29 26 L7 26 Z' };
+    return <span className="wb-prev">{Object.keys(TIPS).map(t => <span key={t} className={`wb-opt ${base.bit === t ? 'cur' : ''}`}>
+      <svg viewBox="0 0 36 34" width="34" height="32"><rect x="9" y="0" width="18" height="6" rx="2" fill="#ffd400" stroke="#111" strokeWidth="2"/><path d={shapes[t]} fill="#444" stroke="#111" strokeWidth="2"/></svg>
+      <small>{TIPS[t].label.split(' ')[0]}</small></span>)}</span>;
+  }
+  if (k === 'ring') {
+    const disc = outer => <svg viewBox="-24 -24 48 48" width="40" height="40"><circle r="21" fill="#e9eef5" stroke="#111" strokeWidth="2.5"/><circle r="5" fill="#111"/>
+      {[0, 1, 2, 3, 4, 5].map(i => { const a = i * Math.PI / 3, r = outer ? 16 : 9; return <rect key={i} x={r * Math.cos(a) - 3} y={r * Math.sin(a) - 3} width="6" height="6" fill="#8d99a6" stroke="#111" strokeWidth="1.5"/>; })}</svg>;
+    return <span className="wb-prev"><span className="wb-opt">{disc(false)}<small>放中间</small></span><b className="wb-vs">vs</b><span className="wb-opt">{disc(true)}<small>放外圈</small></span><span className="wb-cur-tag">现在 外圈 {base.blade.ring}%</span></span>;
+  }
+  if (k === 'height') {
+    const cur = base.ratchet?.height ?? 60;
+    return <span className="wb-prev">{[55, 60, 70].map(h => <span key={h} className={`wb-opt ${cur === h ? 'cur' : ''}`}>
+      <svg viewBox="0 0 30 40" width="26" height="36"><rect x="4" y={40 - (h - 45) * 1.4} width="22" height={(h - 45) * 1.4} fill="#2f7bff" stroke="#111" strokeWidth="2"/><rect x="2" y={36 - (h - 45) * 1.4} width="26" height="5" fill="#111"/></svg>
+      <small>{h}</small></span>)}</span>;
+  }
+  return <span className="wb-prev">{[2, 3, 4].map(n => { const v = { ...base, blade: { ...base.blade, wings: n } }; const sp = specFromBey(v), k2 = 1 / .032 * 18;
+    return <span key={n} className={`wb-opt ${base.blade.wings === n ? 'cur' : ''}`}><svg viewBox="-20 -20 40 40" width="36" height="36">
+      {Array.from({ length: n }, (_, i) => <polygon key={i} points={wingOutline(sp, i).map(([x, y]) => `${(x * k2).toFixed(1)},${(-y * k2).toFixed(1)}`).join(' ')} fill={base.colors?.primary || '#2f7bff'} stroke="#111" strokeWidth="1.5"/>)}
+      <circle r="7" fill="#fff" stroke="#111" strokeWidth="1.5"/></svg><small>{n} 片</small></span>; })}</span>;
+}
+
+/** Step ① — compact question cards with real part previews; the doctor's suggestion (from this match) is marked. */
+export function QuestionPicker({ onPick, base, suggestKey, why }) {
   return (
     <div className="wb-qs">
       {QUESTIONS.map((x, i) => (
-        <button key={x.key} className="wb-q" style={{ '--i': i }} onClick={() => { kacha(1 + i * .1); onPick(x.key); }}>
-          <span className="wb-q-icon">{x.icon}</span>
+        <button key={x.key} className={`wb-q ${suggestKey === x.key ? 'rec' : ''}`} style={{ '--i': i }} onClick={() => { kacha(1 + i * .1); onPick(x.key); }}>
+          {suggestKey === x.key && <span className="wb-rec">👨‍🔬 博士推荐{why ? ` · ${why}` : ''}</span>}
           <span className="wb-q-text">{x.q}</span>
-          <span className="wb-q-hint">{x.hint} ▶</span>
+          {base && <span className="wb-q-now">你的 {base.name} 现在：<b>{fmtChange(x.key, getVal(base, x.key))}</b></span>}
+          {base && <OptPreview k={x.key} base={base}/>}
+          <span className="wb-q-go">选这个 ▶</span>
         </button>
       ))}
     </div>
   );
 }
 
-/** The doctor explains the one-variable rule once, kindly, with a tiny 2-panel comic. */
+/** The doctor explains the one-variable rule once, as a compact strip. */
 export function DoctorRule({ Face }) {
   return (
-    <div className="wb-rule">
-      <div className="wb-rule-top">{Face}<div className="wb-rule-say">做实验的秘诀：<b>一次只改一个地方！</b>如果同时换了轴尖又换了配重，赢了也不知道是谁的功劳～</div></div>
-      <div className="wb-rule-comic">
-        <div className="wb-rule-panel bad"><span className="wb-rule-parts"><i>🌀</i>+<i>⚖️</i></span><span className="wb-rule-q">？？</span><small>改了两个 → 不知道是谁</small></div>
-        <div className="wb-rule-panel good"><span className="wb-rule-parts"><i>🌀</i></span><span className="wb-rule-q">原来是它！</span><small>只改一个 → 一清二楚</small></div>
-      </div>
+    <div className="wb-rule strip">
+      {Face}
+      <div className="wb-rule-say">做实验的秘诀：<b>一次只改一个地方！</b>同时换了轴尖又换了配重，赢了也不知道是谁的功劳～</div>
+      <div className="wb-rule-mini bad"><span>🌀+⚖️</span><b>？？</b></div>
+      <div className="wb-rule-mini good"><span>🌀</span><b>原来是它！</b></div>
     </div>
   );
 }

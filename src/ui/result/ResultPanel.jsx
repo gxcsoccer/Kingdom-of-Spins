@@ -7,6 +7,8 @@ import {getCard} from '../../knowledge/cards.js';
 import {KnowledgeChip} from '../../knowledge/KnowledgeCard.jsx';
 import {findMoments} from '../../game/moments.js';
 import {openFlipbook} from '../../flipbook/store.js';
+import {momentCard} from '../../ai/fallback.js';
+import {freshQuiz, markSeen} from '../../knowledge/quizSeen.js';
 import ExperimentLab from '../../lab/ExperimentLab.jsx';
 import ReplaySlot from '../ReplaySlot.jsx';
 import GuidedReview from './GuidedReview.jsx';
@@ -33,10 +35,10 @@ function localMoment(m,names){
   return '';
 }
 function suggestVariable(bey,won){
-  if(!won&&(bey.bit==='flat'||bey.bit==='rush'))return {key:'bit',value:'ball'};
-  if(bey.bit==='needle')return {key:'bit',value:'ball'};
-  if((bey.blade?.ring??60)<70)return {key:'ring',value:80};
-  return {key:'bit',value:'needle'};
+  if(!won&&(bey.bit==='flat'||bey.bit==='rush'))return {key:'bit',value:'ball',why:'平轴掉转快'};
+  if(bey.bit==='needle')return {key:'bit',value:'ball',why:'试试更稳的圆轴'};
+  if((bey.blade?.ring??60)<70)return {key:'ring',value:80,why:'外圈还能再重点'};
+  return {key:'bit',value:'needle',why:'看看能不能转更久'};
 }
 function useCountUp(target,run,ms=1100){
   const [v,setV]=useState(0);
@@ -182,14 +184,17 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
   const [auto,setAuto]=useState(false);
   const timers=useRef([]);
   const aiM=id=>(ai?.moments||[]).find(m=>m.id===id);
+  // One quiz per moment, never a repeat of what this kid has already been asked (any feature).
+  const quizMap=useMemo(()=>{if(!ai)return {};const o={};for(const m of moments){const concept=m.kind==='finish'&&/over|xtreme/.test(m.data?.reason||'')?'ph-momentum':momentCard(m);const q=freshQuiz(aiM(m.id)?.quiz,concept);if(q)o[m.id]=q;}return o;},[ai]);// eslint-disable-line
+  useEffect(()=>{if(quizOn&&sel&&quizMap[sel])markSeen(quizMap[sel].id,quizMap[sel].alsoIds||[]);},[quizOn,sel]);// eslint-disable-line
   const clear=()=>{timers.current.forEach(clearTimeout);timers.current=[];};
   useEffect(()=>()=>{clear();window.speechSynthesis?.cancel();},[]);
   const play=useCallback((m,{withQuiz=true}={})=>{
     clear();setSel(m.id);setQuizOn(false);
     viewer.current?.playMoment?.(m.id);
     const line=aiM(m.id)?.dj;if(line)timers.current.push(setTimeout(()=>sfx.say(line,'zh-CN',1.2),600));
-    if(withQuiz&&aiM(m.id)?.quiz&&answers[m.id]==null)timers.current.push(setTimeout(()=>setQuizOn(true),HIGHLIGHT_MS));
-  },[ai,answers]);// eslint-disable-line
+    if(withQuiz&&quizMap[m.id]&&answers[m.id]==null)timers.current.push(setTimeout(()=>setQuizOn(true),HIGHLIGHT_MS));
+  },[ai,answers,quizMap]);// eslint-disable-line
   const playAll=()=>{
     if(auto){clear();setAuto(false);return;}
     setAuto(true);clear();
@@ -197,7 +202,7 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
     timers.current.push(setTimeout(()=>setAuto(false),moments.length*7600));
   };
   const cur=moments.find(m=>m.id===sel);const curAi=cur&&aiM(cur.id);
-  const answer=(m,i)=>{const q=aiM(m.id)?.quiz;setAnswers(x=>({...x,[m.id]:i}));if(i===q.answer){sfx.beep(true);addCoins(5);}else sfx.beep();const c=aiM(m.id)?.cardId;if(c)unlockCards([c]);};
+  const answer=(m,i)=>{const q=quizMap[m.id];setAnswers(x=>({...x,[m.id]:i}));if(i===q.answer){sfx.beep(true);addCoins(5);}else sfx.beep();const c=aiM(m.id)?.cardId;if(c)unlockCards([c]);};
   return (
     <div className="rp-review">
       <div className="rp-review-head">
@@ -216,18 +221,18 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
           <p>{ai?(curAi?.explain||localMoment(cur,names)):'博士正在看这一段……'}</p>
         </div>}
         {chart&&<div className="rp-chart"><RpmChart samples={decisive.samples} events={decisive.events} moments={moments} cursor={cursor} onSeek={t=>{setCursor(t);viewer.current?.seek?.(t);}} names={names} colors={[myBey.colors?.primary||'#2f7bff',opp.bey.colors?.primary||'#f2b632']}/></div>}
-        {cur&&quizOn&&curAi?.quiz&&<QuizCard quiz={curAi.quiz} answer={answers[cur.id]} onAnswer={i=>answer(cur,i)} onClose={()=>setQuizOn(false)} card={curAi.cardId&&getCard(curAi.cardId)}/>}
+        {cur&&quizOn&&quizMap[cur.id]&&<QuizCard quiz={quizMap[cur.id]} answer={answers[cur.id]} onAnswer={i=>answer(cur,i)} onClose={()=>setQuizOn(false)} card={curAi.cardId&&getCard(curAi.cardId)}/>}
       </div>
       <div className="rp-strip">
         {moments.map(m=>{const a=aiM(m.id);const ans=answers[m.id];return (
           <div key={m.id} className={`rp-mpanel ${sel===m.id?'on':''}`}>
             <button className="rp-mpanel-hit" onClick={()=>play(m)}>
               <span className="rp-mnum">{NUM[m.n-1]}</span>
-              <span className="rp-mtitle">{a?.title||MOMENT_TITLE[m.kind]}<small>{m.time.toFixed(1)} 秒{ans!=null?(ans===a?.quiz?.answer?' · ✅':' · ❌'):a?.quiz?' · 🤔':''}</small></span>
+              <span className="rp-mtitle">{a?.title||MOMENT_TITLE[m.kind]}<small>{m.time.toFixed(1)} 秒{ans!=null?(ans===quizMap[m.id]?.answer?' · ✅':' · ❌'):quizMap[m.id]?' · 🤔':''}</small></span>
             </button>
             <div className="rp-mactions">
               <button className="btn small" onClick={()=>play(m)}>▶ 慢放</button>
-              {a?.quiz&&<button className="btn small" onClick={()=>{setSel(m.id);setQuizOn(true);}}>🤔 你猜</button>}
+              {quizMap[m.id]&&<button className="btn small" onClick={()=>{setSel(m.id);setQuizOn(true);}}>🤔 你猜</button>}
               <button className="btn small" onClick={()=>openFlipbook({moment:{kind:m.kind,title:a?.title||MOMENT_TITLE[m.kind],explain:a?.explain||localMoment(m,names)}})}>📖 绘本</button>
             </div>
           </div>);})}

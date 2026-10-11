@@ -65,9 +65,9 @@ export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,
         <span className="lab-steps">{['你想知道什么？','动手改一改','预测 · 看结果'].map((t,i)=><i key={i} className={i+1===stepN?'on':i+1<stepN?'past':''}>{['①','②','③'][i]} {t}</i>)}</span>
         {phase!=='done'&&chips}
       </div>
-      {phase==='setup'&&!varKey&&<div className="lab-body lab-ask">
-        <div className="lab-ask-main"><div className="lab-h">① 你想知道什么？<small>点一个问题，我们就用实验来回答它</small></div><QuestionPicker onPick={k=>{setVarKey(k);setChange(null);setPred(null);}}/></div>
-        <DoctorRule Face={<DoctorFace mood="excited" size={70}/>}/>
+      {phase==='setup'&&!varKey&&<div className="lab-body lab-ask v2">
+        <DoctorRule Face={<DoctorFace mood="excited" size={56}/>}/>
+        <div className="lab-ask-main"><div className="lab-h">① 你想知道什么？<small>点一个问题，我们就用实验来回答它</small></div><QuestionPicker base={mine} suggestKey={suggest?.key} why={suggest?.why} onPick={k=>{setVarKey(k);setChange(null);setPred(null);}}/></div>
       </div>}
       {phase==='setup'&&varKey&&<div className="lab-body lab-tweak">
         <Workbench key={varKey} base={mine} varKey={varKey} onChange={(v,c)=>setChange(c)}/>
