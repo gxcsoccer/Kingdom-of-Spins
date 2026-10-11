@@ -245,6 +245,34 @@ const VAR_WHY = {
   'bx-types': '类型改变了刃的形状和配重，碰撞和持久的取舍就跟着变了。',
   'sm-control': '只改了一个变量，所以结果的差别就来自这个变量。',
 };
+// Concrete physics facts about the changed variable, so the model's "why" has the right direction.
+import {TIPS as _TIPS} from '../physics/model.js';
+const BIT_KEYS = {needle:['needle','尖'], ball:['ball','圆'], flat:['flat','平'], rush:['rush','冲刺','橡胶']};
+const bitOf = v => Object.entries(BIT_KEYS).find(([,ks])=>ks.some(k=>String(v).toLowerCase().includes(k)))?.[0];
+export function variableFacts(variable={}) {
+  const card = variableCard(variable), {from, to} = variable;
+  if (card==='ph-friction-area') {
+    const a = bitOf(from), b = bitOf(to);
+    if (a && b) {
+      const A = _TIPS[a], B = _TIPS[b], d = (x,y)=>x>y?'更大':x<y?'更小':'一样';
+      return `轴尖从「${from}」到「${to}」：碰地半径 ${(A.radius*1000).toFixed(1)}→${(B.radius*1000).toFixed(1)} mm（${d(B.radius,A.radius)}），转动摩擦的力臂 ${(A.spinRadius*1000).toFixed(1)}→${(B.spinRadius*1000).toFixed(1)} mm（${d(B.spinRadius,A.spinRadius)}，所以转速消耗${d(B.spinRadius,A.spinRadius)==='更小'?'更慢':d(B.spinRadius,A.spinRadius)==='更大'?'更快':'差不多'}），接触面${d(B.radius,A.radius)==='更大'?'更大、更爱满场跑':'更小、更爱待在原地'}。`;
+    }
+  }
+  const num = v => parseFloat(String(v).replace(/[^\d.\-]/g,''));
+  const up = num(to) > num(from), dir = Number.isFinite(num(to)) && Number.isFinite(num(from)) ? (up?'变大':'变小') : '改变';
+  if (card==='ph-inertia') return `外圈配重${dir}：重量${up?'更靠外':'更靠内'}，转动惯量${up?'更大':'更小'}，${up?'更难被弄停、更持久':'更容易被改变转动'}。`;
+  if (card==='ph-com-height') return `Ratchet 高度${dir}：重心${up?'更高，更容易被撞歪':'更低，更稳'}，刃的碰撞高度也${up?'变高':'变低'}。`;
+  if (card==='ph-wing-contact') return `翼片数${dir}：${up?'外形更圆，撞击更像擦过去':'缺口更大，撞击更集中、更猛'}。`;
+  if (card==='ph-launch-rpm') return `发射转速${dir}：角动量和转动能量${up?'更多，更稳更持久':'更少，更早转不动'}。`;
+  if (card==='ph-mass-tradeoff') return `重量${dir}：${up?'更难被撞飞，但同样发射力转速更低':'更轻更容易被撞飞'}。`;
+  return VAR_WHY[card] || '';
+}
+// Make sure the player's bey is always called "你的 X" in model prose.
+export function ownName(text='', name='') {
+  if (!name) return text;
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return String(text).replace(new RegExp(`(^|[^的])\\s*(${esc})`,'g'), (m,pre,n)=>`${pre}你的 ${n}`).replace(/你的\s+你的/g,'你的');
+}
 const NEXT_VARS = [['ph-friction-area','换一种 Bit（轴尖）'],['ph-inertia','调外圈配重'],['ph-com-height','换 Ratchet 高度'],['ph-wing-contact','改翼片数量'],['ph-launch-rpm','改发射转速']];
 export function templateExperiment({names=['A','B'], variable={}, prediction=null, metric={}, stats={}, trials=[]}={}) {
   const verdict = experimentVerdict(stats), A = stats.A||{}, B = stats.B||{};

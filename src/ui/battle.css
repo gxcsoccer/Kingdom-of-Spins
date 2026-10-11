@@ -46,3 +46,14 @@
 .moment-n{font-size:26px;font-weight:900;color:var(--red)}
 .moment-play{border:2px solid #111;background:var(--yellow);padding:4px 8px;font-weight:900;font-size:12px}
 .takeaway{background:var(--yellow);color:#111;border:3px solid #111;padding:10px 12px;font-weight:900}
+.mic-on{animation:shake .5s linear infinite}
+.mic-hint{font-weight:800;font-size:14px;background:var(--yellow);border:2px solid #111;padding:4px 10px}
+.quiz{margin-top:8px;border:3px dashed #111;padding:8px 10px;background:#fffbe0}
+.quiz-q{font-weight:900}
+.quiz-opts{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.quiz-opt{border:3px solid #111;background:#fff;padding:6px 10px;font-weight:800;box-shadow:2px 2px 0 #111}
+.quiz-opt.right{background:#b8f5df}.quiz-opt.wrong{background:#ffc9d1}
+.quiz-reveal{margin-top:6px;font-weight:700;line-height:1.6}
+.quiz-analogy{margin-top:4px;font-weight:800;color:#8a3cff}
+.dj{display:inline-block;margin-top:4px;background:#111;color:var(--yellow);font-weight:900;padding:3px 10px;transform:skewX(-8deg)}
+.ks-rv-bar,.ks-rv-bar button,.ks-rv-time{color:#111}

@@ -1,9 +1,20 @@
 import {useEffect,useRef,useState} from 'react';
+import {voiceSupported,listen} from '../game/voice.js';
+import {say} from '../game/sfx.js';
 // Timing mini-game: a needle sweeps 0..1; stop it in the red zone for max power. Past the top = wobbly launch (extra tilt).
 export default function LaunchGauge({onShoot}){
   const [v,setV]=useState(0);const raf=useRef();const t0=useRef(performance.now());const [locked,setLocked]=useState(null);
   useEffect(()=>{const f=()=>{const t=(performance.now()-t0.current)/1000;setV((1-Math.cos(t*2.6))/2);raf.current=requestAnimationFrame(f);};raf.current=requestAnimationFrame(f);return()=>cancelAnimationFrame(raf.current);},[]);
-  const shoot=()=>{if(locked!=null)return;cancelAnimationFrame(raf.current);setLocked(v);setTimeout(()=>onShoot(v),450);};
+  const vRef=useRef(0);vRef.current=v;
+  const lockedRef=useRef(null);
+  const shoot=()=>{if(lockedRef.current!=null)return;cancelAnimationFrame(raf.current);const val=vRef.current;lockedRef.current=val;setLocked(val);setTimeout(()=>onShoot(val),450);};
+  const [mic,setMic]=useState(false);const [heard,setHeard]=useState('');const rec=useRef(null);
+  useEffect(()=>()=>rec.current?.stop(),[]);
+  const toggleMic=()=>{
+    if(mic){rec.current?.stop();setMic(false);return;}
+    setMic(true);setHeard('');
+    rec.current=listen({lang:'en-US',onText:t=>{setHeard(t);if(/shoot|shot|shoe|chute|sure/i.test(t)){rec.current?.stop();setMic(false);shoot();}},onEnd:()=>setMic(false)});
+  };
   const val=locked??v, rpm=Math.round(3000+3900*Math.min(val,.95)/.95);
   const label=val>.95?'用力过猛！会歪':val>.82?'完美！':val>.6?'不错':'再用力点';
   return (
@@ -21,7 +32,11 @@ export default function LaunchGauge({onShoot}){
       </div>
       <div className="gauge-rpm"><span className="h-display" style={{fontSize:40}}>{rpm.toLocaleString()}</span> RPM</div>
       <div style={{fontWeight:900,color:val>.95?'var(--red)':'#111'}}>{label}</div>
-      <button className="btn primary big" onClick={shoot} disabled={locked!=null}>GO SHOOT!</button>
+      <div className="row" style={{gap:8}}>
+        <button className="btn primary big" onClick={shoot} disabled={locked!=null}>GO SHOOT!</button>
+        {voiceSupported()&&<button className={`btn big ${mic?'yellow mic-on':''}`} onClick={toggleMic} disabled={locked!=null} title="对着麦克风喊 3, 2, 1, Go Shoot!">🎤</button>}
+      </div>
+      {mic&&<div className="mic-hint">🎤 大声喊：<b>3, 2, 1, GO SHOOT!</b>{heard&&<span className="muted"> · 听到：{heard}</span>}</div>}
       <div className="muted" style={{fontSize:12,color:'#555'}}>看准红区按下；转速越高，角动量越大</div>
     </div>
   );

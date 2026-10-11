@@ -181,7 +181,8 @@ function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recor
     if(canRecruit)setTimeout(()=>setRecruitOpen(true),900);
   },[]);// eslint-disable-line
   const aiM=id=>(ai?.moments||[]).find(m=>m.id===id);
-  const play=m=>{setActive(m.id+':'+Date.now());viewer.current?.playMoment?.(m.id);};
+  const play=m=>{setActive(m.id+':'+Date.now());viewer.current?.playMoment?.(m.id);const line=aiM(m.id)?.dj;if(line)setTimeout(()=>sfx.say(line,'zh-CN',1.2),700);};
+  const [answers,setAnswers]=useState({});
   return (
     <div className="result slidein">
       <div className="row wrap" style={{gap:24,alignItems:'center'}}>
@@ -196,7 +197,7 @@ function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recor
         <div className="review-head"><DoctorFace mood={ai?'excited':'thinking'} size={56}/><div><div className="h-display" style={{fontSize:26}}>复盘 · {ai?.headline||'关键时刻'}</div><div className="muted" style={{color:'#bbb',fontWeight:700}}>点一个关键时刻，慢动作回看发生了什么</div></div></div>
         <div className="review-grid">
           <div className="review-stage">
-            <ReplaySlot ref={viewer} beys={[myBey,opp.bey]} samples={decisive.samples} events={decisive.events} moments={moments.map(m=>({id:m.id,time:m.time,title:aiM(m.id)?.title||MOMENT_TITLE[m.kind]}))} activeMoment={active} onSeek={setCursor}/>
+            <ReplaySlot ref={viewer} beys={[myBey,opp.bey]} samples={decisive.samples} events={decisive.events} moments={moments.map(m=>({id:m.id,time:m.time,title:aiM(m.id)?.title||MOMENT_TITLE[m.kind]}))} activeMoment={active?.split(':')[0]} onSeek={setCursor}/>
             <div className="panel" style={{padding:12,color:'#111',marginTop:12}}><b>📈 转速曲线（点图表跳到那一刻）</b>
               <RpmChart samples={decisive.samples} events={decisive.events} moments={moments} cursor={cursor} onSeek={t=>{setCursor(t);viewer.current?.seek?.(t);}} names={names} colors={[myBey.colors?.primary||'#2f7bff',opp.bey.colors?.primary||'#f2b632']}/>
             </div>
@@ -210,7 +211,9 @@ function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recor
                   <span className="moment-play">▶ 回放</span>
                 </button>
                 <p>{ai?(a?.explain||localMoment(m,names)):'博士正在看这一段……'}</p>
-                {card&&<KnowledgeChip card={card}/>}
+                {a?.dj&&<div className="dj">🎙 {a.dj}</div>}
+                {a?.quiz&&<Quiz quiz={a.quiz} answer={answers[m.id]} onAnswer={i=>{setAnswers(x=>({...x,[m.id]:i}));if(i===a.quiz.answer){sfx.beep(true);addCoins(5);}else sfx.beep();if(a.cardId)unlockCards([a.cardId]);}}/>}
+                {card&&(answers[m.id]!=null||!a?.quiz)&&<KnowledgeChip card={card}/>}
               </div>);})}
             {ai?.takeaway&&<div className="takeaway">💡 {ai.takeaway}</div>}
             <div className="model-note" style={{color:'#aaa'}}>复盘只引用这一局记录到的数据；因果结论都是「在这个模型里」成立。</div>
@@ -228,6 +231,15 @@ function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recor
       {recruitOpen&&<RecruitModal blader={blader} save={save} onDone={(uid)=>{recruit(blader.id,uid);setRecruitOpen(false);}} onClose={()=>setRecruitOpen(false)}/>}
     </div>
   );
+}
+
+function Quiz({quiz,answer,onAnswer}){
+  const done=answer!=null;
+  return <div className="quiz">
+    <div className="quiz-q">🤔 你猜？{quiz.q}</div>
+    <div className="quiz-opts">{quiz.options.map((o,i)=><button key={i} disabled={done} className={`quiz-opt ${done&&i===quiz.answer?'right':''} ${done&&i===answer&&i!==quiz.answer?'wrong':''}`} onClick={()=>onAnswer(i)}>{'AB'[i]}. {o}</button>)}</div>
+    {done&&<div className="quiz-reveal slidein">{answer===quiz.answer?'✅ 答对了！🪙 +5 ':'❌ 差一点！'}{quiz.reveal}<div className="quiz-analogy">🌏 生活里：{quiz.analogy}</div></div>}
+  </div>;
 }
 
 function ExperimentCompare({rounds,myName,opp}){

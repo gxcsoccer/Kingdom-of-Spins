@@ -1,11 +1,16 @@
-// AI routes (Workers AI). Mounted by worker/index.js under /api/ai/*.
+// AI routes. Mounted by worker/index.js under /api/ai/*.
+// Provider order: Vercel AI Gateway (AI_GATEWAY_API_KEY, Anthropic Messages endpoint) → Anthropic API
+// (ANTHROPIC_API_KEY) → Workers AI (env.AI). Each step falls back to the next on error.
+import Anthropic from '@anthropic-ai/sdk';
 // Every route returns a deterministic template fallback when the model fails or times out.
-import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, templateMoments, templateMoment, momentCard, designTakeaway, templateExperiment, experimentVerdict, variableCard} from '../src/ai/fallback.js';
+import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, templateMoments, templateMoment, momentCard, designTakeaway, templateExperiment, experimentVerdict, variableCard} from '../src/ai/fallback.js';
 import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 
 export const MODEL = globalThis.process?.env?.AI_MODEL || '@cf/openai/gpt-oss-120b';
-const TIMEOUT_MS = {fusion:20000, commentary:14000, ask:10000, moments:12000, experiment:12000};
+const TIMEOUT_MS = {fusion:20000, commentary:14000, ask:10000, moments:12000, experiment:12000, sketch:25000};
+export const CLAUDE_MODEL = 'claude-sonnet-5-5';
+export const GATEWAY_URL = 'https://ai-gateway.vercel.sh';
 const json = (data, status=200) => new Response(JSON.stringify(data), {status, headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 
 export function contentOf(r) {
@@ -28,13 +33,67 @@ export function parseJSON(text) {
   }
   return null;
 }
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms))]);
+
+// Claude via the official SDK. Gateway uses the same Messages API with a different base URL + model id.
+function claudeClient(env) {
+  if (env?.AI_GATEWAY_API_KEY) return {client:new Anthropic({apiKey:env.AI_GATEWAY_API_KEY, baseURL:GATEWAY_URL, maxRetries:0}), model:`anthropic/${CLAUDE_MODEL}`, via:'gateway'};
+  if (env?.ANTHROPIC_API_KEY) return {client:new Anthropic({apiKey:env.ANTHROPIC_API_KEY, maxRetries:0}), model:CLAUDE_MODEL, via:'anthropic'};
+  return null;
+}
+export const hasClaude = env => Boolean(env?.AI_GATEWAY_API_KEY || env?.ANTHROPIC_API_KEY);
+async function callClaude(c, {system, user, images=[], maxTokens}, ms) {
+  const content = [...images.map(({mediaType, data})=>({type:'image', source:{type:'base64', media_type:mediaType, data}})), {type:'text', text:user}];
+  const params = {
+    model:c.model, max_tokens:Math.max(maxTokens, 1024), system,
+    // Short structured replies for kids: no extended reasoning between tools, low effort for latency.
+    thinking:{type:'between_tools'}, output_config:{effort:'low'},
+    messages:[{role:'user', content}],
+  };
+  const res = c.via==='anthropic'
+    ? await c.client.beta.messages.create({...params, betas:['server-side-fallback-2026-07-01'], fallbacks:'default'}, {timeout:ms})
+    : await c.client.messages.create(params, {timeout:ms});
+  if (res.stop_reason==='refusal') throw new Error('refusal');
+  return res.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+}
+async function callWorkersAI(env, {system, user, maxTokens}, ms) {
+  if (!env?.AI) throw new Error('no Workers AI binding');
+  const r = await withTimeout(env.AI.run(MODEL, {messages:[{role:'system', content:system}, {role:'user', content:user}], max_tokens:maxTokens, reasoning_effort:'low'}), ms);
+  return contentOf(r);
+}
+// One helper for every route. Returns parsed JSON (json:true) or text. Throws only if every provider failed.
+export async function llm(env, {system, user, images=[], maxTokens=800, json:wantJson=true, kind='fusion', claudeOnly=false}) {
+  const ms = TIMEOUT_MS[kind] || 12000, errors = [];
+  const c = claudeClient(env);
+  if (c) {
+    try {
+      const text = await withTimeout(callClaude(c, {system, user, images, maxTokens}, ms), ms);
+      const out = wantJson ? parseJSON(text) : text;
+      if (out) return out;
+      errors.push(`${c.via}: unparseable`);
+    } catch (e) { errors.push(`${c.via}: ${e.message||e}`); }
+  }
+  if (claudeOnly) throw new Error(errors.join('; ') || 'no Claude key');
+  try {
+    const text = await callWorkersAI(env, {system, user, maxTokens: maxTokens+300}, ms);   // + room for gpt-oss reasoning tokens
+    const out = wantJson ? parseJSON(text) : text;
+    if (out) return out;
+    errors.push('workers-ai: unparseable');
+  } catch (e) { errors.push(`workers-ai: ${e.message||e}`); }
+  throw new Error(errors.join('; '));
+}
+// Back-compat shim for the routes written against [{system},{user}] message pairs.
 async function runModel(env, messages, maxTokens=1400, kind='fusion') {
-  const call = env.AI.run(MODEL, {messages, max_tokens:maxTokens, reasoning_effort:'low'});
-  const timer = new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), TIMEOUT_MS[kind]));
-  const r = await Promise.race([call, timer]);
-  const out = parseJSON(contentOf(r));
-  if (!out) throw new Error('unparseable model output');
-  return out;
+  const system = messages.find(m=>m.role==='system')?.content || '';
+  const user = messages.filter(m=>m.role==='user').map(m=>m.content).join('\n');
+  return llm(env, {system, user, maxTokens, kind});
+}
+// Cut at a sentence/clause boundary instead of mid-word.
+export function clip(text='', max=70) {
+  const t = String(text).trim(); if (t.length<=max) return t;
+  const cut = t.slice(0, max), i = Math.max(cut.lastIndexOf('。'), cut.lastIndexOf('！'), cut.lastIndexOf('？'), cut.lastIndexOf('；'));
+  if (i >= max*.5) return cut.slice(0, i+1);
+  const j = cut.lastIndexOf('，'); return (j >= max*.5 ? cut.slice(0, j) : cut.slice(0, max-1)) + '…';
 }
 const cardLines = cards => cards.map(c=>`- ${c.id} [${c.layer}] ${c.title}：${c.body}`).join('\n');
 const beyLine = b => `${b.name}（${b.zh||''}，${STYLE_ZH[b.blade?.style]||b.type}）：翼片${b.blade?.wings}，半径${((b.blade?.reach||.026)*1000).toFixed(1)}mm，外圈配重${b.blade?.ring}%，刃重${b.blade?.mass}g；Ratchet ${b.ratchet?.prongs}-${b.ratchet?.height}，Bit ${b.bit}`;
@@ -156,26 +215,29 @@ async function moments(body, env) {
   };
   const cardIds = [...new Set(list.map(momentCard).concat(['ph-energy-convert','ph-inertia','ph-momentum','ph-tilt-fall']))];
   const r = summary.result || {};
+  const cmp = (k, label) => P.length===2 && P[0][k]!=null && P[1][k]!=null && P[0][k]!==P[1][k] ? `${label}更大的是 ${who(P[0][k]>P[1][k]?0:1)}` : null;
+  const facts = [cmp('inertiaZ','转动惯量'), cmp('massG','总重'), cmp('ring','外圈配重')].filter(Boolean).join('；');
   const user = `陀螺对战回放的关键时刻（真实模拟数据，理想化物理模型）。
 ${parts}
+对比事实（不得矛盾）：${facts||'无'}
 结果：${who(r.winner)} 获胜（${r.reason}）。
 关键时刻：
 ${list.map(line).join('\n')}
 知识卡：
 ${cardIds.map(id=>getCard(id)).filter(Boolean).map(c=>`- ${c.id} ${c.title}：${c.body}`).join('\n')}
-为每个时刻写：title（≤10字，热血漫画风，如“龙翼猛撞！”）；explain（≤60字：发生了什么+为什么，用小学生能懂的物理讲，引用该时刻的数字但要解释含义，不要罗列；因果判断说“在这个模型里”）；cardId（从知识卡选）。
+为每个时刻写：title（≤10字，热血漫画风，如“龙翼猛撞！”）；explain（≤55字：发生了什么+为什么，用小学生能懂的物理讲；最多引用 1~2 个数字，并照抄上面的格式（如“1.9 m/s”“约 1,300 转”），要解释含义，不要罗列；因果判断说“在这个模型里”，物理原因只能来自知识卡和对比事实）；cardId（从知识卡选）。
 玩家的陀螺叫“你的 ${names[0]}”。不要编造上面没有的事件。takeaway 一句话：把结果和“你的 ${names[0]}”的设计选择（配重/轴尖/翼片/高度）联系起来。
 只输出 JSON：{"headline":"≤14字","moments":[{"id":"","title":"","explain":"","cardId":""}],"takeaway":"≤50字"}`;
   try {
-    const out = await runModel(env, [{role:'system', content:'你是热血漫画风的陀螺解说员兼科学老师。中文短句，诚实，只输出 JSON。'}, {role:'user', content:user}], 700, 'moments');
+    const out = await runModel(env, [{role:'system', content:'你是热血漫画风的陀螺解说员兼科学老师。中文短句，诚实，只输出 JSON。'}, {role:'user', content:user}], 600, 'moments');
     const got = new Map((Array.isArray(out.moments)?out.moments:[]).map(m=>[String(m.id), m]));
     const merged = list.map(m=>{
       const t = templateMoment(m, names), o = got.get(String(m.id));
       if (!o) return t;
-      return {id:m.id, title:tidyNumbers(String(o.title||t.title)).slice(0,12), explain:tidyNumbers(String(o.explain||t.explain)).slice(0,90), cardId:getCard(o.cardId)?o.cardId:t.cardId};
+      return {id:m.id, title:tidyNumbers(String(o.title||t.title)).slice(0,12), explain:ownName(tidyNumbers(String(o.explain||t.explain)), names[0]).slice(0,90), cardId:getCard(o.cardId)?o.cardId:t.cardId};
     });
-    let takeaway = tidyNumbers(String(out.takeaway||'')).slice(0,70);
-    if (!takeaway || !(takeaway.includes(names[0])||takeaway.includes('你的'))) takeaway = designTakeaway(summary, names);
+    let takeaway = ownName(tidyNumbers(String(out.takeaway||'')), names[0]).slice(0,70);
+    if (!takeaway || !takeaway.includes('你的')) takeaway = designTakeaway(summary, names);
     return json({headline:String(out.headline||fallback().headline).slice(0,16), moments:merged, takeaway});
   } catch (e) {
     return json({...fallback(), error:String(e.message||e)});
@@ -199,12 +261,13 @@ ${row('B',B)}
 每次结果：${tr||'无'}
 已算好的结论（必须照用，不得改变）：verdict=${base.verdict}；重复性：${base.repeatLesson}
 孩子的预测：${predZh}；预测对比：${base.predictionFeedback}
+这个变量的物理事实（why 必须和它一致）：${variableFacts(variable)}
 相关知识卡：${card.id} ${card.title}：${card.body}
-请用小学生能懂的话写：conclusion（≤55字，引用上面的数字，说“在这个模型里”）；why（≤80字，用物理解释为什么改${variable.label}会这样，结合知识卡）；repeatLesson（≤45字，根据每次结果说重复实验的意义）；predictionFeedback（≤35字，温暖，和孩子预测比较）；nextIdea（≤36字，建议下次只改另一个变量，比如轴尖/外圈配重/Ratchet 高度/翼片数/发射转速中的一个，不要和${variable.label}重复）。
+请用小学生能懂的话写：conclusion（≤50字，只引用胜场和平均用时两个数字，说“在这个模型里”）；why（≤70字，根据“物理事实”解释为什么改${variable.label}会这样）；repeatLesson（≤45字，根据每次结果说重复实验的意义）；predictionFeedback（≤35字，温暖，和孩子预测比较）；nextIdea（≤36字，建议下次只改另一个变量，比如轴尖/外圈配重/Ratchet 高度/翼片数/发射转速中的一个，不要和${variable.label}重复）。
 只输出 JSON：{"conclusion":"","why":"","repeatLesson":"","predictionFeedback":"","nextIdea":""}`;
   try {
-    const out = await runModel(env, [{role:'system', content:'你是陀螺王国的科学老师，带小学生做实验。中文短句，鼓励，诚实，只输出 JSON。'}, {role:'user', content:user}], 600, 'experiment');
-    const pick = (k, max) => { const v = tidyNumbers(String(out[k]||'')).trim(); return (v || base[k]).slice(0, max); };
+    const out = await runModel(env, [{role:'system', content:'你是陀螺王国的科学老师，带小学生做实验。中文短句，鼓励，诚实，只输出 JSON。'}, {role:'user', content:user}], 450, 'experiment');
+    const pick = (k, max) => { const v = ownName(tidyNumbers(String(out[k]||'')).trim(), names[0]); return (v || base[k]).slice(0, max); };
     let conclusion = pick('conclusion', 80);
     if (!conclusion.includes('模型')) conclusion = conclusion.replace(/。?$/, '（在这个模型里）。');
     return json({verdict:base.verdict, conclusion, why:pick('why',110), repeatLesson:pick('repeatLesson',70), predictionFeedback:pick('predictionFeedback',50), cardId:base.cardId, nextIdea:pick('nextIdea',50)});
@@ -238,8 +301,8 @@ export async function handle(request, env) {
   const path = new URL(request.url).pathname;
   if (request.method!=='POST') return json({error:'POST only'}, 405);
   let body; try { body = await request.json(); } catch { return json({error:'bad json'}, 400); }
-  if (!env?.AI) {
-    // No binding (e.g. plain local dev): answer with templates so the game still works.
+  if (!env?.AI && !hasClaude(env)) {
+    // No provider (e.g. plain local dev): answer with templates so the game still works.
     if (path.endsWith('/fusion/chat')) return json(templateFusion({parents:body.parents||[], wish:body.wish, history:body.history, keepParent:body.keepParent}));
     if (path.endsWith('/commentary')) return json(templateCommentary(body.summary||{}, body.names));
     if (path.endsWith('/ask')) return json(templateAsk(body.question));
