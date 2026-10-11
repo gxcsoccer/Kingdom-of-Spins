@@ -36,6 +36,15 @@ export function BeySvg({bey,size=160,spin=false}){
 export default function BeyArt({bey,size=160,spin}){
   const [failed,setFailed]=useState(false);
   const three=useContext(BeyArt3D);
+  // 孩子设计的陀螺（融合 / 看画）没有立绘：中大尺寸用和方案卡同一套带外观的 3D 模型，不用平面简笔图标。
+  const designed=!!(bey&&(bey.look||bey.parents||bey.fusedBy));
+  if(designed&&size>=80&&!three)return (
+    <div style={{width:size,height:size,position:'relative'}}>
+      <Suspense fallback={<BeySvg bey={bey} size={size}/>}>
+        <BeyShowcase bey={bey} spinning={!!spin} tilt={.45} background={false} zoom={1.2} style={{position:'absolute',inset:0,background:'transparent'}}/>
+      </Suspense>
+    </div>
+  );
   if(three)return (
     <div style={{width:size,height:size,position:'relative'}}>
       <Suspense fallback={<BeySvg bey={bey} size={size}/>}>

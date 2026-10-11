@@ -205,7 +205,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
                 <button key={b.id} className={`panel pick ${idx>=0?'on':''}`} onClick={()=>togglePick(b.id)}>
                   {idx>=0 && <span className="pick-n">{idx===0?'A':'B'}</span>}
                   {renderBey ? renderBey(b, 120) : <BeyArt bey={b} size={120}/>}
-                  <div className="panel-title" style={{fontSize:18}}>{b.name}</div>
+                  <div className="panel-title" style={{fontSize:18}}>{beyTitle(b)}</div>
                   <TypeBadge type={b.type||b.blade?.style}/>
                 </button>
               );
@@ -352,13 +352,13 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
             {renderBey ? renderBey(chosen, 220) : <BeyArt bey={chosen} size={220} spin/>}
             <div>
               <div className="kicker">NEW BLADE</div>
-              <div className="h-display h-red" style={{fontSize:'clamp(36px,6vw,64px)'}}>{chosen.name}</div>
+              <div className="h-display h-red" style={{fontSize:'clamp(36px,6vw,64px)'}}>{chosen.zh||chosen.name}</div>{chosen.zh&&<div style={{fontWeight:900,fontSize:18,color:'#555',marginTop:-4}}>{chosen.name}</div>}
               <div className="row" style={{gap:8,marginTop:8}}><TypeBadge type={chosen.type}/><span className="chip">⚙ {chosen.ratchet?.prongs}-{chosen.ratchet?.height}</span><span className="chip">🔻 {TIPS[chosen.bit]?.label}</span></div>
             </div>
           </div>
           <div className="row mt2" style={{alignItems:'flex-end',gap:14}}>
             <Doctor/>
-            <div className="bubble grow">科学家都会先预测！你觉得 <b>{chosen.name}</b> 对战 <b>{rival?.name||'对手'}</b> 会怎样？猜错也没关系，打完我们一起对答案。</div>
+            <div className="bubble grow">科学家都会先预测！你觉得 <b>{chosen.zh||chosen.name}</b> 对战 <b>{rival?.name||'对手'}</b> 会怎样？猜错也没关系，打完我们一起对答案。</div>
           </div>
           <div className="row wrap center mt" style={{gap:10}}>
             {PREDICTIONS.map(p=><button key={p} className={`btn ${prediction===p?'ink':''}`} onClick={()=>setPrediction(p)}>{p}</button>)}
