@@ -21,7 +21,7 @@ export default function MiniMap({regionId, here, visited = [], hintScene, onGo, 
         {list.map(s => {
           const isHere = s.key === here, v = seen.has(s.key), n = near.has(s.key), can = !isHere && (v || n);
           if (!v && !n) return null;
-          return <g key={s.key} transform={`translate(${X(s.pos)} ${Y(s.pos)})`} style={{cursor: can ? 'pointer' : 'default'}} onClick={() => can && onGo?.(s.key)}>
+          return <g key={s.key} transform={`translate(${X(s.pos)} ${Y(s.pos)})`} style={{cursor: isHere ? 'default' : 'pointer'}} onClick={() => !isHere && onGo?.(s.key)}>
             <title>{s.title}{v ? '' : '（还没去过）'}{s.alt ? ` · 海拔约 ${s.alt} 米` : ''}</title>
             {hintScene === s.key && <circle r="15" fill="none" stroke="#ff2d4a" strokeWidth="3" className="mm-pulse"/>}
             <circle r={isHere ? 9 : 7} fill={isHere ? '#ff2d4a' : v ? '#ffd400' : '#3a4b5e'} stroke="#111" strokeWidth="2"/>

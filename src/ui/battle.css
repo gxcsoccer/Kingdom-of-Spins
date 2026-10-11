@@ -104,3 +104,6 @@
 .pm-row .pm-exit{background:#ff2d4a;color:#fff}
 @keyframes pmIn{from{opacity:0}}
 @media (max-width:600px){.pm-btn span{display:none}.pm-btn{padding:6px 12px}}
+/* battle fits one screen at any height (stage takes what's left under the HUD) */
+.battle-page{height:100vh;height:100dvh;min-height:0;overflow:hidden;padding-bottom:14px}
+.battle-page .battle-stage{min-height:0}

@@ -177,3 +177,7 @@
 .rp-continue{flex:none;font:inherit;font-weight:900;font-size:15px;padding:7px 14px;border:3px solid #111;background:#ffd400;color:#111;box-shadow:3px 3px 0 #fff;transform:skew(-6deg);cursor:pointer;white-space:nowrap}
 .rp-continue:hover{background:#fff}
 @media (max-width:900px){.rp-score{font-size:12px}.rp-continue{font-size:13px;padding:5px 10px}}
+.rp-round.mate{padding-left:2px}
+.rp-round-face{width:22px;height:22px;border-radius:50%;object-fit:cover;object-position:50% 12%;background:#fff;border:2px solid #111;margin-right:3px;vertical-align:middle}
+.rp-rounds-cap b{color:#ffd400}
+.rp-round.mate{width:auto;padding:0 6px 0 3px}

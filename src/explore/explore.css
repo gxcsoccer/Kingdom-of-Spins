@@ -216,3 +216,19 @@ button.ex-item:not(:disabled){cursor:pointer}
 .ex-disc i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,212,0,.15),rgba(255,212,0,.45));transition:width .4s}
 .ex2 .fb-hot.hook i{border-color:#7cd8ff;box-shadow:0 0 0 3px #111,0 0 0 6px rgba(124,216,255,.9),0 0 24px #7cd8ff}
 .ex2 .fb-hot.hook span{border-color:#7cd8ff;color:#bfeaff}
+/* 目标藏身处的“露馅”闪光 + 找到时的爆发 + 三级提示高亮 + 陀螺手状态 */
+.ex-glint{position:absolute;z-index:4;width:0;height:0;pointer-events:none}
+.ex-glint i{position:absolute;left:-7px;top:-22px;width:14px;height:14px;background:#fff;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 10px #ffd400);opacity:0;animation:exGlint 3.2s ease-in-out infinite}
+.ex-glint i+i{left:16px;top:-6px;width:9px;height:9px;animation-delay:.25s}
+@keyframes exGlint{0%,78%,100%{opacity:0;transform:scale(.3) rotate(0)}86%{opacity:1;transform:scale(1.15) rotate(45deg)}94%{opacity:0;transform:scale(.6) rotate(90deg)}}
+.ex2 .fb-hot.target i{border-color:#ff2d4a;box-shadow:0 0 0 3px #111,0 0 0 7px #ff2d4a,0 0 30px #ff2d4a;animation:exTarget .7s ease-in-out infinite alternate}
+.ex2 .fb-hot.target span{background:#ff2d4a;border-color:#fff}
+@keyframes exTarget{to{transform:scale(1.25)}}
+.ex-burst{position:absolute;z-index:9;width:0;height:0;pointer-events:none}
+.ex-burst::before{content:'';position:absolute;left:-90px;top:-90px;width:180px;height:180px;border-radius:50%;background:repeating-conic-gradient(#ffd400 0 8deg,transparent 8deg 22deg);-webkit-mask:radial-gradient(circle,transparent 18%,#000 20%,transparent 70%);mask:radial-gradient(circle,transparent 18%,#000 20%,transparent 70%);animation:exBurst .75s ease-out forwards}
+.ex-burst b{position:absolute;left:0;top:-30px;transform:translate(-50%,-50%);font-family:var(--display);font-size:64px;color:#ffd400;-webkit-text-stroke:4px #111;paint-order:stroke fill;animation:exBurstTxt .75s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes exBurst{from{transform:scale(.2) rotate(0);opacity:1}to{transform:scale(1.6) rotate(40deg);opacity:0}}
+@keyframes exBurstTxt{from{transform:translate(-50%,-50%) scale(2.5);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.ex-item{position:relative}
+.ex-bstate{position:absolute;right:2px;top:2px;font-style:normal;font-size:10px;font-weight:900;padding:0 4px;border:1.5px solid #111;background:#fff;color:#111}
+.ex-bstate.s-待挑战{background:#ff2d4a;color:#fff}.ex-bstate.s-可邀请{background:#ffd400}.ex-bstate.s-已入队,.ex-bstate.s-已打败{background:#14c9a5;color:#fff}
