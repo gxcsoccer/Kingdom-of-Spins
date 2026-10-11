@@ -12,7 +12,7 @@ for(const bl of BLADERS.filter(b=>b.tier==='normal'||b.tier==='pro')){
     const launches=[playerLaunch(style,.85,k+1),cpuLaunch(bl.launch,`${bl.name}-0-${k+1}`)];
     const b=new Battle(M,{beys:[BEYS[mine],bl.bey],launches});
     while(!b.ended)b.advance(800);
-    rows.push(`${bl.name}#${k}: ${b.ended.winner?'LOSE':'WIN '} ${b.ended.reason.padEnd(6)} t=${b.ended.time.toFixed(1)}s hits=${b.events.filter(e=>e.type==='collision').length}`);
+    rows.push(`${bl.name}#${k}: ${b.ended.winner?'LOSE':'WIN '} ${b.ended.reason.padEnd(6)} t=${b.ended.time.toFixed(1)}s hits=${b.events.filter(e=>e.type==='collision').length} vmax=${b.stats.map(s=>s.maxSpeed.toFixed(2))}`);
     b.dispose();
   }
 }

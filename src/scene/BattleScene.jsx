@@ -37,7 +37,7 @@ function BeyActor({ player, index, fx }) {
     const b = st?.bodies?.[index];
     if (!b || !posRef.current) return;
     const drop = t < INTRO ? Math.pow(1 - t / INTRO, 2) : 0;
-    posRef.current.position.set(b.p[0], b.p[1], b.p[2] + drop * .16);
+    posRef.current.position.set(b.p[0], b.p[1], b.p[2] + drop * .085);
     // tilt only: rotate +Z onto the physics spin axis
     q.set(b.q[1], b.q[2], b.q[3], b.q[0]);
     axis.copy(Z).applyQuaternion(q);

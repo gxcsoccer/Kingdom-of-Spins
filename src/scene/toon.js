@@ -54,31 +54,60 @@ export function canvasTexture(key, w, h, draw, { repeat, srgb = true, mirror = f
   });
 }
 
-// Emblem for the lock chip: starburst + bold initial in the bey colours.
-export function emblemTexture(bey) {
+// Emblem for the lock chip: starburst + bold initial in the bey colours. Fused beys get a split
+// two-colour burst. If /art/emblems/<id>.png exists it replaces the procedural art once loaded.
+export function emblemTexture(bey, fusion = null) {
   const { primary, secondary, accent } = bey.colors || {};
-  const letter = (bey.name || '?').trim()[0].toUpperCase();
-  return canvasTexture(`emblem:${bey.id}:${primary}:${accent}:${letter}`, 256, 256, (g, w, h) => {
+  const letter = ((bey.name || '?').replace(/[^A-Za-z0-9]/g, '') || '?')[0].toUpperCase();
+  const key = `emblem:${bey.id}:${primary}:${accent}:${letter}:${fusion ? fusion.join(',') : ''}`;
+  const fresh = !cache.has('tex:' + key);
+  const tex = canvasTexture(key, 256, 256, (g, w, h) => {
     const cx = w / 2, cy = h / 2;
     g.fillStyle = INK; g.beginPath(); g.arc(cx, cy, 128, 0, Math.PI * 2); g.fill();
     g.fillStyle = secondary || '#fff'; g.beginPath(); g.arc(cx, cy, 116, 0, Math.PI * 2); g.fill();
-    // starburst
-    g.fillStyle = primary || '#888';
-    g.beginPath();
-    const spikes = 12;
-    for (let i = 0; i <= spikes * 2; i++) {
-      const r = i % 2 ? 62 : 108, a = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
-      g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+    const burst = () => {
+      g.beginPath();
+      const spikes = 12;
+      for (let i = 0; i <= spikes * 2; i++) {
+        const r = i % 2 ? 62 : 108, a = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+        g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+      }
+    };
+    if (fusion) {
+      // split burst: parent A colour on one diagonal half, parent B on the other
+      g.save(); g.beginPath(); g.moveTo(cx - 140, cy + 140); g.lineTo(cx + 140, cy - 140); g.lineTo(cx - 140, cy - 140); g.closePath(); g.clip();
+      burst(); g.fillStyle = fusion[0]; g.fill(); g.restore();
+      g.save(); g.beginPath(); g.moveTo(cx - 140, cy + 140); g.lineTo(cx + 140, cy - 140); g.lineTo(cx + 140, cy + 140); g.closePath(); g.clip();
+      burst(); g.fillStyle = fusion[1]; g.fill(); g.restore();
+      burst(); g.strokeStyle = INK; g.lineWidth = 6; g.stroke();
+      g.strokeStyle = '#fff'; g.lineWidth = 5; g.beginPath(); g.moveTo(cx - 90, cy + 90); g.lineTo(cx + 90, cy - 90); g.stroke();
+    } else {
+      g.fillStyle = primary || '#888'; burst(); g.fill();
+      g.strokeStyle = INK; g.lineWidth = 6; g.stroke();
     }
-    g.fill();
-    g.strokeStyle = INK; g.lineWidth = 6; g.stroke();
     g.fillStyle = accent || '#fff'; g.beginPath(); g.arc(cx, cy, 58, 0, Math.PI * 2); g.fill();
-    g.lineWidth = 8; g.stroke();
+    g.strokeStyle = INK; g.lineWidth = 8; g.stroke();
     g.font = '900 86px "Arial Black", "Helvetica Neue", sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.lineWidth = 10; g.strokeStyle = INK; g.strokeText(letter, cx, cy + 4);
     g.fillStyle = '#fff'; g.fillText(letter, cx, cy + 4);
   }, { mirror: true });
+  if (fresh && bey.id && typeof Image !== 'undefined') {
+    const img = new Image();
+    img.onload = () => {
+      if (!img.naturalWidth) return;
+      const c = tex.image, g = c.getContext('2d'), w = c.width, h = c.height;
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = INK; g.beginPath(); g.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); g.fill();
+      g.save(); g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 10, 0, Math.PI * 2); g.clip();
+      g.fillStyle = secondary || '#fff'; g.fillRect(0, 0, w, h);
+      g.drawImage(img, 10, 10, w - 20, h - 20);
+      g.restore();
+      tex.needsUpdate = true;
+    };
+    img.src = `/art/emblems/${encodeURIComponent(bey.id)}.png`;
+  }
+  return tex;
 }
 
 // Ratchet side band: "3-60" repeated, ink on dark plastic.

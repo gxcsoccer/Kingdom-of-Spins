@@ -5,14 +5,20 @@ import { createMockPlayer } from './mockPlayer.js';
 import { BEYS } from '../game/beys.js';
 
 // Art sandbox: BattleScene driven by the mock player + a row of showcases.
+const FUSED = [
+  { id: 'fishgoon', name: 'Fishgoon', zh: '鱼龙', type: 'attack', parents: ['fish', 'dragoon'], colors: { primary: '#14c9a5', secondary: '#c9d6ff', accent: '#00e5ff' },
+    blade: { wings: 3, reach: .028, ring: 74, mass: 33, style: 'attack' }, ratchet: { height: 55, prongs: 4 }, bit: 'needle' },
+  { id: 'ninjapuff', name: 'NinjaPuff', zh: '忍者泡芙', type: 'defense', parents: ['goatpuff', 'ninjamight'], colors: { primary: '#f2b632', secondary: '#e7d9ff', accent: '#d35bff' },
+    blade: { wings: 4, reach: .027, ring: 60, mass: 35, style: 'defense' }, ratchet: { height: 60, prongs: 5 }, bit: 'ball' },
+];
 export default function Sandbox() {
   const ids = Object.keys(BEYS);
   if (typeof location !== 'undefined' && location.search.includes('big')) {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, padding: 12, background: '#fbf8f1', height: '100vh', boxSizing: 'border-box' }}>
-        {ids.map(id => (
-          <div key={id} style={{ border: '5px solid #111', boxShadow: '8px 8px 0 #111', position: 'relative' }}>
-            <BeyShowcase bey={BEYS[id]} zoom={1.6} rpm={location.search.includes('spin') ? 4000 : undefined} />
+        {[...FUSED, ...ids.slice(0, 4).map(id => BEYS[id])].map(b => (
+          <div key={b.id} style={{ border: '5px solid #111', boxShadow: '8px 8px 0 #111', position: 'relative' }}>
+            <BeyShowcase bey={b} zoom={1.6} rpm={location.search.includes('spin') ? 4000 : undefined} />
           </div>
         ))}
       </div>

@@ -11,6 +11,7 @@ import BeyArt from './BeyArt.jsx';
 import {Portrait,Modal,TypeBadge} from './common.jsx';
 import {DoctorFace} from './MapScreen.jsx';
 import LaunchGauge from './LaunchGauge.jsx';
+import RpmChart from './RpmChart.jsx';
 import './battle.css';
 import * as sfx from '../game/sfx.js';
 
@@ -61,7 +62,7 @@ export default function BattleScreen(){
       const res=player.result, pts=res.points;
       const next=[...score];next[res.winner]+=pts;
       setScore(next);
-      setRounds(r=>[...r,{...player.meta,result:res,summary:player.summary}]);
+      setRounds(r=>[...r,{...player.meta,result:res,summary:player.summary,samples:player.samples,events:player.events}]);
       setTimeout(()=>setPhase(next[0]>=target||next[1]>=target?'result':'roundEnd'),2600);
       return;}raf=requestAnimationFrame(tick);};
     raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf);
@@ -178,6 +179,7 @@ function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recor
         <div className="col" style={{gap:14}}>
           {pred&&!decisive.experiment&&<div className="panel" style={{padding:14,color:'#111'}}><b>你的预测：</b>{pred.label} → {predOk?<b style={{color:'#0c8f74'}}>猜对了！🪙 +20</b>:<b>没猜中，看看复盘找原因</b>}</div>}
           {decisive.experiment&&<ExperimentCompare rounds={rounds} myName={myName} opp={opp}/>}
+          <div className="panel" style={{padding:14,color:'#111'}}><b>📈 证据：决胜回合的转速曲线</b><RpmChart samples={decisive.samples} events={decisive.events} names={[myBey.name,opp.bey.name]} colors={[myBey.colors?.primary||'#2f7bff',opp.bey.colors?.primary||'#f2b632']}/></div>
           <div className="panel ink" style={{padding:16,boxShadow:'6px 6px 0 var(--red)'}}>
             <div className="h-display h-yellow" style={{fontSize:20}}>科学小实验：只改一个变量</div>
             <p style={{lineHeight:1.6,fontWeight:700}}>{ai?.tryNext||'保持对手和发射条件完全一样，只换一个零件，结果会变吗？'}</p>

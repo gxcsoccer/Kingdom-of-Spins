@@ -5,6 +5,7 @@ import { Outlines } from '@react-three/drei';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { specFromBey, wingOutline } from '../physics/model.js';
 import { INK, toonMat, emblemTexture, ratchetTexture, spinBlurTexture } from './toon.js';
+import { BEYS } from '../game/beys.js';
 
 // Procedural Beyblade X–style top. Physics units (meters), spin axis +Z, blade plane z≈0,
 // tip at z = -spec.tipDepth. Wing silhouettes come from wingOutline() = the physics hulls.
@@ -19,20 +20,20 @@ function shapeFrom(points) {
 }
 
 function buildGeometry(spec, bey) {
-  const wings = [], accents = [];
+  const wings = [[], []], accents = [[], []];
   for (let i = 0; i < spec.wings; i++) {
     const pts = wingOutline(spec, i);
     const g = new THREE.ExtrudeGeometry(shapeFrom(pts), {
       depth: .0058, bevelEnabled: true, bevelThickness: .0007, bevelSize: .0006, bevelSegments: 1, curveSegments: 4,
     });
     g.translate(0, 0, -.0029);
-    wings.push(g);
+    wings[i % 2].push(g);
     // Raised inner accent plate, scaled toward the wing centroid.
     const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
     const inner = pts.map(([x, y]) => [cx + (x - cx) * .6, cy + (y - cy) * .6]);
     const a = new THREE.ExtrudeGeometry(shapeFrom(inner), { depth: .0012, bevelEnabled: false });
     a.translate(0, 0, .0034);
-    accents.push(a);
+    accents[i % 2].push(a);
     // Forward "fang" edge strip along the leading edge for attack/balance blades.
     if (spec.style === 'attack' || spec.style === 'balance') {
       const lead = pts.slice(Math.floor(pts.length / 2) - 1, Math.floor(pts.length / 2) + 1);
@@ -42,13 +43,17 @@ function buildGeometry(spec, bey) {
         const fang = new THREE.BoxGeometry(len * .9, .0016, .0074);
         fang.rotateZ(Math.atan2(dir.y, dir.x));
         fang.translate(mid[0] * .985, mid[1] * .985, 0);
-        accents.push(fang);
+        accents[i % 2].push(fang);
       }
     }
   }
-  const wingGeo = mergeGeometries(wings.map(g => g.toNonIndexed()));
-  const accentGeo = mergeGeometries(accents.map(g => g.index ? g.toNonIndexed() : g));
-  wingGeo.computeVertexNormals(); accentGeo.computeVertexNormals();
+  const merge = list => {
+    if (!list.length) return null;
+    const m = mergeGeometries(list.map(g => (g.index ? g.toNonIndexed() : g)));
+    m.computeVertexNormals();
+    return m;
+  };
+  const wingGeo = [merge(wings[0]), merge(wings[1])], accentGeo = [merge(accents[0]), merge(accents[1])];
 
   // Core disc (matches physics cylinder r=18.5 mm, ±4 mm)
   const core = new THREE.CylinderGeometry(.0185, .0185, .008, 48).applyMatrix4(Z_UP);
@@ -128,16 +133,25 @@ export default function BeyModel({ bey, rpm, rpmRef, spinning = false, blur = tr
   const geo = useMemo(() => buildGeometry(spec, bey), [spec, bey]);
   const spinRef = useRef(), blurRef = useRef(), ghostRef = useRef();
   const colors = bey?.colors || { primary: '#888', secondary: '#eee', accent: '#fff' };
+  // Fused beys (bey.parents = [idA, idB]): alternate wings in the two parents' primary colours.
+  const fusion = useMemo(() => {
+    const ps = Array.isArray(bey?.parents) ? bey.parents : [];
+    if (ps.length < 2) return null;
+    const a = BEYS[ps[0]]?.colors?.primary || colors.primary;
+    let b = BEYS[ps[1]]?.colors?.primary || colors.secondary;
+    if (b === a) b = colors.accent !== a ? colors.accent : colors.secondary;
+    return [a, b];
+  }, [bey, colors.primary, colors.secondary, colors.accent]);
 
   const mats = useMemo(() => {
-    const emblem = emblemTexture(bey);
+    const emblem = emblemTexture(bey, fusion);
     const label = `${bey?.ratchet?.prongs || 3}-${spec.height}`;
     const rtex = ratchetTexture(label);
     const chipSide = toonMat(INK);
     const chipTop = new THREE.MeshBasicMaterial({ map: emblem });
     return {
-      wing: toonMat(colors.primary),
-      accent: toonMat(colors.accent),
+      wing: [toonMat(fusion ? fusion[0] : colors.primary), toonMat(fusion ? fusion[1] : colors.primary)],
+      accent: [toonMat(fusion ? fusion[1] : colors.accent), toonMat(fusion ? fusion[0] : colors.accent)],
       fang: toonMat('#c9d1db', { metal: true }),
       core: toonMat(shade(colors.primary, .6)),
       metal: toonMat('#8e98a6', { metal: true }),
@@ -151,7 +165,7 @@ export default function BeyModel({ bey, rpm, rpmRef, spinning = false, blur = tr
       blur: new THREE.MeshBasicMaterial({ map: spinBlurTexture(), transparent: true, opacity: 0, depthWrite: false, toneMapped: false }),
       ghost: new THREE.MeshBasicMaterial({ color: colors.primary, transparent: true, opacity: 0, depthWrite: false }),
     };
-  }, [bey, spec, colors.primary, colors.secondary, colors.accent]);
+  }, [bey, spec, fusion, colors.primary, colors.secondary, colors.accent]);
 
   const blurGeo = useMemo(() => new THREE.RingGeometry(.006, spec.reach * 1.06, 48, 1), [spec.reach]);
 
@@ -180,8 +194,8 @@ export default function BeyModel({ bey, rpm, rpmRef, spinning = false, blur = tr
   return (
     <group>
       <group ref={spinRef}>
-        <mesh geometry={geo.wingGeo} material={mats.wing}>{O}</mesh>
-        <mesh geometry={geo.accentGeo} material={mats.accent}>{outline ? <Outlines thickness={ow * .6} color={INK} /> : null}</mesh>
+        {[0, 1].map(k => geo.wingGeo[k] && <mesh key={'w' + k} geometry={geo.wingGeo[k]} material={mats.wing[k]}>{O}</mesh>)}
+        {[0, 1].map(k => geo.accentGeo[k] && <mesh key={'a' + k} geometry={geo.accentGeo[k]} material={mats.accent[k]}>{outline ? <Outlines thickness={ow * .6} color={INK} /> : null}</mesh>)}
         <mesh geometry={geo.core} material={mats.core}>{O}</mesh>
         <mesh geometry={geo.metal} material={mats.metal}>{O}</mesh>
         <mesh geometry={geo.notchGeo} material={mats.notch} />

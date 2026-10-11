@@ -1,4 +1,9 @@
-import {useState} from 'react';
+import {useState,createContext,useContext,lazy,Suspense} from 'react';
+
+// Opt-in 3D: wrap a subtree in <BeyArt3D.Provider value={true}> and BeyArt renders the 3D
+// BeyShowcase (shared canvas via <ShowcaseCanvas/> in App) instead of the 2D icon.
+export const BeyArt3D=createContext(false);
+const BeyShowcase=lazy(()=>import('../scene/BeyShowcase.jsx'));
 import {specFromBey,wingOutline} from '../physics/model.js';
 
 // Top-view manga icon of a bey, generated from the same wing outline as the physics hull.
@@ -28,6 +33,14 @@ export function BeySvg({bey,size=160,spin=false}){
 
 export default function BeyArt({bey,size=160,spin}){
   const [failed,setFailed]=useState(false);
+  const three=useContext(BeyArt3D);
+  if(three)return (
+    <div style={{width:size,height:size,position:'relative'}}>
+      <Suspense fallback={<BeySvg bey={bey} size={size}/>}>
+        <BeyShowcase bey={bey} background={false} zoom={1.2} style={{position:'absolute',inset:0,background:'transparent'}}/>
+      </Suspense>
+    </div>
+  );
   const src=`/art/beys/${bey.id}.png`;
   if(!failed&&!bey.parents)return <img src={src} width={size} height={size} alt={bey.name} style={{objectFit:'contain',display:'block'}} onError={()=>setFailed(true)}/>;
   return <BeySvg bey={bey} size={size} spin={spin}/>;
