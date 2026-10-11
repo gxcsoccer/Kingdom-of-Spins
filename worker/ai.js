@@ -115,7 +115,7 @@ ${parts}
 事件：${ev.join('；') || '无碰撞'}；X Dash 冲刺 ${dashes} 次。
 统计：${stats}
 对比事实（不得矛盾）：${facts||'无'}
-结果：${who(r.winner)} 获胜，${r.reason}（xtreme=Xtreme终结3分，over=出界2分，spin=停转1分，judge=时间到按转速判定1分），${r.points}分，用时 ${fmtT(r.time)}。
+结果：${who(r.winner)} 获胜（${r.winner==null?'':({spin:`${who(1-r.winner)} 先停转倒下，${who(r.winner)} 还在转`,over:`${who(1-r.winner)} 飞出了场地`,xtreme:`${who(1-r.winner)} 掉进了 Xtreme 口`,judge:`时间到，${who(r.winner)} 转速更高`})[r.reason]||''}；不要把输的一方说成赢家），${r.reason}（xtreme=Xtreme终结3分，over=出界2分，spin=停转1分，judge=时间到按转速判定1分），${r.points}分，用时 ${fmtT(r.time)}。
 知识卡：
 ${cardLines(cards)}
 给小学生做热血复盘。规则：玩家的陀螺一律叫“你的 ${names[0]}”；只用上面给的数字，原样照抄格式（时间如“0.5 秒”，转速如“约 6,500 转/分”）；不要编造事件；“撞完”的转速只是那一刻的数值，不要说上升；因果判断说“在这个模型里”。

@@ -145,10 +145,10 @@ function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recor
   const pred=PREDICT.find(p=>p.id===prediction);
   const predOk=pred&&(won?pred.match?.(decisive.result.reason):pred.id==='lose');
   const tier=blader?.tier;
-  const first=blader&&!save.defeated.includes(blader.id);
+  const [first]=useState(()=>!!blader&&!save.defeated.includes(blader.id));
   const coins=won?(REWARD[tier]||[80,40])[first?0:1]+(predOk?20:0):20;
   const done=useRef(false);
-  const canRecruit=won&&tier==='pro'&&!save.team.some(t=>t.bladerId===blader.id);
+  const [canRecruit]=useState(()=>won&&tier==='pro'&&!save.team.some(t=>t.bladerId===blader.id));
   useEffect(()=>{
     if(done.current)return;done.current=true;
     if(!decisive.experiment)recordMatch({bladerId:won?blader?.id:null,won,coins,prediction:pred?{id:pred.id,correct:!!predOk,opp:opp.name}:null});
