@@ -1,0 +1,154 @@
+import {useCallback,useEffect,useRef,useState} from 'react';
+import ReplaySlot from '../ReplaySlot.jsx';
+import {DoctorFace} from '../MapScreen.jsx';
+import {getCard} from '../../knowledge/cards.js';
+import {openFlipbook} from '../../flipbook/store.js';
+import * as sfx from '../../game/sfx.js';
+
+// Guided "博士讲解模式": the doctor narrates the replay, drives slow-mo highlights, asks quizzes and waits
+// for the kid's answer. Pure presentation over data already in ResultPanel (moments + AI commentary).
+const NUM='①②③④⑤';
+const HIGHLIGHT_WALL_MS=7400;          // ReplayViewer highlight: 1.8 s of round time at ¼× ≈ 7.2 s
+const PRAISE=['答对啦！你的眼睛真厉害！','完全正确！你像个小科学家！','没错！就是这样！'];
+const CHEER=['差一点点！没关系，我们一起看看为什么。','嗯～不是这个哦。别灰心，答案很有意思！'];
+const speakable=t=>String(t||'').replace(/[\u{1F300}-\u{1FAFF}☀-➿]/gu,'').replace(/[「」【】]/g,'');
+const estimate=t=>Math.max(2500,String(t||'').length*200);
+
+function useBoxHeight(){
+  const ref=useRef(null);const [h,setH]=useState(0);
+  useEffect(()=>{const el=ref.current;if(!el)return;const ro=new ResizeObserver(([e])=>setH(Math.round(e.contentRect.height)));ro.observe(el);return()=>ro.disconnect();},[]);
+  return [ref,h];
+}
+
+export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,onNext,onManual,titleOf,fallbackOf}){
+  const viewer=useRef(null);
+  const [boxRef,boxH]=useBoxHeight();
+  const [line,setLine]=useState({text:'',mood:'normal',key:0});
+  const [typed,setTyped]=useState(0);
+  const [caption,setCaption]=useState(null);
+  const [quiz,setQuiz]=useState(null);           // {m, quiz, answer?}
+  const [cur,setCur]=useState(null);             // current moment
+  const [outro,setOutro]=useState(false);
+  const [paused,setPausedS]=useState(false);
+  const [muted,setMutedS]=useState(sfx.isMuted());
+  const [cards,setCards]=useState([]);
+  const [coinsWon,setCoinsWon]=useState(0);
+  const st=useRef({run:0,paused:false,skip:null,answer:null});
+  const aiRef=useRef(ai);useEffect(()=>{aiRef.current=ai;},[ai]);
+
+  // typewriter
+  useEffect(()=>{
+    setTyped(0);const n=line.text.length;if(!n)return;
+    const step=Math.max(18,Math.min(60,estimate(line.text)*.6/n));let i=0;
+    const iv=setInterval(()=>{if(st.current.paused)return;i++;setTyped(i);if(i>=n)clearInterval(iv);},step);
+    return()=>clearInterval(iv);
+  },[line]);
+
+  const alive=id=>st.current.run===id;
+  const sleep=(ms,id)=>new Promise(res=>{let left=ms;let last=performance.now();
+    const tick=()=>{if(!alive(id))return res(false);const now=performance.now();if(!st.current.paused)left-=now-last;last=now;
+      if(st.current.skip){st.current.skip=null;return res(true);}if(left<=0)return res(true);setTimeout(tick,80);};tick();});
+  // Say one line: typewriter + TTS; resolves on speech end (or an estimate if TTS is off/unavailable).
+  const say=useCallback((text,mood,id)=>new Promise(res=>{
+    if(!alive(id))return res(false);
+    setLine(l=>({text,mood,key:l.key+1}));
+    const est=estimate(text);
+    const tts=!sfx.isMuted()&&typeof window!=='undefined'&&window.speechSynthesis&&window.SpeechSynthesisUtterance;
+    let done=false;const finish=()=>{if(done)return;done=true;res(true);};
+    if(tts){
+      try{
+        window.speechSynthesis.cancel();
+        const u=new SpeechSynthesisUtterance(speakable(text));u.lang='zh-CN';u.rate=1.05;u.pitch=1.2;
+        u.onend=()=>setTimeout(finish,250);u.onerror=()=>sleep(est,id).then(finish);
+        window.speechSynthesis.speak(u);
+        sleep(est*1.8+2500,id).then(finish); // safety net: some browsers drop onend
+        const skipWatch=()=>{if(done)return;if(!alive(id)){window.speechSynthesis.cancel();return finish();}if(st.current.skip){st.current.skip=null;window.speechSynthesis.cancel();return finish();}setTimeout(skipWatch,80);};skipWatch();
+        return;
+      }catch{/* fall through */}
+    }
+    sleep(est,id).then(finish);
+  }),[]);// eslint-disable-line
+  const waitAnswer=id=>new Promise(res=>{st.current.answer=i=>{st.current.answer=null;res(i);};const w=()=>{if(!alive(id)){st.current.answer=null;return res(null);}if(st.current.answer)setTimeout(w,120);};w();});
+  const waitAi=async id=>{const t0=performance.now();while(alive(id)&&!aiRef.current&&performance.now()-t0<9000)await sleep(200,id);};
+
+  const run=useCallback(async()=>{
+    const id=++st.current.run;st.current.paused=false;setPausedS(false);
+    setOutro(false);setQuiz(null);setCaption(null);setCur(null);setCards([]);setCoinsWon(0);
+    if(!await say('准备好了吗？我们一起来看看这场比赛！','excited',id))return;
+    if(!aiRef.current){setLine(l=>({text:'博士在看录像…',mood:'thinking',key:l.key+1}));await waitAi(id);if(!alive(id))return;}
+    const aiM=mid=>(aiRef.current?.moments||[]).find(x=>x.id===mid);
+    if(aiRef.current?.headline&&!await say(aiRef.current.headline,'normal',id))return;
+    for(const m of moments){
+      const a=aiM(m.id),title=a?.title||titleOf(m);
+      setCur(m);setQuiz(null);
+      if(!await say(`来看第${NUM[m.n-1]}个关键时刻：${title}！`,'excited',id))return;
+      // slow-mo highlight with the DJ line as a big caption
+      viewer.current?.playMoment?.(m.id);
+      if(a?.dj){setCaption(a.dj);if(!sfx.isMuted())sfx.say(speakable(a.dj),'zh-CN',1.2);}
+      if(!await sleep(HIGHLIGHT_WALL_MS,id))return;
+      setCaption(null);viewer.current?.pause?.();
+      if(!await say(a?.explain||fallbackOf(m),'normal',id))return;
+      if(a?.quiz){
+        setQuiz({m,quiz:a.quiz});
+        if(!await say(`考考你：${a.quiz.q}`,'thinking',id))return;
+        const ans=await waitAnswer(id);if(ans==null||!alive(id))return;
+        const right=ans===a.quiz.answer;
+        setQuiz({m,quiz:a.quiz,answer:ans});
+        if(right){sfx.beep(true);addCoins?.(5);setCoinsWon(c=>c+5);}else sfx.beep();
+        if(a.cardId){unlockCards?.([a.cardId]);setCards(c=>c.includes(a.cardId)?c:[...c,a.cardId]);}
+        const react=right?PRAISE[m.n%PRAISE.length]+'金币 +5！':CHEER[m.n%CHEER.length];
+        if(!await say(`${react}${a.quiz.reveal||''}`,right?'excited':'normal',id))return;
+        if(a.quiz.analogy&&!await say(`🌏 生活里也一样：${a.quiz.analogy}`,'normal',id))return;
+      }else if(a?.cardId){unlockCards?.([a.cardId]);setCards(c=>c.includes(a.cardId)?c:[...c,a.cardId]);}
+    }
+    setCur(null);setQuiz(null);
+    const take=aiRef.current?.takeaway||'记住：一次只看一个原因，用实验来验证！';
+    setOutro(true);
+    await say(`${take} 要不要去实验室亲手验证一下？`,'excited',id);
+  },[moments,say,titleOf,fallbackOf,addCoins,unlockCards]);// eslint-disable-line
+
+  useEffect(()=>{if(boxH>0&&st.current.run===0){const t=setTimeout(run,700);return()=>clearTimeout(t);}},[boxH,run]);
+  useEffect(()=>()=>{st.current.run++;window.speechSynthesis?.cancel();},[]);
+
+  const togglePause=()=>{const p=!st.current.paused;st.current.paused=p;setPausedS(p);
+    try{p?window.speechSynthesis?.pause():window.speechSynthesis?.resume();}catch{}
+    if(p)viewer.current?.pause?.();else if(caption)viewer.current?.play?.();};
+  const skip=()=>{if(quiz&&quiz.answer==null)return;st.current.skip=true;if(st.current.paused)togglePause();};
+  const toggleMute=()=>{const m=!muted;sfx.setMuted(m);setMutedS(m);if(m)window.speechSynthesis?.cancel();};
+  const answer=i=>st.current.answer?.(i);
+  const shown=line.text.slice(0,typed);
+  const waitingQuiz=quiz&&quiz.answer==null;
+
+  return (
+    <div className="gr">
+      <div className="gr-doc">
+        <div key={line.key} className={`gr-balloon ${line.mood}`}>
+          {cur&&<div className="gr-moment">{NUM[cur.n-1]} {(ai?.moments||[]).find(x=>x.id===cur.id)?.title||titleOf(cur)} <small>{cur.time.toFixed(1)} 秒</small>
+            <button className="gr-chip" onClick={()=>openFlipbook({moment:{kind:cur.kind,title:titleOf(cur),explain:fallbackOf(cur)}})}>📖 翻开绘本</button></div>}
+          <p>{shown}<span className="gr-caret">{typed<line.text.length?'▍':''}</span></p>
+          {quiz&&<div className="gr-quiz">
+            {quiz.quiz.options.map((o,i)=>{const done=quiz.answer!=null;return (
+              <button key={i} className={`gr-ans ${done&&i===quiz.quiz.answer?'right':''} ${done&&i===quiz.answer&&i!==quiz.quiz.answer?'wrong':''}`} disabled={done} onClick={()=>answer(i)}><b>{'AB'[i]}</b>{o}</button>);})}
+            {waitingQuiz&&<div className="gr-wait">博士在等你回答～</div>}
+          </div>}
+          {outro&&<div className="gr-outro">
+            {(cards.length>0||coinsWon>0)&&<div className="gr-got">{coinsWon>0&&<span className="gr-coin">🪙 +{coinsWon}</span>}{cards.map(c=>{const k=getCard(c);return k&&<span key={c} className="gr-card">📚 {k.title}</span>;})}</div>}
+            <div className="gr-outro-btns"><button className="gr-lab" onClick={onNext}>去实验室验证 ▶</button><button className="gr-again" onClick={run}>⟲ 再看一遍</button></div>
+          </div>}
+        </div>
+        <div className={`gr-doctor mood-${line.mood}`}><DoctorFace mood={line.mood==='excited'?'excited':line.mood==='thinking'?'thinking':'normal'} size={240}/></div>
+        <div className="gr-ctrl">
+          <button onClick={togglePause} title={paused?'继续':'暂停'}>{paused?'▶':'⏸'}</button>
+          <button onClick={skip} disabled={!!waitingQuiz} title="跳过这句">⏭ 跳过这句</button>
+          <button onClick={toggleMute} title="声音">{muted?'🔇':'🔊'}</button>
+          <button className="gr-manual" onClick={onManual}>我自己看</button>
+        </div>
+      </div>
+      <div className="gr-stage" ref={boxRef}>
+        {boxH>0&&<ReplaySlot ref={viewer} height={Math.max(180,boxH-150)} beys={[myBey,opp.bey]} samples={decisive.samples} events={decisive.events}
+          moments={moments.map(m=>({id:m.id,time:m.time,title:(ai?.moments||[]).find(x=>x.id===m.id)?.title||titleOf(m)}))}/>}
+        {caption&&<div className="gr-caption"><span>🎙</span>{caption}</div>}
+      </div>
+    </div>
+  );
+}

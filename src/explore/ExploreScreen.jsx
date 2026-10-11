@@ -223,7 +223,7 @@ function EventOverlay({ev,region,onFind,onMeet,onGeo,onAnswer,onGateDone,onDone,
     </div>);}
   if(ev.type==='gate'){const done=choice!=null;const ok=done&&choice===ev.answer;return (
     <div className="ex-ov ex-gate-wrap">
-      <div className="panel ex-gate pop">
+      <div className="panel ex-gate pop-in">
         <div className="kicker" style={{color:'var(--red)'}}>🚧 关卡 · 答对才能继续</div>
         {ev.lead&&<div className="ex-gate-lead">{ev.lead}</div>}
         <div className="ex-gate-q">{ev.q}</div>

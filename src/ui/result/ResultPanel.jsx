@@ -9,6 +9,7 @@ import {findMoments} from '../../game/moments.js';
 import {openFlipbook} from '../../flipbook/store.js';
 import ExperimentLab from '../../lab/ExperimentLab.jsx';
 import ReplaySlot from '../ReplaySlot.jsx';
+import GuidedReview from './GuidedReview.jsx';
 import RpmChart from '../RpmChart.jsx';
 import BeyArt from '../BeyArt.jsx';
 import {Portrait,Modal} from '../common.jsx';
@@ -139,7 +140,16 @@ function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRec
   );
 }
 
-function ReviewPage({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,onNext}){
+// Review page: guided "博士讲解模式" by default; "我自己看" switches to the manual moment strip.
+function ReviewPage(props){
+  const [mode,setMode]=useState('guide');
+  const titleOf=useCallback(m=>MOMENT_TITLE[m.kind]||'关键时刻',[]);
+  const fallbackOf=useCallback(m=>localMoment(m,props.names),[props.names]);
+  if(mode==='guide')return <GuidedReview {...props} titleOf={titleOf} fallbackOf={fallbackOf} onManual={()=>{window.speechSynthesis?.cancel();setMode('manual');}}/>;
+  return <ManualReview {...props} onGuide={()=>setMode('guide')}/>;
+}
+
+function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,onNext,onGuide}){
   const viewer=useRef(null);
   const [boxRef,boxH]=useBoxHeight();
   const [sel,setSel]=useState(null);           // selected moment id
@@ -173,6 +183,7 @@ function ReviewPage({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,on
         <div className="grow"><div className="rp-h">复盘 · {ai?.headline||'关键时刻'}</div><div className="rp-sub">点下面的关键时刻，慢动作回看发生了什么</div></div>
         <button className={`btn small ${auto?'yellow':''}`} onClick={playAll}>{auto?'⏹ 停止':'▶ 自动播放全部关键时刻'}</button>
         <button className={`btn small ${chart?'yellow':''}`} onClick={()=>setChart(c=>!c)}>📈 转速</button>
+        <button className="btn small yellow" onClick={onGuide}>🎙 博士讲解</button>
       </div>
       <div className="rp-replay" ref={boxRef}>
         {boxH>0&&<ReplaySlot ref={viewer} height={Math.max(180,boxH-REPLAY_BAR_PX)} beys={[myBey,opp.bey]} samples={decisive.samples} events={decisive.events}
@@ -207,7 +218,7 @@ function ReviewPage({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,on
 
 function QuizCard({quiz,answer,onAnswer,onClose,card}){
   const done=answer!=null;
-  return <div className="rp-quiz pop">
+  return <div className="rp-quiz pop-in">
     <button className="rp-quiz-x" onClick={onClose} aria-label="关闭">✕</button>
     <div className="rp-quiz-q">🤔 你猜？{quiz.q}</div>
     <div className="rp-quiz-opts">{quiz.options.map((o,i)=><button key={i} disabled={done} className={`rp-quiz-opt ${done&&i===quiz.answer?'right':''} ${done&&i===answer&&i!==quiz.answer?'wrong':''}`} onClick={()=>onAnswer(i)}><b>{'AB'[i]}</b>{o}</button>)}</div>

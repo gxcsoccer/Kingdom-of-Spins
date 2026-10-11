@@ -47,33 +47,37 @@ function FusingAnim({a, b}) {
 
 function CandidateCard({bey, parents, onPick, renderBey}) {
   const st = beyStats(bey);
+  const [table, setTable] = useState(false);
   return (
-    <div className="panel cand slidein" style={{background:`radial-gradient(circle at 50% 30%, ${bey.colors.accent}40, transparent 60%), var(--tone-light), #fff`}}>
+    <div className="panel cand slidein" style={{background:`radial-gradient(circle at 20% 20%, ${bey.colors.accent}40, transparent 60%), var(--tone-light), #fff`}}>
       {bey.fusedBy==='template' && <span className="badge cand-tag">公式方案</span>}
-      <div className="cand-art">{renderBey ? renderBey(bey, 170) : <BeyArt bey={bey} size={170}/>}</div>
-      <div className="row between" style={{alignItems:'flex-start',gap:8}}>
-        <div>
-          <div className="panel-title" style={{fontSize:24}}>{bey.name}</div>
+      <div className="cand-top">
+        <div className="cand-art">{renderBey ? renderBey(bey, 96) : <BeyArt bey={bey} size={96}/>}</div>
+        <div className="grow">
+          <div className="row between" style={{alignItems:'flex-start',gap:6}}>
+            <div className="panel-title" style={{fontSize:21}}>{bey.name}</div>
+            <TypeBadge type={bey.type}/>
+          </div>
           <div className="muted" style={{fontWeight:800}}>{bey.zh}</div>
+          <button className="btn primary small" style={{marginTop:6}} onClick={()=>onPick(bey)}>就选它！</button>
         </div>
-        <TypeBadge type={bey.type}/>
       </div>
-      <div className="mt"><StatBars bey={bey}/></div>
-      <table className="cand-diff mt">
+      <StatBars bey={bey} compact/>
+      <div className="model-note">重量 {st.massG} g · 转动惯量 {st.inertia}×10⁻⁶ kg·m²（理想模型计算）</div>
+      {bey.specialMove && <div className="special-move"><span className="kicker">必杀技</span><b>{bey.specialMove.name}</b><span className="sfx" style={{fontSize:18}}>「{bey.specialMove.shout}」</span></div>}
+      {bey.why && <p className="cand-why"><b>为什么：</b>{bey.why}</p>}
+      {bey.tradeoff && <p className="cand-trade"><b>代价：</b>{bey.tradeoff}</p>}
+      <div className="cand-chips">{bey.knowledge?.map(k=><KnowledgeChip key={k.id} card={k}/>)}</div>
+      <button className="btn small ghost cand-more" onClick={()=>setTable(t=>!t)}>📊 {table?'收起':'看'}参数对比</button>
+      {table && <table className="cand-diff">
         <thead><tr><th>Blade</th>{parents.map(p=><th key={p.id}>{p.name}</th>)}<th className="new">{parents.length?'新':'数值'}</th></tr></thead>
         <tbody>{PARAM_ROWS.map(([k,label,fmt])=>(
           <tr key={k}><td>{label}</td>{parents.map(p=><td key={p.id}>{fmt(p.blade[k])}</td>)}<td className="new">{fmt(bey.blade[k])}</td></tr>
         ))}
           <tr><td>转动惯量</td>{parents.map(p=><td key={p.id}>{beyStats(p).inertia}</td>)}<td className="new">{st.inertia}</td></tr>
         </tbody>
-      </table>
-      <div className="model-note">转动惯量单位 ×10⁻⁶ kg·m²，由理想模型从参数算出</div>
-      {bey.specialMove && <div className="special-move"><span className="kicker">必杀技</span><b>{bey.specialMove.name}</b><span className="sfx" style={{fontSize:18}}>「{bey.specialMove.shout}」</span></div>}
-      {bey.why && <p className="cand-why"><b>为什么：</b>{bey.why}</p>}
-      {bey.tradeoff && <p className="cand-trade"><b>代价：</b>{bey.tradeoff}</p>}
-      {bey.prediction && <p className="cand-trade"><b>博士预测：</b>{bey.prediction}</p>}
-      <div className="col" style={{gap:6}}>{bey.knowledge?.map(k=><KnowledgeChip key={k.id} card={k}/>)}</div>
-      <button className="btn primary mt" style={{width:'100%'}} onClick={()=>onPick(bey)}>就选它！</button>
+      </table>}
+      {bey.prediction && table && <p className="cand-trade"><b>博士预测：</b>{bey.prediction}</p>}
     </div>
   );
 }

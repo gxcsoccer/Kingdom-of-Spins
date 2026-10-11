@@ -29,7 +29,7 @@ export default function ProtoArchive({regionId,onClose}){
   const c=proto.compare,done=choice!=null;
   return (
     <div className="ex-ov pa-wrap" onClick={onClose}>
-      <div className="pa panel pop" onClick={e=>e.stopPropagation()}>
+      <div className="pa panel pop-in" onClick={e=>e.stopPropagation()}>
         <button className="pa-x" onClick={onClose} aria-label="关闭">✕</button>
         <div className="pa-head"><span className="kicker">REAL-WORLD ARCHIVE · 真实原型档案</span><h2>{region?.name} 的原型是……<b>{proto.name}</b></h2><div className="pa-place">📍 {proto.place} · {proto.en}</div></div>
         <div className="pa-body">

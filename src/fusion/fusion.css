@@ -70,7 +70,7 @@
 
 /* Predict / done */
 .predict-hero{display:flex;gap:28px;align-items:center;justify-content:center;padding:26px;overflow:hidden;flex-wrap:wrap;background:var(--tone),#fff}
-.done{position:relative;min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.fusion .done{position:relative;min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
 
 /* Knowledge cards */
 .kcard{position:relative;background:#fff;border:3px solid var(--ink);box-shadow:var(--shadow-sm);padding:12px 14px;border-left-width:10px}
@@ -86,10 +86,28 @@
 .kchip-caret{font-size:9px;opacity:.6}
 .pop-soft{animation:slidein .25s ease-out both}
 
-/* Codex */
-.codex{padding:4px}
-.codex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
-.codex-progress{position:relative;width:180px;height:26px;border:3px solid var(--ink);background:var(--tone-light),#fff;overflow:hidden}
+/* Codex — paged binder that fits one screen */
+.codex{display:flex;flex-direction:column;gap:10px;height:100%;min-height:0}
+.codex-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.codex-tab{display:inline-flex;align-items:center;gap:6px;border:3px solid var(--ink);background:#fff;font-family:var(--display);font-weight:900;font-size:14px;padding:6px 12px;box-shadow:3px 3px 0 var(--ink);transform:skewX(-8deg)}
+.codex-tab small{font-family:var(--body);font-size:12px;background:var(--ink);color:#fff;padding:0 6px;border-radius:8px}
+.codex-tab.on{background:var(--yellow);transform:skewX(-8deg) translateY(-2px);box-shadow:3px 5px 0 var(--red)}
+.codex-tabs .codex-progress{margin-left:auto}
+.codex-binder{flex:1;min-height:0;border:4px solid var(--ink);background:var(--tone-light),#fbf8f1;box-shadow:var(--shadow);padding:14px;overflow:hidden}
+.codex-page-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));grid-auto-rows:132px;gap:12px;animation:slidein .3s ease-out both}
+.codex-tile{position:relative;display:flex;flex-direction:column;gap:6px;text-align:left;background:#fff;border:3px solid var(--ink);border-left-width:10px;box-shadow:var(--shadow-sm);padding:10px 12px;overflow:hidden;color:var(--ink)}
+.codex-tile.official{border-left-color:#2f7bff}.codex-tile.physics{border-left-color:#14c9a5}.codex-tile.design{border-left-color:#ff9bd2}.codex-tile.geo{border-left-color:#ff9f43}.codex-tile.proto{border-left-color:var(--red);background:#fff6c8}
+button.codex-tile:hover{transform:translate(-2px,-2px)}
+.codex-tile-t{font-family:var(--display);font-weight:900;font-size:16px;line-height:1.15}
+.codex-tile-b{font-size:13px;font-weight:600;line-height:1.45;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.codex-tile.locked{background:var(--tone),var(--paper-2);border-left-color:var(--ink);opacity:.7}
+.codex-tile-icon{position:absolute;right:8px;bottom:4px;font-size:30px;font-weight:900;opacity:.35}
+.codex-nav{display:flex;align-items:center;justify-content:center;gap:16px}
+.codex-nav .rp-arrow{min-width:56px;border:3px solid var(--ink);background:#fff;font-family:var(--display);font-weight:900;font-size:18px;padding:6px 16px;box-shadow:3px 3px 0 var(--ink)}
+.codex-nav .rp-arrow:disabled{opacity:.3}
+.codex-nav .rp-dots{display:flex;gap:8px}.codex-nav .rp-dots button{width:13px;height:13px;border-radius:50%;border:3px solid var(--ink);background:#fff;padding:0}.codex-nav .rp-dots button.on{background:var(--yellow);transform:scale(1.25)}
+.codex-modal{width:min(560px,100%)}
+.codex-progress{position:relative;width:160px;height:26px;border:3px solid var(--ink);background:var(--tone-light),#fff;overflow:hidden}
 .codex-progress i{position:absolute;inset:0 auto 0 0;background:var(--yellow);border-right:3px solid var(--ink)}
 .codex-progress span{position:relative;display:block;text-align:center;font-family:var(--display);font-weight:900;font-size:14px;line-height:20px}
 .kcard .badge{white-space:nowrap;flex:none}
@@ -111,3 +129,31 @@
 .badge.geo{background:#ff9f43;color:#111}
 .kcard.geo{border-left-color:#ff9f43}
 .kchip.geo{background:#ffe8d1}
+.codex-page{height:100vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:16px}
+.codex-page .topbar{margin-bottom:10px}
+.codex-page .codex{flex:1}
+
+/* One-screen layout: the lab never scrolls the page; long content scrolls inside its own panel. */
+.fusion.page{height:100vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:14px}
+.fusion .topbar{margin-bottom:12px;flex:none}
+.fusion > section{flex:1;min-height:0;display:flex;flex-direction:column}
+.fusion > section.slidein{overflow:hidden}
+.fusion .pick-grid{flex:1;min-height:0;overflow-y:auto;align-content:start;padding:14px 6px 6px}
+.fusion .keep-grid{flex:none}
+.fusion .chat-layout{flex:1;min-height:0;display:grid;align-items:stretch}
+.fusion .chat-panel{height:100%;position:static}
+.fusion .cand-zone{min-height:0;overflow-y:auto;padding:0 6px 8px 2px}
+.fusion .cand{padding:12px 14px;gap:4px}
+.fusion .cand-art{min-height:0}
+.fusion .cand-why,.fusion .cand-trade{font-size:13px;margin:2px 0}
+.fusion .predict{overflow-y:auto}
+.fusion .predict-hero{padding:14px}
+.fusion .predict-hero :is(img,svg){width:150px!important;height:150px!important}
+.fusion .mt2{margin-top:16px}
+@media (max-height:780px){.fusion .doctor{zoom:.8}.fusion h1.h-display{font-size:34px!important}}
+.cand-top{display:flex;gap:12px;align-items:center}
+.cand-top .cand-art{min-height:0;flex:none}
+.cand-chips{display:flex;gap:6px;flex-wrap:wrap}
+.cand-more{align-self:flex-start;font-size:12px!important;padding:3px 8px!important;border-width:2px!important}
+.pop-in{animation:popIn .35s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes popIn{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
