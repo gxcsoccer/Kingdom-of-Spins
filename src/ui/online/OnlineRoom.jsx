@@ -136,6 +136,10 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
 
   const names=[0,1].map(i=>room?.players?.[i]?.nickname||'…');
   const beys=[0,1].map(i=>room?.players?.[i]?.bey||(i===slot?myBey:myBey));
+  // Slot 1 launches from the far side: turn the camera 180° (view only) and mirror the HUD so "me" is always on the left.
+  const flip=slot===1, ord=flip?[1,0]:[0,1];
+  const hudBase=player||idleOf(beys);
+  const hudPlayer=flip?swapView(hudBase):hudBase;
   const showStage=phase==='launch'||phase==='fight'||phase==='banner';
   const oppOffline=other&&!other.connected;
 
@@ -143,10 +147,10 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
     <div className="page dark battle-page ol-page">
       {phase==='room'&&<WaitRoom {...{code,room,slot,me,other,conn,myBey,leave}} onGo={()=>{sfx.clang(1);setPhase('launch');}}/>}
       {showStage&&<>
-        <Hud player={player||idleOf(beys)} names={names.map((n,i)=>i===slot?`${n}（你）`:n)} beys={beys} score={hudScore} target={target} color={beys[1]?.colors?.primary||'#f2b632'} round={player?.meta?.round||room?.round||1}/>
+        <Hud player={hudPlayer} names={ord.map(i=>i===slot?`${names[i]}（你）`:names[i])} beys={ord.map(i=>beys[i])} score={ord.map(i=>hudScore[i])} target={target} color={beys[ord[1]]?.colors?.primary||'#f2b632'} round={player?.meta?.round||room?.round||1}/>
         <div className="battle-stage">
           <PauseMenu onPause={on=>{pauseRef.current=on;if(phase==='fight'&&player)player.setPaused(on);if(on)sfx.spinHum(false);else if(phase==='fight'&&player&&!player.finished)sfx.spinHum(true);}} onExit={leave}/>
-          <BattleScene player={player||idleOf(beys)} frameloop={player?'always':'demand'} style={{position:'absolute',inset:0}}/>
+          <BattleScene player={player||idleOf(beys)} flip={flip} frameloop={player?'always':'demand'} style={{position:'absolute',inset:0}}/>
           {phase==='launch'&&!launched&&other&&<LaunchSequence key={`r${room?.round}`}
             me={{name:nickname,avatar}} opp={{name:other.nickname,bey:other.bey||myBey,color:other.bey?.colors?.primary||'#f2b632',avatar:avatarOf(other.bey?.owner?.avatar)}}
             beys={[{...myBey,uid:myBey.uid||'me'}]} beyUid={myBey.uid||'me'} setBeyUid={()=>{}}
@@ -165,6 +169,13 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
   );
 }
 
+// HUD view with the two bodies swapped (memoised per player so the HUD's rAF loop isn't restarted every render).
+const swapCache=new WeakMap();
+function swapView(p){
+  if(!swapCache.has(p))swapCache.set(p,{get clock(){return p.clock;},get paused(){return p.paused;},
+    getState:t=>{const st=p.getState(t);return st?.bodies?{...st,bodies:[st.bodies[1],st.bodies[0]]}:st;}});
+  return swapCache.get(p);
+}
 // Static stand-in so the WebGL canvas is warm behind the slingshot.
 const idleCache=new WeakMap();
 function idleOf(beys){

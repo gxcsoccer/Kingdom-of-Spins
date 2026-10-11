@@ -151,10 +151,10 @@ function Sparks({ api }) {
 }
 
 // ---------- event dispatcher + camera rig
-function Director({ player, fx, sparks, overlay, onEvent }) {
+function Director({ player, fx, sparks, overlay, onEvent, flip }) {
   const { camera, size } = useThree();
   const target = useMemo(() => new THREE.Vector3(), []), tmp = useMemo(() => new THREE.Vector3(), []), tmp2 = useMemo(() => new THREE.Vector3(), []);
-  const base = useMemo(() => new THREE.Vector3(), []), dirV = useMemo(() => new THREE.Vector3(0, 3.7, 4.3).normalize(), []);
+  const base = useMemo(() => new THREE.Vector3(), []), dirV = useMemo(() => new THREE.Vector3(0, 3.7, flip ? -4.3 : 4.3).normalize(), [flip]);
   const shake = useRef(0), punch = useRef(0), idx = useRef(0), launched = useRef(false), seekV = useRef(0);
 
   useFrame((_, dt) => {
@@ -213,7 +213,7 @@ function Director({ player, fx, sparks, overlay, onEvent }) {
     const dist = Math.max(Rv / Math.tan(vf), Rh / Math.tan(hf)) + .35;
     base.copy(dirV).multiplyScalar(dist);
     const s = shake.current;
-    camera.position.copy(base).add(target).multiplyScalar(1).addScaledVector(tmp.set(0, -.55, -.9), punch.current * .9);
+    camera.position.copy(base).add(target).multiplyScalar(1).addScaledVector(tmp.set(0, -.55, flip ? .9 : -.9), punch.current * .9);
     camera.position.x += (Math.random() - .5) * s; camera.position.y += (Math.random() - .5) * s;
     camera.lookAt(target.x + (Math.random() - .5) * s * .4, target.y - .1, target.z);
   });
@@ -273,7 +273,8 @@ const Overlay = forwardRef(function Overlay({ beys }, ref) {
  * player.seekVersion (optional number): bump it on a jump/seek so skipped events don't fire effects.
  * player: { getTime(), getState(t), events[], beys[] } (see CONTRACT.md)
  */
-export default function BattleScene({ player, onEvent, overlay = true, className = '', style, frameloop = 'always', children }) {
+// flip (optional): view the stadium from the opposite side (online slot 1 sees its own bey on the left, like slot 0). Camera only.
+export default function BattleScene({ player, onEvent, overlay = true, className = '', style, frameloop = 'always', children, flip = false }) {
   const fx = useRef({ dash: [-1, -1], lastT: 0 });
   const sparks = useRef({}), overlayRef = useRef(null);
   if (!player) return <div className={`ks-battle ${className}`} style={style} />;
@@ -285,7 +286,7 @@ export default function BattleScene({ player, onEvent, overlay = true, className
         frameloop={frameloop}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        camera={{ fov: 30, near: .05, far: 60, position: [0, 3.55, 4.35] }}
+        camera={{ fov: 30, near: .05, far: 60, position: [0, 3.55, flip ? -4.35 : 4.35] }}
         onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
       >
         <ambientLight intensity={.85} />
@@ -296,7 +297,7 @@ export default function BattleScene({ player, onEvent, overlay = true, className
           {player.beys.map((_, i) => <BeyActor key={i} index={i} player={player} fx={fx} />)}
           <Sparks api={sparks} />
         </group>
-        <Director player={player} fx={fx} sparks={sparks} overlay={overlayRef} onEvent={onEvent} />
+        <Director player={player} fx={fx} sparks={sparks} overlay={overlayRef} onEvent={onEvent} flip={flip} />
         <EffectComposer multisampling={4}>
           <Bloom mipmapBlur luminanceThreshold={1.7} luminanceSmoothing={.1} intensity={1.4} radius={.6} />
           <Vignette eskil={false} offset={.32} darkness={.38} />

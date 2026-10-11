@@ -25,7 +25,8 @@ export {STYLES,cpuLaunch,playerLaunch};
 export default function BattleScreen(){
   const {save,params,go,recordMatch,unlockCards,recruit,addCoins}=useGame();
   const blader=params.bladerId?bladerById(params.bladerId):null;
-  const opp=useMemo(()=>blader?{name:blader.name,bey:blader.bey,launch:blader.launch,color:blader.color,blader}:{name:'CPU',bey:params.oppBey||BEYS.titan,launch:{rpm:4900,tilt:4,speed:.35,aim:.5},color:'#8d99a6'},[blader,params.oppBey]);
+  const opp=useMemo(()=>blader?{name:blader.name,bey:blader.bey,launch:blader.launch,color:blader.color,blader}:(()=>{const look=params.oppLook?bladerById(params.oppLook):null; // optional cosmetic opponent (versus mode: a defeated blader's portrait/taunt, no story effects)
+    return {name:look?.name||'CPU',bey:params.oppBey||BEYS.titan,launch:look?.launch||{rpm:4900,tilt:4,speed:.35,aim:.5},color:look?.color||'#8d99a6',...(look?{blader:look}:{})};})(),[blader,params.oppBey,params.oppLook]);
   const target=save.demo?2:(params.rounds||WIN_ROUNDS);   // rounds to win (5 局 3 胜)
   const myName=save.profile?.nickname||'你';
 
