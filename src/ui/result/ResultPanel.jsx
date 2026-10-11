@@ -151,6 +151,7 @@ function ReviewPage(props){
 
 function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,onNext,onGuide}){
   const viewer=useRef(null);
+  const beys=useMemo(()=>[myBey,opp.bey],[myBey,opp.bey]); // stable: a new array would reset the replay player
   const [boxRef,boxH]=useBoxHeight();
   const [sel,setSel]=useState(null);           // selected moment id
   const [quizOn,setQuizOn]=useState(false);
@@ -186,7 +187,7 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
         <button className="btn small yellow" onClick={onGuide}>🎙 博士讲解</button>
       </div>
       <div className="rp-replay" ref={boxRef}>
-        {boxH>0&&<ReplaySlot ref={viewer} height={Math.max(180,boxH-REPLAY_BAR_PX)} beys={[myBey,opp.bey]} samples={decisive.samples} events={decisive.events}
+        {boxH>0&&<ReplaySlot ref={viewer} height={Math.max(180,boxH-REPLAY_BAR_PX)} beys={beys} samples={decisive.samples} events={decisive.events}
           moments={moments.map(m=>({id:m.id,time:m.time,title:aiM(m.id)?.title||MOMENT_TITLE[m.kind]}))} onSeek={setCursor}/>}
         {cur&&<div key={sel} className="rp-balloon">
           <div className="rp-balloon-t">{NUM[cur.n-1]} {curAi?.title||MOMENT_TITLE[cur.kind]} <small>{cur.time.toFixed(1)} 秒</small></div>

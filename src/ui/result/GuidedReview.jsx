@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import ReplaySlot from '../ReplaySlot.jsx';
 import {DoctorFace} from '../MapScreen.jsx';
 import {getCard} from '../../knowledge/cards.js';
@@ -23,7 +23,9 @@ function useBoxHeight(){
 export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,onNext,onManual,titleOf,fallbackOf}){
   const viewer=useRef(null);
   const [boxRef,boxH]=useBoxHeight();
-  const [line,setLine]=useState({text:'',mood:'normal',key:0});
+  const [line,setLine]=useState({text:'',mood:'normal',key:0,instant:false});
+  const [nextBtn,setNextBtn]=useState(false);
+  const [stamp,setStamp]=useState(null); // {ok,key}
   const [typed,setTyped]=useState(0);
   const [caption,setCaption]=useState(null);
   const [quiz,setQuiz]=useState(null);           // {m, quiz, answer?}
@@ -35,11 +37,15 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
   const [coinsWon,setCoinsWon]=useState(0);
   const st=useRef({run:0,paused:false,skip:null,answer:null});
   const aiRef=useRef(ai);useEffect(()=>{aiRef.current=ai;},[ai]);
+  // Stable props for the replay (the typewriter re-renders often; new arrays would reset the replay player).
+  const beys=useMemo(()=>[myBey,opp.bey],[myBey,opp.bey]);
+  const rvMoments=useMemo(()=>moments.map(m=>({id:m.id,time:m.time,title:(ai?.moments||[]).find(x=>x.id===m.id)?.title||titleOf(m)})),[moments,ai,titleOf]);
 
   // typewriter
   useEffect(()=>{
-    setTyped(0);const n=line.text.length;if(!n)return;
-    const step=Math.max(18,Math.min(60,estimate(line.text)*.6/n));let i=0;
+    const n=line.text.length;if(line.instant){setTyped(n);return;}
+    setTyped(0);if(!n)return;
+    const step=25;let i=0; // ~40 chars/s
     const iv=setInterval(()=>{if(st.current.paused)return;i++;setTyped(i);if(i>=n)clearInterval(iv);},step);
     return()=>clearInterval(iv);
   },[line]);
@@ -49,17 +55,18 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
     const tick=()=>{if(!alive(id))return res(false);const now=performance.now();if(!st.current.paused)left-=now-last;last=now;
       if(st.current.skip){st.current.skip=null;return res(true);}if(left<=0)return res(true);setTimeout(tick,80);};tick();});
   // Say one line: typewriter + TTS; resolves on speech end (or an estimate if TTS is off/unavailable).
-  const say=useCallback((text,mood,id)=>new Promise(res=>{
+  const say=useCallback((text,mood,id,opt={})=>new Promise(res=>{
     if(!alive(id))return res(false);
-    setLine(l=>({text,mood,key:l.key+1}));
-    const est=estimate(text);
+    setLine(l=>({text,mood,key:l.key+1,instant:!!opt.instant}));
+    if(opt.next)setNextBtn(true);
+    const est=opt.next?4500:estimate(text);
     const tts=!sfx.isMuted()&&typeof window!=='undefined'&&window.speechSynthesis&&window.SpeechSynthesisUtterance;
-    let done=false;const finish=()=>{if(done)return;done=true;res(true);};
+    let done=false;const finish=()=>{if(done)return;done=true;setNextBtn(false);res(true);};
     if(tts){
       try{
         window.speechSynthesis.cancel();
         const u=new SpeechSynthesisUtterance(speakable(text));u.lang='zh-CN';u.rate=1.05;u.pitch=1.2;
-        u.onend=()=>setTimeout(finish,250);u.onerror=()=>sleep(est,id).then(finish);
+        u.onend=()=>setTimeout(finish,opt.next?1200:250);u.onerror=()=>sleep(est,id).then(finish);
         window.speechSynthesis.speak(u);
         sleep(est*1.8+2500,id).then(finish); // safety net: some browsers drop onend
         const skipWatch=()=>{if(done)return;if(!alive(id)){window.speechSynthesis.cancel();return finish();}if(st.current.skip){st.current.skip=null;window.speechSynthesis.cancel();return finish();}setTimeout(skipWatch,80);};skipWatch();
@@ -69,20 +76,22 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
     sleep(est,id).then(finish);
   }),[]);// eslint-disable-line
   const waitAnswer=id=>new Promise(res=>{st.current.answer=i=>{st.current.answer=null;res(i);};const w=()=>{if(!alive(id)){st.current.answer=null;return res(null);}if(st.current.answer)setTimeout(w,120);};w();});
+  const waitViewer=async id=>{const t0=performance.now();while(alive(id)&&!viewer.current?.playMoment&&performance.now()-t0<5000)await sleep(100,id);};
   const waitAi=async id=>{const t0=performance.now();while(alive(id)&&!aiRef.current&&performance.now()-t0<9000)await sleep(200,id);};
 
   const run=useCallback(async()=>{
     const id=++st.current.run;st.current.paused=false;setPausedS(false);
     setOutro(false);setQuiz(null);setCaption(null);setCur(null);setCards([]);setCoinsWon(0);
-    if(!await say('准备好了吗？我们一起来看看这场比赛！','excited',id))return;
+    if(!await say('准备好了吗？一起看录像！','excited',id))return;
     if(!aiRef.current){setLine(l=>({text:'博士在看录像…',mood:'thinking',key:l.key+1}));await waitAi(id);if(!alive(id))return;}
     const aiM=mid=>(aiRef.current?.moments||[]).find(x=>x.id===mid);
     if(aiRef.current?.headline&&!await say(aiRef.current.headline,'normal',id))return;
     for(const m of moments){
       const a=aiM(m.id),title=a?.title||titleOf(m);
       setCur(m);setQuiz(null);
-      if(!await say(`来看第${NUM[m.n-1]}个关键时刻：${title}！`,'excited',id))return;
+      if(!await say(`第${NUM[m.n-1]}个关键时刻：${String(title).replace(/[！!。.]+$/,"")}！`,'excited',id))return;
       // slow-mo highlight with the DJ line as a big caption
+      await waitViewer(id);if(!alive(id))return;
       viewer.current?.playMoment?.(m.id);
       if(a?.dj){setCaption(a.dj);if(!sfx.isMuted())sfx.say(speakable(a.dj),'zh-CN',1.2);}
       if(!await sleep(HIGHLIGHT_WALL_MS,id))return;
@@ -90,15 +99,22 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
       if(!await say(a?.explain||fallbackOf(m),'normal',id))return;
       if(a?.quiz){
         setQuiz({m,quiz:a.quiz});
-        if(!await say(`考考你：${a.quiz.q}`,'thinking',id))return;
-        const ans=await waitAnswer(id);if(ans==null||!alive(id))return;
+        // answers count immediately, even while the doctor is still asking
+        let ansNow=null;const ansP=waitAnswer(id).then(v=>{ansNow=v;return v;});
+        const asked=say(`考考你：${a.quiz.q}`,'thinking',id);
+        await Promise.race([asked,ansP]);
+        if(ansNow!=null){st.current.skip=true;await asked;}
+        const ans=ansNow!=null?ansNow:await ansP;if(ans==null||!alive(id))return;
         const right=ans===a.quiz.answer;
+        // instant feedback (before any speech): highlight, sfx, face, stamp, coins
         setQuiz({m,quiz:a.quiz,answer:ans});
-        if(right){sfx.beep(true);addCoins?.(5);setCoinsWon(c=>c+5);}else sfx.beep();
+        if(right){sfx.beep(true);sfx.clang(.25);addCoins?.(5);setCoinsWon(c=>c+5);}else sfx.beep();
+        setStamp({ok:right,key:Date.now()});
         if(a.cardId){unlockCards?.([a.cardId]);setCards(c=>c.includes(a.cardId)?c:[...c,a.cardId]);}
-        const react=right?PRAISE[m.n%PRAISE.length]+'金币 +5！':CHEER[m.n%CHEER.length];
-        if(!await say(`${react}${a.quiz.reveal||''}`,right?'excited':'normal',id))return;
-        if(a.quiz.analogy&&!await say(`🌏 生活里也一样：${a.quiz.analogy}`,'normal',id))return;
+        const react=right?PRAISE[m.n%PRAISE.length]:CHEER[m.n%CHEER.length];
+        const full=`${react}${a.quiz.reveal||''}${a.quiz.analogy?`\n🌏 生活里也一样：${a.quiz.analogy}`:''}`;
+        if(!await say(full,right?'excited':'normal',id,{instant:true,next:true}))return;
+        setStamp(null);
       }else if(a?.cardId){unlockCards?.([a.cardId]);setCards(c=>c.includes(a.cardId)?c:[...c,a.cardId]);}
     }
     setCur(null);setQuiz(null);
@@ -116,6 +132,7 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
   const skip=()=>{if(quiz&&quiz.answer==null)return;st.current.skip=true;if(st.current.paused)togglePause();};
   const toggleMute=()=>{const m=!muted;sfx.setMuted(m);setMutedS(m);if(m)window.speechSynthesis?.cancel();};
   const answer=i=>st.current.answer?.(i);
+  const next=()=>{st.current.skip=true;};
   const shown=line.text.slice(0,typed);
   const waitingQuiz=quiz&&quiz.answer==null;
 
@@ -125,17 +142,19 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
         <div key={line.key} className={`gr-balloon ${line.mood}`}>
           {cur&&<div className="gr-moment">{NUM[cur.n-1]} {(ai?.moments||[]).find(x=>x.id===cur.id)?.title||titleOf(cur)} <small>{cur.time.toFixed(1)} 秒</small>
             <button className="gr-chip" onClick={()=>openFlipbook({moment:{kind:cur.kind,title:titleOf(cur),explain:fallbackOf(cur)}})}>📖 翻开绘本</button></div>}
-          <p>{shown}<span className="gr-caret">{typed<line.text.length?'▍':''}</span></p>
+          <p className={line.text.length>70?'long':''}>{shown}<span className="gr-caret">{typed<line.text.length?'▍':''}</span></p>
           {quiz&&<div className="gr-quiz">
-            {quiz.quiz.options.map((o,i)=>{const done=quiz.answer!=null;return (
-              <button key={i} className={`gr-ans ${done&&i===quiz.quiz.answer?'right':''} ${done&&i===quiz.answer&&i!==quiz.quiz.answer?'wrong':''}`} disabled={done} onClick={()=>answer(i)}><b>{'AB'[i]}</b>{o}</button>);})}
+            {quiz.quiz.options.map((o,i)=>{const done=quiz.answer!=null;if(done&&i!==quiz.answer&&i!==quiz.quiz.answer)return null;return (
+              <button key={i} className={`gr-ans ${done?'small':''} ${done&&i===quiz.quiz.answer?'right':''} ${done&&i===quiz.answer&&i!==quiz.quiz.answer?'wrong':''}`} disabled={done} onClick={()=>answer(i)}><b>{done?(i===quiz.quiz.answer?'✓':'✗'):'AB'[i]}</b>{o}</button>);})}
             {waitingQuiz&&<div className="gr-wait">博士在等你回答～</div>}
           </div>}
+          {nextBtn&&<button className="gr-next" onClick={next}>下一个 ▶</button>}
           {outro&&<div className="gr-outro">
             {(cards.length>0||coinsWon>0)&&<div className="gr-got">{coinsWon>0&&<span className="gr-coin">🪙 +{coinsWon}</span>}{cards.map(c=>{const k=getCard(c);return k&&<span key={c} className="gr-card">📚 {k.title}</span>;})}</div>}
             <div className="gr-outro-btns"><button className="gr-lab" onClick={onNext}>去实验室验证 ▶</button><button className="gr-again" onClick={run}>⟲ 再看一遍</button></div>
           </div>}
         </div>
+        {stamp&&<div key={stamp.key} className={`gr-stamp ${stamp.ok?'ok':'no'}`}>{stamp.ok?<>答对了！<b>+5🪙</b></>:'差一点！'}</div>}
         <div className={`gr-doctor mood-${line.mood}`}><DoctorFace mood={line.mood==='excited'?'excited':line.mood==='thinking'?'thinking':'normal'} size={240}/></div>
         <div className="gr-ctrl">
           <button onClick={togglePause} title={paused?'继续':'暂停'}>{paused?'▶':'⏸'}</button>
@@ -145,8 +164,7 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
         </div>
       </div>
       <div className="gr-stage" ref={boxRef}>
-        {boxH>0&&<ReplaySlot ref={viewer} height={Math.max(180,boxH-150)} beys={[myBey,opp.bey]} samples={decisive.samples} events={decisive.events}
-          moments={moments.map(m=>({id:m.id,time:m.time,title:(ai?.moments||[]).find(x=>x.id===m.id)?.title||titleOf(m)}))}/>}
+        {boxH>0&&<ReplaySlot ref={viewer} height={Math.max(180,boxH-150)} beys={beys} samples={decisive.samples} events={decisive.events} moments={rvMoments}/>}
         {caption&&<div className="gr-caption"><span>🎙</span>{caption}</div>}
       </div>
     </div>
