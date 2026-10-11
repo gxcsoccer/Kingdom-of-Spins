@@ -335,6 +335,83 @@ export function templateExperiment({names=['A','B'], variable={}, prediction=nul
   return {verdict, conclusion: conclusion.slice(0,90), why: VAR_WHY[cardId] || VAR_WHY['sm-control'], repeatLesson, predictionFeedback, cardId, nextIdea:`下次只${next[1]}，其他都不变，看看会怎样？`, fallback:true};
 }
 
+// ── AI 科学绘本 (flipbook) ── page shape shared by worker + client.
+export const FLIP_STYLE = "Japanese shonen manga illustration, bold black ink lines, screentone shading, dynamic speed lines, white paper background, children's science book, no text, no letters, no speech bubbles";
+// Visual recipe per card for the template fallback (flux can't draw words, so only things to look at).
+const FLIP_ART = {
+  'ph-inertia':'a spinning top seen from above with heavy metal weights glowing on its outer ring, motion blur circles, arrows curving around the rim',
+  'ph-figure-skater':'a figure skater spinning on ice pulling arms in close, swirl lines around her, a spinning top beside her mirroring the pose',
+  'ph-friction-area':'three spinning tops side by side, one with a sharp needle tip, one with a round ball tip, one with a flat tip, close-up of the tips touching the floor with small friction sparks',
+  'ph-needle':'close-up of a sharp needle tip of a spinning top touching the floor at a single point, calm circular motion lines',
+  'ph-flat':'a spinning top with a flat tip racing across a bowl-shaped arena leaving a curved trail, speed lines',
+  'ph-momentum':'two spinning tops colliding head on, the heavier one pushing the lighter one away, impact star burst',
+  'ph-energy-convert':'two spinning tops crashing with bright sparks, wobble lines and sound wave rings flying out',
+  'ph-gyro-stability':'a fast spinning top standing upright while a giant hand of gravity tries to push it, the top only circles slowly',
+  'ph-precession':'a tilted spinning top whose axis traces a slow circle, dotted circular path above it',
+  'ph-tilt-fall':'a slowing spinning top wobbling and leaning more and more, sequence of three poses from upright to falling',
+  'ph-com-height':'two spinning tops, one tall and one short, a dot marking the center of gravity in each, the tall one tipping when bumped',
+  'bx-xdash':'a spinning top whose gear tip bites into a toothed rail on the arena edge and dashes forward with speed lines',
+  'bx-three-parts':'an exploded view of a battle spinning top: blade on top, ratchet in the middle, bit tip at the bottom, floating apart',
+  'sm-control':'a young scientist at a lab bench comparing two identical spinning tops, only one part different, magnifying glass',
+};
+const FLIP_TAGS_ART = t => /碰撞|撞/.test(t) ? FLIP_ART['ph-momentum'] : /摩擦|bit|轴/.test(t) ? FLIP_ART['ph-friction-area'] : FLIP_ART['ph-inertia'];
+const FLIP_HOTSPOTS = [
+  {x:.5, y:.78, label:'轴尖', hint:'tip touching the floor — friction & contact area'},
+  {x:.78, y:.4, label:'外圈', hint:'outer ring — moment of inertia'},
+  {x:.5, y:.42, label:'中心', hint:'center axis — angular momentum & stability'},
+  {x:.25, y:.3, label:'火花', hint:'sparks / impact — energy conversion'},
+];
+const pageId = s => 'pg-' + shortHash(String(s));
+const num01 = (v, d) => { const n = +v; return Number.isFinite(n) ? Math.max(.04, Math.min(.96, n)) : d; };
+export function sanitizePage(raw={}, fallbackCardId='ph-inertia') {
+  const card = getCard(raw.cardId) || getCard(fallbackCardId) || getCard('ph-inertia');
+  const panels = (Array.isArray(raw.panels) ? raw.panels : []).slice(0,4).map((p,i)=>({
+    text: clean(String(p?.text||'')).slice(0,56), kind: ['caption','bubble','label'].includes(p?.kind) ? p.kind : (i===0?'caption':'bubble'),
+    x: num01(p?.x, [.06,.62,.08,.6][i]), y: num01(p?.y, [.06,.12,.74,.78][i]),
+  })).filter(p=>p.text);
+  if (!panels.length) panels.push({text:card.body.slice(0,50), kind:'caption', x:.06, y:.06});
+  const hotspots = (Array.isArray(raw.hotspots) ? raw.hotspots : []).slice(0,4).map((h,i)=>({
+    x: num01(h?.x, FLIP_HOTSPOTS[i%4].x), y: num01(h?.y, FLIP_HOTSPOTS[i%4].y),
+    label: clean(String(h?.label||FLIP_HOTSPOTS[i%4].label)).slice(0,6), hint: String(h?.hint||'').slice(0,160),
+  }));
+  while (hotspots.length < 3) hotspots.push({...FLIP_HOTSPOTS[hotspots.length]});
+  // Keep caption boxes (≈40%×16% of the frame) off the tappable hotspots: move overlapping ones to a free corner.
+  const covers = (p, h) => h.x >= p.x-.03 && h.x <= p.x+.43 && h.y >= p.y-.03 && h.y <= p.y+.19;
+  const corners = [[.04,.04],[.56,.04],[.04,.78],[.56,.78],[.04,.42],[.56,.42]];
+  for (const p of panels) {
+    if (!hotspots.some(h=>covers(p,h))) continue;
+    const spot = corners.find(([x,y])=>{ const q={x,y}; return !hotspots.some(h=>covers(q,h)) && !panels.some(o=>o!==p && Math.abs(o.x-x)<.3 && Math.abs(o.y-y)<.15); });
+    if (spot) { p.x = spot[0]; p.y = spot[1]; }
+  }
+  // Strip anything that would make flux draw words.
+  let imagePrompt = String(raw.imagePrompt||'').replace(/["“”「」]/g,'').replace(/\b(?:no|without)\s+(?:any\s+)?(?:text|letters?|words?|labels?|captions?|numbers?|speech bubbles?)\b\s*,?/gi,'').replace(/\b(text|caption|label|title|letters?|words?|speech bubbles?)\b[^,.]*/gi,'').replace(/(,\s*)+/g,', ').replace(/^[,\s]+|[,\s]+$/g,'').slice(0,700).trim();
+  if (imagePrompt.length < 20) imagePrompt = FLIP_ART[card.id] || FLIP_TAGS_ART(card.tags.join(' '));
+  const title = clean(String(raw.title||card.title)).slice(0,14);
+  return {id: pageId(title + imagePrompt), title, panels, imagePrompt, hotspots, cardId: card.id, layer: card.layer};
+}
+// Deterministic page for a card (used when Claude is unavailable).
+export function templateFlipPage({cardId, topic='', from=null}={}) {
+  const card = getCard(cardId) || relevantCards(topic, 1)[0] || getCard('ph-inertia');
+  const parts = card.body.split(/(?<=[。！？])/).filter(Boolean);
+  return sanitizePage({
+    title: card.title, cardId: card.id, imagePrompt: FLIP_ART[card.id] || FLIP_TAGS_ART(card.tags.join(' ')),
+    panels: [
+      {text: from ? `你点了「${from}」！` + (parts[0]||'') : (parts[0]||card.body), kind:'caption', x:.05, y:.05},
+      ...(parts[1] ? [{text: parts.slice(1).join('').slice(0,50), kind:'bubble', x:.56, y:.72}] : []),
+    ],
+    hotspots: FLIP_HOTSPOTS.slice(0,3),
+  }, card.id);
+}
+// Map a tapped hotspot (by its hint/label) to the next card for the template path.
+export function templateFlipTap(page={}, x=.5, y=.5) {
+  const hs = page.hotspots?.length ? page.hotspots : FLIP_HOTSPOTS;
+  const near = hs.slice().sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
+  const t = `${near.label} ${near.hint}`;
+  const next = /轴尖|tip|friction|摩擦/i.test(t) ? 'ph-friction-area' : /外圈|ring|inertia|惯量/i.test(t) ? (page.cardId==='ph-inertia'?'ph-figure-skater':'ph-inertia')
+    : /火花|spark|energy|能量|撞/i.test(t) ? 'ph-energy-convert' : /中心|axis|stab|角动量/i.test(t) ? (page.cardId==='ph-gyro-stability'?'ph-precession':'ph-gyro-stability') : 'ph-momentum';
+  return templateFlipPage({cardId: next===page.cardId ? 'ph-energy-loss' : next, from: near.label});
+}
+
 // ── Free question ──
 export function templateAsk(question='') {
   const cards = relevantCards(question, 2);

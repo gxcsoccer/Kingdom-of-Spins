@@ -1,0 +1,43 @@
+/* AI 科学绘本 — full-screen manga reader */
+.flipbook{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;background:
+  repeating-linear-gradient(-62deg,transparent 0 46px,rgba(255,255,255,.035) 46px 48px),radial-gradient(circle at 50% 40%,#2a2a33,#0d0d10 70%);color:#fff;overflow:hidden}
+.fb-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px clamp(12px,3vw,28px)}
+.fb-top .btn{color:var(--ink)}
+.fb-brand{font-family:var(--display);font-weight:900;font-size:26px;color:#fff;-webkit-text-stroke:2px var(--ink);paint-order:stroke fill;text-shadow:3px 3px 0 var(--red)}
+.fb-stage{flex:1;min-height:0;display:grid;place-items:center;padding:0 12px;perspective:1800px}
+.fb-page{position:relative;height:100%;max-height:100%;display:flex;flex-direction:column;align-items:center;gap:8px;transform-origin:left center}
+.fb-turn{animation:fbTurn .6s cubic-bezier(.2,.8,.25,1) both}
+@keyframes fbTurn{0%{transform:rotateY(-75deg) translateX(-4%);opacity:0;filter:brightness(.6)}60%{opacity:1}100%{transform:none;filter:none}}
+.fb-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+.fb-title h2{margin:0;font-family:var(--display);font-weight:900;font-size:clamp(24px,3.6vw,40px);color:var(--yellow);-webkit-text-stroke:2.5px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--ink);transform:rotate(-1.5deg)}
+.fb-tapped{background:var(--red);border:2px solid #fff;padding:2px 10px;font-weight:900;font-size:14px;transform:rotate(-4deg)}
+.fb-art{position:relative;aspect-ratio:1/1;height:min(100%,calc(100vh - 250px));max-width:calc(100vw - 24px);border:6px solid #111;outline:3px solid #fff;box-shadow:10px 10px 0 rgba(0,0,0,.6);background:#fbf8f1;cursor:crosshair;overflow:hidden;flex:1 1 auto}
+.fb-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:fbFade .7s ease both;user-select:none}
+@keyframes fbFade{from{opacity:0;filter:contrast(2) grayscale(1)}to{opacity:1;filter:none}}
+.fb-shimmer{position:absolute;inset:0;display:grid;place-items:center;background:var(--tone),linear-gradient(110deg,#efe9dc 30%,#fff 50%,#efe9dc 70%);background-size:7px 7px,300% 100%;animation:fbShim 1.4s linear infinite;color:#111;font-weight:900}
+@keyframes fbShim{to{background-position:0 0,-150% 0}}
+.fb-panel{position:absolute;max-width:42%;padding:8px 12px;font-weight:800;font-size:clamp(13px,1.5vw,17px);line-height:1.4;color:#111;background:#fff;border:3px solid #111;box-shadow:4px 4px 0 #111;animation:fbPop .4s cubic-bezier(.2,1.5,.4,1) both;pointer-events:none;z-index:2}
+.fb-panel.caption{background:#fffbe6;border-radius:0;font-family:var(--display)}
+.fb-panel.bubble{border-radius:20px}
+.fb-panel.label{background:var(--yellow);font-size:13px;padding:3px 8px;transform:rotate(-3deg)}
+@keyframes fbPop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+.fb-hot{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;animation:fbFadeIn .5s ease both;z-index:3}
+.fb-hot i{width:34px;height:34px;border-radius:50%;border:3px solid #ffd400;box-shadow:0 0 0 3px rgba(17,17,17,.7),0 0 18px #ffd400;animation:fbPulse 1.4s ease-in-out infinite}
+.fb-hot span{background:#111;color:#ffd400;font-weight:900;font-size:12px;padding:1px 7px;border:1.5px solid #ffd400;white-space:nowrap}
+@keyframes fbPulse{50%{transform:scale(1.25);box-shadow:0 0 0 3px rgba(17,17,17,.7),0 0 30px #ffd400}}
+@keyframes fbFadeIn{from{opacity:0}to{opacity:1}}
+.fb-tap{position:absolute;width:60px;height:60px;margin:-30px 0 0 -30px;border:5px solid #ff1a1a;border-radius:50%;animation:fbTap .6s ease-out infinite;z-index:4;pointer-events:none}
+@keyframes fbTap{from{transform:scale(.4);opacity:1}to{transform:scale(1.6);opacity:0}}
+.fb-wait{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:#fff;color:#111;border:3px solid #111;box-shadow:4px 4px 0 #111;padding:8px 14px;z-index:5;font-family:var(--display)}
+.fb-doodle{width:42px;height:42px;border-radius:50%;border:4px solid #111;border-top-color:var(--red);border-right-color:var(--yellow);animation:spinslow .7s linear infinite}
+.fb-doodle.small{width:26px;height:26px;border-width:3px}
+.fb-loading{justify-content:center;gap:14px;font-family:var(--display);font-size:20px}
+.fb-hint{font-weight:800;font-size:14px;opacity:.85}
+.fb-strip{display:flex;gap:10px;overflow-x:auto;padding:10px clamp(12px,3vw,28px) 6px;scrollbar-width:thin}
+.fb-thumb{flex:none;width:96px;display:flex;flex-direction:column;gap:3px;padding:0;border:3px solid #444;background:#1b1b20;color:#fff;text-align:left}
+.fb-thumb.on{border-color:var(--yellow);transform:translateY(-3px)}
+.fb-thumb img,.fb-thumb-ph{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:var(--tone),#efe9dc}
+.fb-thumb-t{font-size:11px;font-weight:800;padding:0 4px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fb-note{font-size:11px;opacity:.6;text-align:center;padding:0 12px 8px}
+@media (max-width:700px){.fb-panel{max-width:60%;font-size:12px}.fb-art{height:auto;width:calc(100vw - 24px)}}
+.fb-shimmer.still{animation:none}

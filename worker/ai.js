@@ -4,17 +4,17 @@
 // 3) Workers AI gpt-oss-120b → 4) deterministic template (in each route). Each step falls back on error.
 import Anthropic from '@anthropic-ai/sdk';
 // Every route returns a deterministic template fallback when the model fails or times out.
-import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard} from '../src/ai/fallback.js';
+import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE} from '../src/ai/fallback.js';
 import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 
 export const MODEL = globalThis.process?.env?.AI_MODEL || '@cf/openai/gpt-oss-120b';
 // Per-route budgets: Claude gets CLAUDE_MS, the Workers AI fallback gets TIMEOUT_MS after that.
-const TIMEOUT_MS = {fusion:20000, commentary:12000, ask:10000, moments:12000, experiment:12000, sketch:25000};
-const CLAUDE_MS = {fusion:22000, sketch:28000, moments:18000, experiment:12000, commentary:12000, ask:10000};
+const TIMEOUT_MS = {flip:10000, fusion:20000, commentary:12000, ask:10000, moments:12000, experiment:12000, sketch:25000};
+const CLAUDE_MS = {flip:20000, fusion:22000, sketch:28000, moments:18000, experiment:12000, commentary:12000, ask:10000};
 // Model split: quality/vision routes use the smart model, live-feedback routes use the fast one.
 // moments is on the smart model: Haiku's quizzes/analogies were physically wrong in tests (Sonnet ~13 s, correct).
-const SMART_KINDS = new Set(['fusion','sketch','moments']);
+const SMART_KINDS = new Set(['fusion','sketch','moments','flip']);
 export const modelFor = (env, kind) => SMART_KINDS.has(kind) ? (env?.LLM_MODEL_SMART || env?.LLM_MODEL || 'anthropic/claude-sonnet-5.5') : (env?.LLM_MODEL_FAST || 'anthropic/claude-haiku-5.5');
 export const CF_CLAUDE_MODEL = 'anthropic/claude-sonnet-5.5';
 export const CLAUDE_MODEL = 'claude-sonnet-5-5';
@@ -365,6 +365,74 @@ ${cards.map(c=>`- ${c.id} ${c.title}：${c.body}`).join('\n')}
   }
 }
 
+// ── AI 科学绘本 ──
+const FLIP_SYSTEM = `你是“融合博士”，在给一个 10 岁的孩子做一本可以点来点去的漫画科学绘本，主题是陀螺（Beyblade X）和它背后的物理。
+每一页：一个大画面（由图像模型画，画里不能有任何文字）+ 叠在画上的中文对白框 + 3~4 个画里可以点的“好奇点”。
+写作要求：中文，短句，热血漫画语气，讲清楚一个知识点；内容必须物理正确，只依据给出的知识卡和硬规则；只有说到游戏里的模拟时才说“在这个模型里”。
+${MODEL_RULES}
+只输出 JSON。`;
+const FLIP_SCHEMA = `{"title":"外圈越重越稳","panels":[{"text":"看！配重都跑到外圈去了！","kind":"caption","x":0.05,"y":0.05},{"text":"重量离中心越远，陀螺越难被弄停。","kind":"bubble","x":0.6,"y":0.72}],"imagePrompt":"a battle spinning top seen from above, heavy metal weights glowing on its outer rim, curved arrows around the rim, a small figure skater with arms stretched out in the corner","hotspots":[{"x":0.8,"y":0.45,"label":"外圈配重","hint":"outer rim weights: mass far from the axis raises moment of inertia"},{"x":0.5,"y":0.5,"label":"中心轴","hint":"spin axis: angular momentum points along it"},{"x":0.15,"y":0.8,"label":"滑冰手","hint":"figure skater: arms out = spins slower, arms in = faster"}],"cardId":"ph-inertia"}`;
+const FLIP_FIELDS = `字段要求：title≤12字；panels 2~4 个，text≤50字，kind 为 caption/bubble/label；imagePrompt 用英文描述一幅能“看懂”这个知识的漫画画面（具体物体、箭头、动作线、人物），绝不要求画任何文字、字母、数字、标签或对话框；hotspots 3~4 个，label≤6字，hint 用英文写“这是什么+背后更深的知识”；cardId 从知识卡选。上面只是格式示例，内容要按本页主题重写。`;
+const FLIP_LAYOUT = `布局：panels 2~4 个，x,y 是对白框左上角在画面中的位置（0~1），放在画面边角、别挡住 hotspots；hotspots 3~4 个，坐标指向 imagePrompt 里画出来的具体物体（比如轴尖、外圈配重、火花、齿轨），彼此分开。`;
+function flipCards(text, extra=[]) {
+  const ids = new Set([...relevantCards(text, 6).map(c=>c.id), ...extra, 'ph-inertia','ph-friction-area','ph-energy-convert','ph-gyro-stability']);
+  return [...ids].map(getCard).filter(Boolean).slice(0,10);
+}
+async function flipStart(body, env) {
+  const card = getCard(body.cardId);
+  const bey = body.bey && typeof body.bey==='object' ? body.bey : null;
+  const mom = body.moment && typeof body.moment==='object' ? body.moment : null;
+  const topic = String(body.topic||'').slice(0,80);
+  const seed = card ? card.title+' '+card.tags.join(' ') : topic || (mom ? `${mom.kind} ${mom.title||''}` : bey ? `${bey.type} ${bey.bit}` : '陀螺 结构');
+  const fallback = () => templateFlipPage({cardId: card?.id, topic: seed});
+  const cards = flipCards(seed, card ? [card.id] : []);
+  const ctx = [
+    card && `从这张知识卡开始：${card.id} ${card.title}：${card.body}`,
+    topic && `孩子想了解：${topic}`,
+    bey && `孩子的陀螺：${bey.name}（${STYLE_ZH[bey.blade?.style]||''}，翼${bey.blade?.wings}片，外圈配重${bey.blade?.ring}%，Bit ${bey.bit}，Ratchet ${bey.ratchet?.prongs}-${bey.ratchet?.height}），从它身上的一个物理知识讲起`,
+    mom && `刚才对战回放里的一个时刻：${mom.title||mom.kind}，${mom.explain||''}`,
+  ].filter(Boolean).join('\n') || '从“陀螺为什么能一直转”讲起';
+  const user = `${ctx}
+知识卡：
+${cardLines(cards)}
+${FLIP_LAYOUT}
+写绘本的第一页。\n${FLIP_FIELDS}\n只输出 JSON，格式示例：${FLIP_SCHEMA}`;
+  try {
+    const out = await llm(env, {system:FLIP_SYSTEM, user, maxTokens:900, kind:'flip'});
+    return json({page: sanitizePage(out, card?.id || cards[0]?.id), via: out.__via, aiNote: out.__note||undefined});
+  } catch (e) { return json({page: fallback(), fallback:true, error:String(e.message||e).slice(0,200)}); }
+}
+async function flipTap(body, env) {
+  const page = body.page || {}, x = Math.max(0, Math.min(1, +body.x||.5)), y = Math.max(0, Math.min(1, +body.y||.5));
+  const trail = (Array.isArray(body.trail) ? body.trail : []).slice(-8).map(String);
+  const fallback = () => templateFlipTap(page, x, y);
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.imageDataUrl||''));
+  const cards = flipCards(`${page.title} ${(page.hotspots||[]).map(h=>h.label+' '+h.hint).join(' ')}`, [page.cardId].filter(Boolean));
+  const user = `这是绘本的当前页（画面上的红圈 = 孩子刚点的位置，坐标 x=${x.toFixed(2)}, y=${y.toFixed(2)}）。
+当前页 JSON：${JSON.stringify({title:page.title, panels:(page.panels||[]).map(p=>p.text), hotspots:page.hotspots, cardId:page.cardId, imagePrompt:page.imagePrompt})}
+已经看过的页：${trail.join(' → ') || '（无）'}
+先判断孩子点的是画里的什么东西（结合画面和 hotspots；点到空白处就选最近的 hotspot），然后写下一页：沿着这个东西往更深一层或相关的知识走（例如点轴尖→摩擦和接触面积；点外圈→转动惯量→花样滑冰；点火花→碰撞中的能量转换；点齿轨→X 冲刺）。不要重复已经看过的页。第一个 panel 用一句话回应“你点的是…”。
+知识卡：
+${cardLines(cards)}
+${FLIP_LAYOUT}
+${FLIP_FIELDS} 另加 tapped 字段：孩子点的东西（≤8字）。
+只输出 JSON，格式示例：${FLIP_SCHEMA.replace('{"title"','{"tapped":"外圈配重","title"')}`;
+  try {
+    const out = await llm(env, {system:FLIP_SYSTEM, user, images: m ? [{mediaType:m[1], data:m[2]}] : [], maxTokens:900, kind:'flip'});
+    return json({page: sanitizePage(out, cards[0]?.id), tapped: String(out.tapped||'').slice(0,10), via: out.__via, aiNote: out.__note||undefined});
+  } catch (e) { return json({page: fallback(), fallback:true, error:String(e.message||e).slice(0,200)}); }
+}
+async function flipImage(body, env) {
+  const prompt = String(body.prompt||'').slice(0,800);
+  if (!prompt) return json({error:'empty prompt'}, 400);
+  if (!env?.AI) return json({error:'no image model'}, 503);
+  try {
+    const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-1-schnell', {prompt:`${prompt}. ${FLIP_STYLE}`, steps:4}), 20000);
+    if (!r?.image) throw new Error('no image');
+    return json({image:`data:image/jpeg;base64,${r.image}`});
+  } catch (e) { return json({error:String(e.message||e).slice(0,200)}, 502); }
+}
+
 async function ask(body, env) {
   const question = String(body.question||'').slice(0,200);
   if (!question) return json({error:'empty question'}, 400);
@@ -405,6 +473,9 @@ export async function handle(request, env) {
     if (path.endsWith('/moments')) return json(templateMoments(body.summary||{}, body.moments||[], body.names));
     if (path.endsWith('/experiment')) return json(templateExperiment(body));
     if (path.endsWith('/sketch')) return json({needKey:true, error:'需要家长开启高级 AI'}, 503);
+    if (path.endsWith('/flip/start')) return json({page:templateFlipPage({cardId:body.cardId, topic:body.topic}), fallback:true});
+    if (path.endsWith('/flip/tap')) return json({page:templateFlipTap(body.page||{}, body.x, body.y), fallback:true});
+    if (path.endsWith('/flip/image')) return json({error:'no image model'}, 503);
   }
   if (path.endsWith('/fusion/chat')) return fusionChat(body, env);
   if (path.endsWith('/commentary')) return commentary(body, env);
@@ -412,6 +483,9 @@ export async function handle(request, env) {
   if (path.endsWith('/moments')) return moments(body, env);
   if (path.endsWith('/experiment')) return experiment(body, env);
   if (path.endsWith('/sketch')) return sketch(body, env);
+  if (path.endsWith('/flip/start')) return flipStart(body, env);
+  if (path.endsWith('/flip/tap')) return flipTap(body, env);
+  if (path.endsWith('/flip/image')) return flipImage(body, env);
   return json({error:'not found'}, 404);
 }
 export {CARDS};
