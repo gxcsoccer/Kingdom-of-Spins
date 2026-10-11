@@ -74,11 +74,14 @@ export function FrictionLab({onDone}) {
   );
 }
 
-// ③ 碰撞：一维弹性碰撞，B 原本静止：vA' = (mA−mB)/(mA+mB)·v，vB' = 2mA/(mA+mB)·v。
+// ③ 碰撞：一维碰撞（恢复系数 e），B 原本静止：vA' = (mA−e·mB)/(mA+mB)·v，vB' = (1+e)·mA/(mA+mB)·v；动量守恒，动能按 e 损失。
 export function MomentumLab({onDone}) {
   const [mA, setMA] = useState(30), [mB, setMB] = useState(45);
   const [st, setSt] = useState(null);
-  const v = 1, vA = (mA-mB)/(mA+mB)*v, vB = 2*mA/(mA+mB)*v;
+  // Restitution e<1: spinning-top hits lose energy (sound, heat, wobble). e≈0.7 is a plausible plastic-on-plastic value.
+  const [e, setE] = useState(.7);
+  const v = 1, vA = (mA-e*mB)/(mA+mB)*v, vB = (1+e)*mA/(mA+mB)*v;
+  const pBefore = mA*v, pAfter = mA*vA + mB*vB, keep = (mA*vA*vA + mB*vB*vB)/(mA*v*v);
   useLoop(!!st?.running, dt => setSt(s => { const t = s.t + dt; const hit = .35;
     const xa = t < hit ? .1 + v*t*.9 : .1 + v*hit*.9 + vA*(t-hit)*.9, xb = t < hit ? .5 : .5 + vB*(t-hit)*.9;
     const running = t < 1.6; if (!running) onDone?.(); return {t, xa, xb, running, hitShown: t >= hit}; }));
@@ -86,7 +89,7 @@ export function MomentumLab({onDone}) {
   return (
     <div className="xp">
       <div className="xp-arena">
-        <span className="xp-ball a" style={{left:`${(st?.xa ?? .1)*100}%`, width:size(mA), height:size(mA)}}>A</span>
+        <span className="xp-ball a" style={{left:`${Math.max(2,Math.min(96,(st?.xa ?? .1)*100))}%`, width:size(mA), height:size(mA)}}>A</span>
         <span className="xp-ball b" style={{left:`${Math.min(96,(st?.xb ?? .5)*100)}%`, width:size(mB), height:size(mB)}}>B</span>
         {st?.hitShown && <span className="xp-boom">ガキン！</span>}
       </div>
@@ -94,9 +97,11 @@ export function MomentumLab({onDone}) {
         <label>A 的重量 {mA} g<input type="range" min="20" max="60" value={mA} onChange={e=>{setMA(+e.target.value); setSt(null);}}/></label>
         <label>B 的重量 {mB} g<input type="range" min="20" max="60" value={mB} onChange={e=>{setMB(+e.target.value); setSt(null);}}/></label>
       </div>
-      <div className="xp-read big">撞完：A 的速度 {vA>=0?'向前':'弹回'} {Math.abs(vA).toFixed(2)} · B 的速度 {vB.toFixed(2)}（撞前 A = 1.00）</div>
+      <label className="xp-sliders one"><span>碰撞有多“弹”（恢复系数 e）{e.toFixed(1)}{e>=.99?' · 完全弹性':e<=.01?' · 粘在一起':''}</span><input type="range" min="0" max="1" step=".1" value={e} onChange={x=>{setE(+x.target.value);setSt(null);}}/></label>
+      <div className="xp-read big">撞完：A {vA>=0?'向前':'弹回'} {Math.abs(vA).toFixed(2)} · B 被撞出 {vB.toFixed(2)}（撞前 A = 1.00）</div>
+      <div className="xp-read">动量 撞前 {pBefore.toFixed(0)} = 撞后 {pAfter.toFixed(0)} ✓ 守恒 · 动能剩下 {Math.round(keep*100)}%（其余变成声音、热和晃动）</div>
       <button className="btn primary big" disabled={st?.running} onClick={()=>setSt({t:0, running:true})}>💥 撞！</button>
-      <Note>小模型：一维弹性碰撞，B 原来不动。真实陀螺还会转、会晃，能量也会损失一部分。</Note>
+      <Note>小模型：一维正碰，B 原来不动；动量 = 质量 × 速度，撞前撞后总动量不变。真实陀螺还在旋转、会斜着撞，游戏对战里用的是完整的三维刚体物理。</Note>
     </div>
   );
 }
@@ -105,9 +110,9 @@ export function MomentumLab({onDone}) {
 export function PrecessionLab({onDone}) {
   const [rpm, setRpm] = useState(4000);
   const [phi, setPhi] = useState(0);
-  const fall = rpm < 1000, omega = rpm*Math.PI/30, Om = 0.042*9.81*0.012/(2.1e-5*omega);   // rad/s
+  const fall = rpm < 350, omega = rpm*Math.PI/30, Om = 0.042*9.81*0.012/(2.1e-5*omega);   // rad/s
   useLoop(true, dt => { setPhi(p=>p + (fall ? 0 : Om*dt)); });
-  useEffect(()=>{ if (rpm<=1500) onDone?.(); }, [rpm]);   // eslint-disable-line
+  useEffect(()=>{ if (rpm<=800) onDone?.(); }, [rpm]);   // eslint-disable-line
   const tilt = fall ? 70 : 15, cx = 100 + Math.sin(phi)*40*Math.sin(tilt*Math.PI/180)*2, cy = 40 + (fall ? 50 : 0);
   return (
     <div className="xp">
@@ -118,8 +123,8 @@ export function PrecessionLab({onDone}) {
         <ellipse cx={(100+cx)/2+ (cx-100)*.15} cy={(128+cy)/2 - 10} rx="32" ry="9" fill="#c6a8ff" stroke="#111" strokeWidth="3" transform={`rotate(${(cx-100)*.6} ${(100+cx)/2} ${(128+cy)/2-10})`}/>
         {fall && <text x="100" y="30" textAnchor="middle" fontSize="16" fontWeight="900" fill="#ff2d4a">倒下啦！</text>}
       </svg>
-      <label className="xp-sliders one">转速 {rpm} 转/分<input type="range" min="500" max="7000" step="100" value={rpm} onChange={e=>setRpm(+e.target.value)}/></label>
-      <div className="xp-read big">{fall ? '转得太慢，角动量不够，扛不住重力了。' : `画一圈要 ${(2*Math.PI/Om).toFixed(1)} 秒 —— 转得越快，画圈越慢、越稳。`}</div>
+      <label className="xp-sliders one">转速 {rpm} 转/分<input type="range" min="200" max="7000" step="50" value={rpm} onChange={e=>setRpm(+e.target.value)}/></label>
+      <div className="xp-read big">{fall ? '转得太慢（低于 350 转），角动量太小，扛不住重力的推倒——倒了！' : `画一圈要 ${(2*Math.PI/Om).toFixed(1)} 秒 —— 转得越快，画圈越慢、越稳。`}</div>
       <Note>小模型：进动角速度 = 重力力矩 ÷ 角动量；1000 转/分以下当作“倒下”。</Note>
     </div>
   );
@@ -128,7 +133,7 @@ export function PrecessionLab({onDone}) {
 // ⑤ 潮汐：两个水鼓包朝着/背着月亮；港口水位 ∝ cos 2(θ港 − θ月)；太阳同向时（大潮）振幅更大。
 export function TidesLab({onDone}) {
   const [hour, setHour] = useState(6), [spring, setSpring] = useState(true);
-  const moon = 0, harbor = hour/24*2*Math.PI, amp = spring ? 1 : .55;
+  const moon = 0, harbor = hour/24*2*Math.PI, amp = spring ? 1 : .37;   // 大潮 ∝ 月+日(1+0.46)，小潮 ∝ 月−日(1−0.46)：约 2.7 : 1
   const level = amp*Math.cos(2*(harbor-moon));
   const seen = useRef(new Set()); useEffect(()=>{ seen.current.add(level>.4?'hi':level<-.4?'lo':''); if (seen.current.has('hi')&&seen.current.has('lo')) onDone?.(); }, [level]);   // eslint-disable-line
   const R = 40, bul = 10*amp, hx = 100 + (R+4)*Math.cos(harbor), hy = 75 - (R+4)*Math.sin(harbor);
