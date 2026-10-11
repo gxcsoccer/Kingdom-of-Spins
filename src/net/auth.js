@@ -52,3 +52,14 @@ export const loadSave = kidId => safe(async sb => {
 
 export const writeSave = (kidId, data) => safe(sb =>
   sb.from('saves').upsert({kid_id: kidId, data, updated_at: new Date().toISOString()}).select('updated_at').single());
+
+// Whether an OAuth provider is enabled on the Supabase project (public settings endpoint). Cached.
+let settingsPromise = null;
+export async function providerEnabled(name = 'google') {
+  if (!isConfigured()) return false;
+  settingsPromise ??= fetch(`${SUPABASE_URL}/auth/v1/settings`, {headers: {apikey: SUPABASE_ANON_KEY}})
+    .then(r => (r.ok ? r.json() : null)).catch(() => null);
+  const s = await settingsPromise;
+  if (!s) settingsPromise = null; // retry next time on network failure
+  return Boolean(s?.external?.[name]);
+}

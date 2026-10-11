@@ -7,7 +7,9 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test scripts/*.test.mjs"
+    "test": "node --test scripts/*.test.mjs",
+    "worker:dev": "wrangler dev --port 8787",
+    "deploy": "vite build && wrangler deploy"
   },
   "dependencies": {
     "@mujoco/mujoco": "3.15.0",

@@ -13,24 +13,10 @@ import {DoctorFace} from './MapScreen.jsx';
 import LaunchGauge from './LaunchGauge.jsx';
 import './battle.css';
 
-export const STYLES={
-  charge:{label:'正面冲撞',desc:'直线冲向中间，主动找对手撞',launch:{speed:.45,aim:.3,tilt:6}},
-  orbit:{label:'绕场游走',desc:'沿着场地绕圈，速度快',launch:{speed:.42,aim:.85,tilt:4}},
-  center:{label:'稳稳放中间',desc:'轻轻放下，保存转速',launch:{speed:.12,aim:.5,tilt:2}},
-};
+import {STYLES,cpuLaunch,playerLaunch} from '../game/launch.js';
+export {STYLES,cpuLaunch,playerLaunch};
 const PREDICT=[{id:'ko',label:'把对手撞出界（OVER / XTREME）',match:r=>r==='over'||r==='xtreme'},{id:'spin',label:'比谁转得久（SPIN / 判定）',match:r=>r==='spin'||r==='judge'},{id:'lose',label:'我觉得会输……',match:null}];
 const REWARD={normal:[120,60],pro:[160,80],super:[220,100],boss:[400,150]};
-
-// Deterministic jitter from a string seed so CPU launches vary per round but replay identically.
-function rng(seed){let h=2166136261;for(const c of seed)h=Math.imul(h^c.charCodeAt(0),16777619);return()=>{h=Math.imul(h^(h>>>15),2246822507);h=Math.imul(h^(h>>>13),3266489909);return((h^=h>>>16)>>>0)/4294967296;};}
-export function cpuLaunch(base,seed){
-  const r=rng(seed);
-  return {rpm:(base.rpm||4800)+(r()-.5)*600,tilt:Math.max(0,(base.tilt||5)+(r()-.5)*3),speed:Math.max(.05,(base.speed||.35)+(r()-.5)*.12),aim:Math.max(-1,Math.min(1,(base.aim??.5)+(r()-.5)*.3)),angle:(r()-.5)*.6};
-}
-export function playerLaunch(style,power,round){
-  const s=STYLES[style]||STYLES.charge, over=power>.95;
-  return {...s.launch,rpm:3000+3900*Math.min(power,.95)/.95,tilt:s.launch.tilt+(over?9:0),angle:Math.PI+((round*37)%11-5)*.04};
-}
 
 export default function BattleScreen(){
   const {save,params,go,recordMatch,unlockCards,recruit}=useGame();

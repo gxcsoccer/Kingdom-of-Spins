@@ -2,7 +2,7 @@ import {DT,VERSION,TIPS,floorHeight,makePart,specFromBey,launchState,pocketAt,AR
 import {add,sub,scale,norm,rotate,local,metrics,rackImpulse} from './math.js';
 import {MujocoEngine} from './mujoco.js';
 
-export const SAMPLE_HZ=60, MAX_TIME=30, STOP_RPM=350;
+export const SAMPLE_HZ=60, MAX_TIME=20, STOP_RPM=350;
 export const RAIL_FORCE={needle:0,ball:0,flat:0,rush:0};
 // One round between two beys. Deterministic for identical inputs (fixed step, no hidden randomness).
 export class Battle {

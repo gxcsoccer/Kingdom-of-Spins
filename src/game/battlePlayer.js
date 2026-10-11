@@ -19,7 +19,7 @@ function slerp(a,b,t){
  * player: getTime(), getState(t), events[], beys, samples[], result, summary, done,
  *         start(), setPaused(b), setSpeed(x), onDone(cb), onEvent(cb), dispose()
  */
-export function createBattle({beys,launches,maxTime=30}){
+export function createBattle({beys,launches,maxTime=20}){
   const w=getWorker(), id=nextId++;
   const listeners={done:[],event:[],error:[]};
   const player={beys,launches,samples:[],events:[],result:null,summary:null,done:false,error:null,

@@ -1,6 +1,6 @@
 // AI routes (Workers AI). Mounted by worker/index.js under /api/ai/*.
 // Every route returns a deterministic template fallback when the model fails or times out.
-import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY} from '../src/ai/fallback.js';
+import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext} from '../src/ai/fallback.js';
 import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 
@@ -96,36 +96,42 @@ async function commentary(body, env) {
   const summary = body.summary || {};
   const names = Array.isArray(body.names) ? body.names.slice(0,2).map(String) : ['A','B'];
   const fallback = () => templateCommentary(summary, names);
-  const ev = (summary.events||[]).filter(e=>e.type!=='dash').slice(0,25).map(e=>e.type==='collision'
-    ? `${e.time}s 碰撞 相对速度${e.relSpeed}m/s 撞后转速 ${names[0]}=${e.rpm?.[0]} ${names[1]}=${e.rpm?.[1]}rpm`
-    : `${e.time}s ${e.type}${e.reason?' '+e.reason:''}${e.winner!=null?' 胜者'+names[e.winner]:''}`);
+  const who = i => i===0 ? `你的 ${names[0]}` : names[1];   // body 0 is always the kid's own bey
+  const ev = (summary.events||[]).filter(e=>e.type!=='dash').slice(0,12).map(e=>e.type==='collision'
+    ? `${fmtT(e.time)} 碰撞，相对速度 ${fmtV(e.relSpeed)}，撞完 ${who(0)} ${fmtRpm(e.rpm?.[0])}、${who(1)} ${fmtRpm(e.rpm?.[1])}`
+    : `${fmtT(e.time)} ${e.type}${e.reason?' '+e.reason:''}${e.winner!=null?'，胜者 '+who(e.winner):''}`);
   const dashes = (summary.events||[]).filter(e=>e.type==='dash').length;
-  const parts = (summary.parts||[]).map((p,i)=>`${names[i]}：${STYLE_ZH[p.style]||p.style}，翼${p.wings}，外圈配重${p.ring}%，总重${p.massG}g，Bit ${p.tip}，Ratchet高${p.height}，转动惯量Iz=${(p.inertiaZ*1e6).toFixed(2)}×10⁻⁶ kg·m²`).join('\n');
-  const stats = (summary.stats||[]).map((s,i)=>`${names[i]}：碰撞${s.hits}次，最高速度${(s.maxSpeed||0).toFixed(2)}m/s`).join('；');
+  const BIT = {needle:'尖轴',ball:'圆轴',flat:'平轴',rush:'冲刺轴'};
+  const parts = (summary.parts||[]).map((p,i)=>`${who(i)}：${STYLE_ZH[p.style]||p.style}，翼${p.wings}片，外圈配重${p.ring}%，总重${(+p.massG).toFixed(1)}g，${BIT[p.tip]||p.tip}，Ratchet 高${p.height}，转动惯量 ${(p.inertiaZ*1e6).toFixed(1)}`).join('\n');
+  const stats = (summary.stats||[]).map((s,i)=>`${who(i)}：碰撞${s.hits}次，最高速度 ${fmtV(s.maxSpeed)}`).join('；');
   const r = summary.result||{};
   const P = summary.parts||[];
-  const cmp = (k, label, unit='') => P.length===2 && P[0][k]!=null && P[1][k]!=null ? (P[0][k]===P[1][k] ? `${label}一样` : `${label}更大的是 ${names[P[0][k]>P[1][k]?0:1]}（${P[0][k]}${unit} vs ${P[1][k]}${unit}）`) : null;
-  const facts = [cmp('inertiaZ','转动惯量 Iz'), cmp('massG','总重','g'), cmp('ring','外圈配重','%'), cmp('reach','刃半径','m')].filter(Boolean).join('；');
-  const cards = relevantCards(`${r.reason} 撞 碰撞 持久 惯量 摩擦 ${(summary.parts||[]).map(p=>p.style+' '+p.tip).join(' ')}`, 8);
-  const user = `一场陀螺对战刚结束（理想化物理模型模拟，未经实物校准）。
-陀螺：
+  const cmp = (k, label) => P.length===2 && P[0][k]!=null && P[1][k]!=null ? (P[0][k]===P[1][k] ? `${label}一样` : `${label}更大的是 ${who(P[0][k]>P[1][k]?0:1)}`) : null;
+  const facts = [cmp('inertiaZ','转动惯量'), cmp('massG','总重'), cmp('ring','外圈配重'), cmp('reach','刃半径')].filter(Boolean).join('；');
+  const cards = relevantCards(`${r.reason} 撞 碰撞 持久 惯量 摩擦 ${P.map(p=>p.style+' '+p.tip).join(' ')}`, 5);
+  const hint = suggestTryNext(summary, names);
+  const user = `陀螺对战刚结束（理想化物理模型，未经实物校准）。
 ${parts}
 事件：${ev.join('；') || '无碰撞'}；X Dash 冲刺 ${dashes} 次。
 统计：${stats}
-计算好的对比事实（不得与之矛盾）：${facts||'无'}
-结果：${names[r.winner]||'?'} 获胜，方式 ${r.reason}（xtreme=Xtreme终结3分，over=出界2分，spin=停转1分，judge=时间到按转速判定1分），${r.points}分，用时 ${r.time}s。
-可引用的知识卡：
+对比事实（不得矛盾）：${facts||'无'}
+结果：${who(r.winner)} 获胜，${r.reason}（xtreme=Xtreme终结3分，over=出界2分，spin=停转1分，judge=时间到按转速判定1分），${r.points}分，用时 ${fmtT(r.time)}。
+知识卡：
 ${cardLines(cards)}
-请像热血漫画解说员一样给小学生复盘。只能引用上面真实发生的时间和转速数字，不要编造事件。“撞后转速”只是撞完那一刻的数值，不要说成上升或下降，除非两次数值能比较。科学解释必须和“对比事实”一致。做因果判断时说“在这个模型里”。
-只输出 JSON：{"headline":"≤16字标题","story":["3~4个短句，每句带真实时间或数字"],"science":{"cardId":"卡片id","title":"标题","body":"结合这场比赛讲这个知识，≤60字"},"tryNext":"建议只改一个变量再比一次，≤40字"}`;
+给小学生做热血复盘。规则：玩家的陀螺一律叫“你的 ${names[0]}”；只用上面给的数字，原样照抄格式（时间如“0.5 秒”，转速如“约 6,500 转/分”）；不要编造事件；“撞完”的转速只是那一刻的数值，不要说上升；因果判断说“在这个模型里”。
+tryNext 只能建议改“你的 ${names[0]}”的一个地方（外圈配重/翼片/类型/Ratchet 高度/Bit 之一），绝不改对手，例如：“${hint}”
+只输出 JSON：{"headline":"≤14字","story":["3个短句"],"science":{"cardId":"卡片id","body":"结合本场讲知识≤50字"},"tryNext":"≤36字"}`;
   try {
-    const out = await runModel(env, [{role:'system', content:'你是陀螺对战的热血解说员兼科学老师。中文，短句，有趣，诚实。只输出 JSON。'}, {role:'user', content:user}], 900, 'commentary');
+    const out = await runModel(env, [{role:'system', content:'你是陀螺对战的热血解说员兼科学老师。中文，短句，有趣，诚实。只输出 JSON。'}, {role:'user', content:user}], 600, 'commentary');
     const card = getCard(out.science?.cardId) || getCard(fallback().science.cardId);
-    const story = (Array.isArray(out.story)?out.story:[]).map(s=>String(s).slice(0,60)).filter(Boolean).slice(0,4);
+    const story = (Array.isArray(out.story)?out.story:[]).map(s=>tidyNumbers(String(s)).slice(0,64)).filter(Boolean).slice(0,4);
     if (!story.length || !out.headline) throw new Error('incomplete');
-    let sciBody = String(out.science?.body||card.body).slice(0,90);
+    let sciBody = tidyNumbers(String(out.science?.body||card.body)).slice(0,90);
     if (!sciBody.includes('模型')) sciBody += '（在这个模型里）';
-    return json({headline:String(out.headline).slice(0,20), story, science:{cardId:card.id, title:String(out.science?.title||card.title).slice(0,16), body:sciBody, layer:card.layer}, tryNext:String(out.tryNext||fallback().tryNext).slice(0,60)});
+    // tryNext must target the player's own bey; otherwise use the deterministic suggestion.
+    let tryNext = tidyNumbers(String(out.tryNext||''));
+    if (!tryNext || (names[1] && tryNext.includes(names[1]) && !tryNext.includes(names[0])) || !(tryNext.includes(names[0])||tryNext.includes('你的'))) tryNext = hint;
+    return json({headline:tidyNumbers(String(out.headline)).slice(0,20), story, science:{cardId:card.id, title:card.title, body:sciBody, layer:card.layer}, tryNext:tryNext.slice(0,60)});
   } catch (e) {
     return json({...fallback(), error:String(e.message||e)});
   }

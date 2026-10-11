@@ -121,24 +121,45 @@ export function templateFusion({parents=[], wish='', history=[], keepParent=0}) 
   return {reply: `融合博士用公式算出了 ${candidates.length} 个方案！每个都有不同的取舍，你来选。`, candidates, fallback:true};
 }
 
-// ── Commentary ──
+// ── Commentary ── (body index 0 is ALWAYS the kid's own bey)
 const REASON_ZH = {xtreme:'Xtreme 终结', over:'Over 出界', spin:'Spin 停转', judge:'时间到·转速判定', burst:'Burst 爆裂'};
+export const fmtT = t => `${(+t||0).toFixed(1)} 秒`;
+export const fmtRpm = r => `约 ${(Math.round(Math.abs(+r||0)/100)*100).toLocaleString('en-US')} 转/分`;
+export const fmtV = v => `${(+v||0).toFixed(1)} m/s`;
+// Kid-facing number cleanup for model prose: 0.4632秒 → 0.5 秒, 6515rpm → 约 6,500 转/分, 1.54m/s → 1.5 m/s.
+export function tidyNumbers(text='') {
+  return String(text)
+    .replace(/(\d+\.\d{2,})\s*(秒|s)(?![a-z])/g, (_,n)=>fmtT(n))
+    .replace(/约?\s*(\d[\d,]{2,})\s*(rpm|RPM|转\/分|转每分)/g, (_,n)=>fmtRpm(n.replace(/,/g,'')))
+    .replace(/(\d+\.\d{2,})\s*m\/s/g, (_,n)=>fmtV(n));
+}
+const BIT_ZH = {needle:'尖轴', ball:'圆轴', flat:'平轴', rush:'冲刺轴'};
+// One concrete change to the PLAYER's bey (index 0), chosen from how the round went.
+export function suggestTryNext(summary={}, names=['你的陀螺']) {
+  const me = `你的 ${names[0]||'陀螺'}`, p = summary.parts?.[0] || {}, r = summary.result || {};
+  const won = r.winner===0, tip = p.tip, ring = +p.ring||60, h = +p.height||60;
+  let change;
+  if (!won && (r.reason==='over'||r.reason==='xtreme')) change = h>55 ? '的 Ratchet 换成矮一点的 55 高度' : (tip!=='ball' ? '换成圆轴' : '的外圈配重调高一点');
+  else if (!won) change = tip==='flat'||tip==='rush' ? '换成尖轴' : ring<80 ? '的外圈配重调高一点' : '换成圆轴';
+  else change = tip==='needle' ? '换成平轴' : tip==='flat'||tip==='rush' ? '换成圆轴' : ring>50 ? '的外圈配重调低一点' : '的翼片换成 4 片';
+  return `只改一个地方：把${me}${change.startsWith("的")?" ":""}${change}，其他都不变，再打一次看看！`;
+}
 export function templateCommentary(summary={}, names=['A','B']) {
   const r = summary.result || {}, ev = (summary.events||[]).filter(e=>e.type==='collision');
-  const w = r.winner===1?1:0, W = names[w]||'A', L = names[1-w]||'B';
+  const w = r.winner===1?1:0, label = i => i===0 ? `你的 ${names[0]||'陀螺'}` : (names[1]||'对手');
   const story = [];
-  if (ev[0]) story.push(`${ev[0].time.toFixed(2)} 秒第一次碰撞！撞后转速 ${ev[0].rpm?.[0]??'?'} 对 ${ev[0].rpm?.[1]??'?'} rpm。`);
+  if (ev[0]) story.push(`${fmtT(ev[0].time)}第一次碰撞！撞完${label(0)} ${fmtRpm(ev[0].rpm?.[0])}，${label(1)} ${fmtRpm(ev[0].rpm?.[1])}。`);
   const big = ev.slice().sort((x,y)=>(y.intensity||0)-(x.intensity||0))[0];
-  if (big && big!==ev[0]) story.push(`最猛的一撞在 ${big.time.toFixed(2)} 秒，相对速度 ${big.relSpeed} m/s！`);
+  if (big && big!==ev[0]) story.push(`最猛的一撞在 ${fmtT(big.time)}，相对速度 ${fmtV(big.relSpeed)}！`);
   if (ev.length>2) story.push(`整场一共撞了 ${ev.length} 次。`);
-  story.push(`${(r.time??0).toFixed(1)} 秒，${W} 靠 ${REASON_ZH[r.reason]||'胜利'} 拿下 ${r.points??1} 分。`);
+  story.push(`${fmtT(r.time)}，${label(w)} 靠 ${REASON_ZH[r.reason]||'胜利'} 拿下 ${r.points??1} 分。`);
   const cardId = r.reason==='spin'||r.reason==='judge' ? (summary.parts?.[w]?.ring>summary.parts?.[1-w]?.ring ? 'ph-inertia':'ph-energy-loss') : 'ph-momentum';
   const c = getCard(cardId);
   return {
-    headline: `${W} 胜！${REASON_ZH[r.reason]||''}`,
+    headline: w===0 ? `${names[0]||'你'} 胜！${REASON_ZH[r.reason]||''}` : `${names[1]||'对手'} 胜！${REASON_ZH[r.reason]||''}`,
     story: story.slice(0,4),
-    science: {cardId, title:c.title, body:c.body + ' （在这个模型里得出的结果。）'},
-    tryNext: `只改一个变量：把 ${L} 的外圈配重调高一点，其他都不变，再比一次看看！`,
+    science: {cardId, title:c.title, body:c.body + '（在这个模型里）', layer:c.layer},
+    tryNext: suggestTryNext(summary, names),
     fallback: true,
   };
 }

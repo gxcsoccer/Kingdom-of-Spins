@@ -4,5 +4,5 @@ export default defineConfig({
   plugins:[react()],
   build:{chunkSizeWarningLimit:2000},
   worker:{format:'es'},
-  server:{proxy:{'/api':'http://127.0.0.1:8787'}},
+  server:{proxy:{'/api':'http://127.0.0.1:8787','/ws':{target:'ws://127.0.0.1:8787',ws:true}}},
 });

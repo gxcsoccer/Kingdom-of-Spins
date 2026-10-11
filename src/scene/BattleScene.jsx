@@ -9,6 +9,7 @@ import { blobShadowTexture } from './toon.js';
 import './scene.css';
 
 const S = 10; // physics meters -> scene units
+const INTRO = .42; // visual drop-in duration (s); physics unchanged
 const toWorld = (p, out = new THREE.Vector3()) => out.set(p[0] * S, p[2] * S, -p[1] * S);
 const Z = new THREE.Vector3(0, 0, 1);
 
@@ -35,7 +36,8 @@ function BeyActor({ player, index, fx }) {
     const st = player.getState(t);
     const b = st?.bodies?.[index];
     if (!b || !posRef.current) return;
-    posRef.current.position.set(b.p[0], b.p[1], b.p[2]);
+    const drop = t < INTRO ? Math.pow(1 - t / INTRO, 2) : 0;
+    posRef.current.position.set(b.p[0], b.p[1], b.p[2] + drop * .16);
     // tilt only: rotate +Z onto the physics spin axis
     q.set(b.q[1], b.q[2], b.q[3], b.q[0]);
     axis.copy(Z).applyQuaternion(q);
@@ -45,9 +47,9 @@ function BeyActor({ player, index, fx }) {
     const fh = floorHeight(b.p[0], b.p[1]);
     const h = Math.max(0, b.p[2] - fh);
     shadowRef.current.position.set(b.p[0] + .004, b.p[1] - .004, fh + .0008);
-    const sc = .075 * (1 + h * 8);
+    const sc = .075 * (1 + h * 8) * (1 - drop * .5);
     shadowRef.current.scale.set(sc, sc, 1);
-    shadowMat.opacity = Math.max(0, .7 - h * 6);
+    shadowMat.opacity = Math.max(0, .7 - h * 6) * (1 - drop * .6);
     // ground trail
     const dashing = fx.current.dash[index] > t;
     const pts = trail.pts;
@@ -91,9 +93,9 @@ function Sparks({ api }) {
   const data = useMemo(() => Array.from({ length: N }, () => ({ p: new THREE.Vector3(), v: new THREE.Vector3(), life: 0, max: 1 })), []);
   const geo = useMemo(() => new THREE.BoxGeometry(.009, .0014, .0014), []);
   const mat = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 3.6, 1.2), toneMapped: false }), []);
-  const ringMat = useMemo(() => Array.from({ length: 4 }, () => new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 2.6), transparent: true, opacity: 0, toneMapped: false, depthWrite: false, side: THREE.DoubleSide })), []);
+  const ringMat = useMemo(() => Array.from({ length: 6 }, () => new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 2.6), transparent: true, opacity: 0, toneMapped: false, depthWrite: false, side: THREE.DoubleSide })), []);
   const ringGeo = useMemo(() => new THREE.RingGeometry(.8, 1, 48), []);
-  const ringState = useMemo(() => Array.from({ length: 4 }, () => ({ t: 1, p: [0, 0, 0], s: 1 })), []);
+  const ringState = useMemo(() => Array.from({ length: 6 }, () => ({ t: 1, p: [0, 0, 0], s: 1 })), []);
   const m4 = useMemo(() => new THREE.Matrix4(), []), qq = useMemo(() => new THREE.Quaternion(), []), sc = useMemo(() => new THREE.Vector3(), []);
   const X = useMemo(() => new THREE.Vector3(1, 0, 0), []), dir = useMemo(() => new THREE.Vector3(), []);
   let cursor = useRef(0), ringCursor = useRef(0);
@@ -103,12 +105,15 @@ function Sparks({ api }) {
     for (let i = 0; i < count; i++) {
       const s = data[cursor.current++ % N];
       s.p.set(point[0], point[1], point[2] + .004);
-      const a = Math.random() * Math.PI * 2, up = Math.random() * .9, sp = (.6 + Math.random() * 1.6) * (.6 + intensity);
+      const a = Math.random() * Math.PI * 2, up = .2 + Math.random() * .8, sp = (.25 + Math.random() * .75) * (.5 + intensity);
       s.v.set(Math.cos(a) * sp, Math.sin(a) * sp, up * sp);
-      s.max = s.life = .18 + Math.random() * .32;
+      s.max = s.life = .14 + Math.random() * .26;
     }
-    const r = ringState[ringCursor.current++ % 4];
-    r.t = 0; r.p = point; r.s = .02 + .05 * intensity;
+    api.current.ring(point, .02 + .05 * intensity);
+  };
+  api.current.ring = (point, size) => {
+    const r = ringState[ringCursor.current++ % ringState.length];
+    r.t = 0; r.p = point; r.s = size;
   };
 
   useFrame((_, dt) => {
@@ -117,9 +122,9 @@ function Sparks({ api }) {
     for (let i = 0; i < N; i++) {
       const s = data[i];
       if (s.life > 0) {
-        s.life -= d; s.v.z -= 6 * d; s.v.multiplyScalar(1 - 2.2 * d); s.p.addScaledVector(s.v, d);
+        s.life -= d; s.v.z -= 4 * d; s.v.multiplyScalar(1 - 3.5 * d); s.p.addScaledVector(s.v, d);
         dir.copy(s.v).normalize(); qq.setFromUnitVectors(X, dir);
-        const k = Math.max(0, s.life / s.max), len = .4 + s.v.length() * 1.4;
+        const k = Math.max(0, s.life / s.max), len = .5 + s.v.length() * 1.6;
         sc.set(len * k + .1, k, k);
         m4.compose(s.p, qq, sc);
       } else m4.makeScale(0, 0, 0);
@@ -149,13 +154,19 @@ function Sparks({ api }) {
 function Director({ player, fx, sparks, overlay, onEvent }) {
   const { camera, size } = useThree();
   const target = useMemo(() => new THREE.Vector3(), []), tmp = useMemo(() => new THREE.Vector3(), []), tmp2 = useMemo(() => new THREE.Vector3(), []);
-  const base = useMemo(() => new THREE.Vector3(0, 3.7, 4.3), []);
-  const shake = useRef(0), punch = useRef(0), idx = useRef(0);
+  const base = useMemo(() => new THREE.Vector3(), []), dirV = useMemo(() => new THREE.Vector3(0, 3.7, 4.3).normalize(), []);
+  const shake = useRef(0), punch = useRef(0), idx = useRef(0), launched = useRef(false);
 
   useFrame((_, dt) => {
     const t = player.getTime();
     const f = fx.current;
-    if (t < f.lastT - .05) { idx.current = 0; f.dash = [-1, -1]; overlay.current?.reset(); }
+    if (t < f.lastT - .05) { idx.current = 0; f.dash = [-1, -1]; launched.current = false; overlay.current?.reset(); }
+    if (!launched.current && t >= INTRO * .92) {
+      launched.current = true;
+      const st0 = player.getState(t);
+      st0?.bodies?.forEach(b => sparks.current.ring?.([b.p[0], b.p[1], b.p[2] - .012], .07));
+      shake.current = Math.max(shake.current, .05);
+    }
     f.lastT = t;
     const ev = player.events || [];
     while (idx.current < ev.length && ev[idx.current].time <= t) {
@@ -182,12 +193,17 @@ function Director({ player, fx, sparks, overlay, onEvent }) {
     if (st?.bodies?.length) {
       tmp.set(0, 0, 0);
       st.bodies.forEach(b => tmp.add(toWorld(b.p, tmp2)));
-      tmp.multiplyScalar(1 / st.bodies.length * .42);
+      tmp.multiplyScalar(1 / st.bodies.length * .18);
       target.lerp(tmp, 1 - Math.exp(-dt * 2.5));
     }
     const d = Math.min(dt, 1 / 30);
     shake.current *= Math.exp(-d * 7);
     punch.current *= Math.exp(-d * 2.2);
+    // Fit the whole stadium (radius ~2.45 units incl. shell) for the current aspect ratio.
+    const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect);
+    const elev = Math.asin(dirV.y), Rv = 2.45 * Math.sin(elev) + .55 * Math.cos(elev), Rh = 2.5;
+    const dist = Math.max(Rv / Math.tan(vf), Rh / Math.tan(hf)) + .35;
+    base.copy(dirV).multiplyScalar(dist);
     const s = shake.current;
     camera.position.copy(base).add(target).multiplyScalar(1).addScaledVector(tmp.set(0, -.55, -.9), punch.current * .9);
     camera.position.x += (Math.random() - .5) * s; camera.position.y += (Math.random() - .5) * s;
@@ -259,7 +275,7 @@ export default function BattleScene({ player, onEvent, overlay = true, className
         flat
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        camera={{ fov: 31, near: .05, far: 60, position: [0, 3.55, 4.35] }}
+        camera={{ fov: 30, near: .05, far: 60, position: [0, 3.55, 4.35] }}
         onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
       >
         <ambientLight intensity={.85} />

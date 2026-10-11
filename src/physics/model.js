@@ -15,7 +15,7 @@ export const RATCHET_PART_MASS=6.5, BIT_PART_MASS=2.2;
 // Arena (meters, Z up). Flat center to r=.07, slope rises .02 to r=.185, wall at r~.189.
 export const ARENA={flat:.07,slopeEnd:.185,rise:.02,wall:.189,outRadius:.193,segments:32,
   // Wall gaps (segment index ranges). The first one is the Xtreme pocket, the others are over pockets.
-  pockets:[{kind:'xtreme',from:0,to:1},{kind:'over',from:11,to:12},{kind:'over',from:21,to:22}]};
+  pockets:[{kind:'xtreme',from:0,to:1},{kind:'over',from:11,to:11},{kind:'over',from:21,to:21}]};
 export const floorHeight=(x,y)=>Math.min(ARENA.rise,Math.max(0,Math.hypot(x,y)-ARENA.flat)*(ARENA.rise/(ARENA.slopeEnd-ARENA.flat)));
 export function pocketAt(angle){
   const seg=((Math.floor(((angle%(2*Math.PI))+2*Math.PI)%(2*Math.PI)/(2*Math.PI/ARENA.segments)))%ARENA.segments);

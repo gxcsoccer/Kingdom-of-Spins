@@ -19,8 +19,8 @@
 }
 
 .ks-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "PingFang SC", "Arial Black", sans-serif; }
-.ks-flash { position: absolute; inset: 0; background: #fff; animation: ks-flash .22s ease-out forwards; mix-blend-mode: normal; }
-@keyframes ks-flash { 0% { opacity: .85; } 100% { opacity: 0; } }
+.ks-flash { position: absolute; inset: 0; background: #fff; animation: ks-flash .16s ease-out forwards; mix-blend-mode: normal; }
+@keyframes ks-flash { 0% { opacity: .5; } 100% { opacity: 0; } }
 
 .ks-impact { position: absolute; width: 0; height: 0; }
 .ks-burst {
