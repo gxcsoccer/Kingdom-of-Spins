@@ -121,3 +121,92 @@ button.ex-item:not(:disabled){cursor:pointer}
 .fb-hot.tried i{border-color:#9aa;box-shadow:0 0 0 3px rgba(17,17,17,.7);animation:none;opacity:.7}
 .fb-hot.tried span{color:#cfd;border-color:#9aa;background:#2a3a33}
 .ex-chip.miss{background:#fff}
+
+/* ══ 寻宝 v3 皮肤：沉浸背景 + 游戏 HUD ══ */
+.ex.ex2{background:#0b0d14}
+.ex-bg{position:fixed;inset:-60px;z-index:0;background-size:cover;background-position:center;filter:blur(26px) brightness(.42) saturate(1.35);animation:exBgIn .7s ease both;pointer-events:none}
+.ex.ex2::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(rgba(0,0,0,.28) 1px,transparent 1.3px) 0 0/6px 6px,radial-gradient(ellipse at 40% 50%,transparent 45%,rgba(0,0,0,.6))}
+.ex.ex2>.ex-main,.ex.ex2>.ex-side{position:relative;z-index:1}
+@keyframes exBgIn{from{opacity:0;transform:scale(1.08)}to{opacity:1;transform:none}}
+.ex2 .ex-region b{font-size:28px;text-shadow:0 0 22px var(--rc),3px 3px 0 #111}
+.ex2 .ex-region small{color:#fff}
+
+/* MISSION 面板 */
+.ex-mission{display:flex;align-items:center;gap:12px;min-height:58px;background:linear-gradient(90deg,rgba(8,10,18,.94),rgba(8,10,18,.78));color:#fff;border:3px solid #111;box-shadow:5px 5px 0 #000,inset 0 0 0 2px rgba(255,255,255,.12);padding:0 0 0 0;clip-path:polygon(0 0,100% 0,calc(100% - 16px) 100%,0 100%)}
+.ex-mission-badge{align-self:stretch;display:flex;flex-direction:column;justify-content:center;align-items:center;background:var(--red);color:#fff;padding:0 22px 0 14px;clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%);font-family:var(--display);line-height:1}
+.ex-mission-badge small{font-size:10px;letter-spacing:3px;font-weight:900}
+.ex-mission-badge b{font-size:24px;font-style:italic}
+.ex-mission.here .ex-mission-badge{background:#ffd400;color:#111;animation:exBadge 1s ease-in-out infinite}
+.ex-mission.done .ex-mission-badge{background:#14c9a5}
+@keyframes exBadge{50%{filter:brightness(1.25)}}
+.ex-mission-target{flex:none;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,rgba(255,212,0,.45),transparent 70%)}
+.ex-mission-target>*{filter:brightness(0) drop-shadow(0 0 2px #ffd400) drop-shadow(0 0 6px #ffd400)}
+.ex-mission-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;padding:4px 0}
+.ex-mission .ex-task{font-size:18px;color:#ffd400;font-style:italic;letter-spacing:.5px}
+.ex-mission .ex-clue-text{min-width:0;font-size:15px;color:#fff;line-height:1.35}
+.ex-hint-btn{flex:none;margin-right:26px;display:flex;align-items:center;gap:6px;background:#ffd400;color:#111;border:3px solid #111;box-shadow:3px 3px 0 #000;font:inherit;font-weight:900;font-size:14px;padding:7px 14px;transform:skew(-8deg);cursor:pointer;animation:exHintGlow 2.4s ease-in-out infinite}
+.ex-hint-btn span{display:inline-block}
+.ex-hint-btn:hover{background:#fff}
+.ex-hint-btn:disabled{opacity:.45;animation:none;cursor:default}
+@keyframes exHintGlow{50%{box-shadow:3px 3px 0 #000,0 0 16px rgba(255,212,0,.8)}}
+
+/* 场景画面：留出边距给跨在边框上的路牌 */
+.ex2 .ex-stage{padding:4px 0}
+.ex2 .ex-page{display:grid;place-items:center;height:100%;max-height:100%}
+.ex2 .ex-art{width:min(calc(100cqw - 70px),calc((100cqh - 56px)*4/3))!important;overflow:visible;border:5px solid #fff;outline:none;box-shadow:0 0 0 4px #111,14px 14px 0 4px #111,14px 14px 0 0 var(--rc);background:#111}
+.ex2 .ex-art>img{border:0}
+.ex-banner{position:absolute;left:18px;top:18px;z-index:6;display:flex;align-items:baseline;gap:10px;background:#111;border:3px solid #ffd400;box-shadow:4px 4px 0 var(--rc);padding:5px 16px;transform:skew(-10deg);pointer-events:none;max-width:60%}
+.ex-banner b{font-family:var(--display);font-size:clamp(17px,2vw,24px);color:#ffd400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ex-banner small{font-weight:900;font-size:12px;color:#9fd8ff;white-space:nowrap}
+.ex2 .ex-chip{top:16%}
+
+/* 热点：双环脉冲 + 漫画标签 */
+.ex2 .fb-hot i{width:38px;height:38px;border:3px solid #fff;background:radial-gradient(circle,rgba(255,212,0,.35),transparent 65%);box-shadow:0 0 0 3px #111,0 0 0 6px rgba(255,212,0,.85),0 0 22px #ffd400}
+.ex2 .fb-hot span{background:#111;color:#fff;border:2px solid #ffd400;font-size:12px;padding:1px 8px;transform:skew(-8deg);box-shadow:2px 2px 0 rgba(0,0,0,.6)}
+.ex2 .fb-hot.tried i{border-color:#9aa;background:none;box-shadow:0 0 0 3px #111;opacity:.65}
+
+/* 路牌出口：跨在画面边框上，位置 = 罗盘方向 */
+.ex-sign{position:absolute;z-index:7;display:flex;align-items:center;gap:6px;background:#ffd400;color:#111;border:3px solid #111;box-shadow:4px 4px 0 #111;font:inherit;font-weight:900;padding:4px 12px 4px 6px;cursor:pointer;white-space:nowrap;transition:transform .12s}
+.ex-sign i{font-style:normal;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#111;color:#ffd400;font-size:17px}
+.ex-sign span{display:flex;flex-direction:column;line-height:1.1;font-size:15px;font-family:var(--display)}
+.ex-sign small{font-size:10px;letter-spacing:1px;color:#5a4a00;font-family:inherit}
+.ex-sign:hover:not(:disabled){filter:brightness(1.08);z-index:8}
+.ex-sign:disabled{opacity:.5;cursor:default}
+.ex-sign.hint{background:#ff2d4a;color:#fff;animation:exSignHint 1s ease-in-out infinite}
+.ex-sign.hint small{color:#ffe0e5}
+@keyframes exSignHint{50%{box-shadow:4px 4px 0 #111,0 0 0 6px rgba(255,45,74,.4)}}
+.ex-sign.d-n{left:50%;top:0;transform:translate(-50%,-55%)}
+.ex-sign.d-s{left:50%;bottom:0;transform:translate(-50%,55%)}
+.ex-sign.d-e{right:0;top:50%;transform:translate(45%,-50%)}
+.ex-sign.d-w{left:0;top:50%;transform:translate(-45%,-50%)}
+.ex-sign.d-ne{right:0;top:0;transform:translate(30%,-45%)}
+.ex-sign.d-nw{left:0;top:0;transform:translate(-30%,-45%)}
+.ex-sign.d-se{right:0;bottom:0;transform:translate(30%,45%)}
+.ex-sign.d-sw{left:0;bottom:0;transform:translate(-30%,45%)}
+.ex-sign.d-e.n2,.ex-sign.d-w.n2{top:64%}.ex-sign.d-n.n2,.ex-sign.d-s.n2{left:68%}
+.ex-sign.d-ne.n2,.ex-sign.d-se.n2{right:18%}.ex-sign.d-nw.n2,.ex-sign.d-sw.n2{left:18%}
+.ex-sign.d-n:hover:not(:disabled),.ex-sign.d-s:hover:not(:disabled){transform:translate(-50%,-55%) scale(1.06)}
+.ex-sign.d-s:hover:not(:disabled){transform:translate(-50%,55%) scale(1.06)}
+.ex-sign.d-nw{z-index:7}
+.ex-banner{z-index:6}
+
+/* 侧栏：深色玻璃面板 + 博士立绘 */
+.ex2 .ex-guide{align-items:center}
+.ex2 .ex-guide-face{width:62px;height:62px;border-radius:50%;object-fit:cover;object-position:50% 12%;background:#ffd400;border:3px solid #111;box-shadow:3px 3px 0 #000}
+.ex2 .ex-guide .bubble{font-size:14px;line-height:1.5}
+.ex2 .ex-quest,.ex2 .ex-clues{background:rgba(10,12,20,.82);color:#fff;border:3px solid #111;box-shadow:5px 5px 0 #000,inset 0 0 0 2px rgba(255,255,255,.1)}
+.ex2 .ex-h{color:#fff}.ex2 .ex-h small{color:#ffd400}
+.ex2 .ex-item{background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.18);color:#cfd6e0;border-radius:6px}
+.ex2 .ex-item>:first-child{filter:brightness(0) invert(.35)}
+.ex2 .ex-item.got{background:radial-gradient(circle at 50% 35%,rgba(255,212,0,.35),rgba(255,255,255,.06) 70%);border-color:#ffd400;color:#ffd400;outline:none;box-shadow:0 0 12px rgba(255,212,0,.35)}
+.ex2 .ex-item.got>:first-child{filter:none}
+.ex2 .ex-item.now{outline:none;border:2px dashed var(--red);box-shadow:0 0 10px rgba(255,45,74,.5)}
+.ex2 .ex-steps{color:#aab}
+.ex2 .ex-clue{color:#dde;border-color:rgba(255,255,255,.15)}
+.ex2 .mm{border-color:#111;box-shadow:5px 5px 0 #000,inset 0 0 0 2px rgba(255,255,255,.1)}
+.ex-narr{position:absolute;left:26px;bottom:34px;z-index:6;max-width:min(56%,520px);background:#fffbe6;color:#111;border:3px solid #111;box-shadow:4px 4px 0 #111;padding:6px 12px;font-weight:800;font-size:clamp(13px,1.3vw,15px);line-height:1.45;pointer-events:none;animation:fbFadeIn .4s ease both}
+.ex-narr::before{content:'';position:absolute;left:-3px;top:-3px;width:10px;height:10px;background:var(--rc);border:3px solid #111;border-width:0 3px 3px 0}
+/* 标题横幅跨在上边框上，不挡画面顶部的可点物体 */
+.ex-banner{top:0;left:22px;transform:translateY(-62%) skew(-10deg);max-width:38%}
+.ex2 .ex-chip.alt{top:auto;bottom:12%;height:auto}

@@ -34,6 +34,7 @@ function makePlan(region,found,met){
 const pageFor=(regionId,key)=>{const sc=sceneByKey(regionId,key);return {id:`${key}-${Date.now().toString(36)}`,sceneKey:key,title:sc?.title||key,panels:[],line:'',
   hotspots:(sc?.spots||[]).map((p,i)=>({...p,spot:i})),exits:(sc?.exits||[]).map(k=>({key:k,title:sceneByKey(regionId,k)?.title||k}))};};
 
+const DIR_KEY={东:'e',东北:'ne',北:'n',西北:'nw',西:'w',西南:'sw',南:'s',东南:'se'};
 function SceneImage({regionId,page}){
   const srcs=[page.sceneKey&&sceneUrl(regionId,page.sceneKey),`/art/regions/${regionId}.jpg`].filter(Boolean);
   const [i,setI]=useState(0);
@@ -99,6 +100,8 @@ export default function ExploreScreen(){
     if(!gm?.trail?.length)startRun();else if(gm.pendingGate)addEvents([{type:'gate',...gm.pendingGate}]);},[]);// eslint-disable-line
 
   const here=gm?.scene||START_SCENE[region.id];
+  // 预加载相邻地点的场景图：走过去时画面立刻出现，不会先黑一下。
+  useEffect(()=>{for(const k of sceneByKey(region.id,here)?.exits||[]){const im=new Image();im.src=sceneUrl(region.id,k);}},[region.id,here]);
   const targets=useMemo(()=>gm?openTargets(region.id,gm.hidePlan||[],ex.found,ex.met,here):[],[gm,ex.found,ex.met,here,region.id]);
   const target=targets[0]||null;
   const hintLevel=target?Math.min(2,gm?.hint?.[target.id]||0):0;
@@ -183,6 +186,7 @@ export default function ExploreScreen(){
   const found=new Set(ex.found),met=new Set(ex.met);
   return (
     <div className="ex ex2 page dark" style={{'--rc':region.color}}>
+      {view&&<div key={view.sceneKey} className="ex-bg" style={{backgroundImage:`url(${sceneUrl(region.id,view.sceneKey)})`}}/>}
       <div className="ex-main">
         <div className="ex-top">
           <button className="btn small" onClick={()=>go('map')}>◀ 地图</button>
@@ -192,30 +196,35 @@ export default function ExploreScreen(){
             <button className="btn small" onClick={()=>{if(confirm('重新开始这次寻宝？已经找到的陀螺和遇见的人会保留。'))startRun();}}>🔄 新的寻宝</button>
           </div>
         </div>
-        <div className={`ex-quest-bar ${clue?.here?'here':''}`}>
-          {complete?<><b className="ex-task">🎉 全部完成！</b><span className="ex-clue-text">这里的陀螺和陀螺手都找齐了。</span></>
-            :clue?<><b className="ex-task">任务 {doneTasks+1}/{totalTasks}：{clue.title}</b>
-              <span className="ex-clue-text">{clue.here?'📍 ':'🧭 '}{clue.text}</span>
-              <button className="btn small yellow" disabled={hintLevel>=2} onClick={()=>upd(g=>{g.hint={...(g.hint||{}),[target.id]:Math.min(2,(g.hint?.[target.id]||0)+1)};})}>💡 博士提示{hintLevel?` ${hintLevel}/2`:''}</button></>
-            :<span className="ex-clue-text">准备中…</span>}
+        <div className={`ex-mission ${clue?.here?'here':''} ${complete?'done':''}`}>
+          <div className="ex-mission-badge"><small>MISSION</small><b>{complete?'CLEAR':`${doneTasks+1}/${totalTasks}`}</b></div>
+          {!complete&&target&&<div className="ex-mission-target">{target.type==='bey'?<BeyArt bey={BEYS[target.id]} size={46}/>:<Portrait blader={bladerById(target.id)} size={46}/>}</div>}
+          <div className="ex-mission-body">
+            {complete?<><b className="ex-task">🎉 全部完成！</b><span className="ex-clue-text">这里的陀螺和陀螺手都找齐了。</span></>
+              :clue?<><b className="ex-task">{clue.title}</b><span className="ex-clue-text">{clue.here?'📍 ':'🧭 '}{clue.text}</span></>
+              :<span className="ex-clue-text">准备中…</span>}
+          </div>
+          {!complete&&clue&&<button className="ex-hint-btn" disabled={hintLevel>=2} onClick={()=>upd(g=>{g.hint={...(g.hint||{}),[target.id]:Math.min(2,(g.hint?.[target.id]||0)+1)};})}>💡<span>博士提示{hintLevel?` ${hintLevel}/2`:''}</span></button>}
         </div>
         <div className="ex-stage">
-          {view&&<div className="fb-page ex-page" key={view.id}>
-            <div className="ex-title-row"><h2>{view.title}</h2>{view.tapped&&viewIdx==null&&<span className="fb-tapped">👆 {view.tapped}</span>}</div>
-            <div className="ex-caption">{viewIdx!=null?<span className="ex-past">（回看中 · 点画面回到现在）</span>:view.line?<span>💬 {view.line}</span>:view.panels[0]?<TypeLine text={view.panels[0].text}/>:<span className="ex-writing">点画里的东西，仔细找找！</span>}</div>
+          {view&&<div className="ex-page" key={view.id}>
             <div className="fb-art ex-art" onClick={onImageTap}>
               <SceneImage regionId={region.id} page={view}/>
+              <div className="ex-banner"><b>{view.title}</b>{sceneByKey(region.id,view.sceneKey)?.alt&&<small>⛰ {sceneByKey(region.id,view.sceneKey).alt} m</small>}</div>
               {viewIdx==null&&view.hotspots.map((h,i)=><div key={i} title={h.label} className={`fb-hot ${view.tried?.includes(i)?'tried':''}`} style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.2+i*.12}s`}}><i/><span>{view.tried?.includes(i)?'✓ ':''}{h.label}</span></div>)}
               {tapFx&&<div key={tapFx.key} className="ex-ripple" style={{left:`${tapFx.x*100}%`,top:`${tapFx.y*100}%`}}/>}
               {chip&&<div key={chip.key} className={`ex-chip ${chip.kind} ${chip.level||''}`}>{chip.text}</div>}
+              {/* 出口是画面边缘的路牌：往北的路牌就在画面上边，方向和线索、小地图一致 */}
+              {viewIdx==null&&(()=>{const used={};return view.exits.map(x=>{const d=compass(region.id,here,x.key)||'东';const n=used[d]=(used[d]||0)+1;
+                return <button key={x.key} className={`ex-sign d-${DIR_KEY[d]} n${n} ${clue&&!clue.here&&clue.next===x.key&&hintLevel>=1?'hint':''}`} disabled={blocking} onClick={e=>{e.stopPropagation();moveTo(x.key);}}>
+                  <i>{DIR_ARROW[d]}</i><span><small>{d}</small>{x.title}</span></button>;});})()}
             </div>
-            {viewIdx==null&&<div className="ex-exits"><span className="ex-exits-l">走去：</span>{view.exits.map(x=><button key={x.key} className={`ex-exit ${clue&&!clue.here&&clue.next===x.key&&hintLevel>=1?'hint':''}`} disabled={blocking} onClick={()=>moveTo(x.key)}>{(()=>{const d=compass(region.id,here,x.key);return d?<><b className="ex-exit-dir">{DIR_ARROW[d]} {d}</b> </>:'→ ';})()}{x.title}</button>)}</div>}
           </div>}
         </div>
       </div>
 
       <aside className="ex-side">
-        <div className="ex-guide"><span className="ex-guide-face">博士</span><div className="bubble"><TypeLine text={gm?.narration||'点画面里任何你好奇的地方！'}/></div></div>
+        <div className="ex-guide"><img className="ex-guide-face" src="/art/doctor/normal.png" alt="博士"/><div className="bubble"><TypeLine text={(viewIdx==null&&view?.line)||(clue?.here&&gm?.narration)||view?.panels?.[0]?.text||gm?.narration||'点画面里任何你好奇的地方！'}/></div></div>
         <MiniMap regionId={region.id} here={here} visited={gm?.visited||[]} hintScene={hintLevel>=2?target?.scene:null} onGo={moveTo}/>
         <div className="ex-quest">
           <div className="ex-h">🌀 陀螺 <small>{region.beys.filter(id=>found.has(id)).length}/{region.beys.length}</small></div>
