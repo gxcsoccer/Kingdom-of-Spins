@@ -50,14 +50,18 @@ function useBoxHeight(){
 }
 
 export default function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins}){
-  const [ai,setAi]=useState(null);
+  const [aiBy,setAiBy]=useState({});       // AI review per round index
   const [recruitOpen,setRecruitOpen]=useState(false);
   const [recruited,setRecruited]=useState(false);
   const [page,setPage]=useState(0);
   const [dir,setDir]=useState(1);
   const decisive=rounds.at(-1);
+  // Which round the review/lab focuses on: defaults to the decisive (last) round; the kid can pick any round.
+  const [ri,setRi]=useState(rounds.length-1);
+  const focus=rounds[ri]||decisive;
+  const ai=aiBy[ri]??null;
   const names=[myBey.name,opp.bey.name];
-  const moments=useMemo(()=>findMoments(decisive.samples,decisive.events,decisive.result),[decisive]);
+  const moments=useMemo(()=>findMoments(focus.samples,focus.events,focus.result),[focus]);
   const pred=PREDICT.find(p=>p.id===prediction);
   const predOk=pred&&(won?pred.match?.(decisive.result.reason):pred.id==='lose');
   const tier=blader?.tier;
@@ -68,11 +72,15 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
   useEffect(()=>{
     if(done.current)return;done.current=true;
     recordMatch({bladerId:won?blader?.id:null,won,coins,prediction:pred?{id:pred.id,correct:!!predOk,opp:opp.name}:null});
-    const req=aiClient.moments?aiClient.moments({summary:decisive.summary,moments,names}):commentary(decisive.summary,names);
-    Promise.resolve(req).then(r=>{setAi(r||{});const ids=(r?.moments||[]).map(m=>m.cardId).concat(r?.science?.cardId||[]).filter(Boolean);if(ids.length)unlockCards(ids);}).catch(()=>setAi({}));
     sfx.say?.(won?'Victory!':'Defeat…','en-US',1);
   },[]);// eslint-disable-line
 
+  useEffect(()=>{
+    if(aiBy[ri]!==undefined)return;
+    setAiBy(m=>({...m,[ri]:null}));
+    const req=aiClient.moments?aiClient.moments({summary:focus.summary,moments,names}):commentary(focus.summary,names);
+    Promise.resolve(req).then(r=>{setAiBy(m=>({...m,[ri]:r||{}}));const ids=(r?.moments||[]).map(m=>m.cardId).concat(r?.science?.cardId||[]).filter(Boolean);if(ids.length)unlockCards(ids);}).catch(()=>setAiBy(m=>({...m,[ri]:{}})));
+  },[ri]);// eslint-disable-line
   const goPage=useCallback(n=>{setPage(p=>{const q=Math.max(0,Math.min(PAGES.length-1,typeof n==='function'?n(p):n));setDir(q>=p?1:-1);return q;});},[]);
   useEffect(()=>{
     const onKey=e=>{if(recruitOpen||e.target.closest?.('input,textarea,select'))return;if(e.key==='ArrowRight')goPage(p=>p+1);if(e.key==='ArrowLeft')goPage(p=>p-1);};
@@ -93,8 +101,11 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
       <div className="rp-stage">
         <div key={page} className={`rp-page ${dir>0?'turn-fwd':'turn-back'}`}>
           {page===0&&<ResultPage {...{won,score,decisive,myBey,opp,coins,first,pred,predOk,canRecruit,recruited,blader}} onRecruit={()=>setRecruitOpen(true)} onNext={()=>goPage(1)}/>}
-          {page===1&&<ReviewPage {...{decisive,myBey,opp,moments,names,ai,unlockCards,addCoins}} onNext={()=>goPage(2)}/>}
-          {page===2&&<div className="rp-scroll"><ExperimentLab mine={myBey} opp={opp.bey} launches={decisive.launches} names={names} suggest={suggestVariable(myBey,won)} onReward={n=>addCoins(n)} onUnlock={unlockCards}/></div>}
+          {page===1&&<>
+            {rounds.length>1&&<RoundPicker rounds={rounds} ri={ri} setRi={setRi} myName={myName} oppName={opp.name}/>}
+            <ReviewPage key={ri} {...{myBey,opp,moments,names,ai,unlockCards,addCoins}} decisive={focus} onNext={()=>goPage(2)}/>
+          </>}
+          {page===2&&<div className="rp-scroll"><ExperimentLab mine={myBey} opp={opp.bey} launches={focus.launches} names={names} suggest={suggestVariable(myBey,won)} onReward={n=>addCoins(n)} onUnlock={unlockCards}/></div>}
           {page===3&&<NextPage {...{won,ai,go,myBey}}/>}
         </div>
       </div>
@@ -106,6 +117,16 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
       {recruitOpen&&<RecruitModal blader={blader} save={save} onDone={(uid)=>{recruit(blader.id,uid);setRecruited(true);setRecruitOpen(false);}} onClose={()=>setRecruitOpen(false)}/>}
     </div>
   );
+}
+
+// Round selector for the review: "第 N 局 · 谁 +分 · 怎么赢", decisive round marked.
+function RoundPicker({rounds,ri,setRi,myName,oppName}){
+  return <div className="rp-rounds" role="tablist" aria-label="选择要复盘的回合">
+    <span className="rp-rounds-t">复盘哪一局？</span>
+    {rounds.map((r,i)=>{const w=r.result.winner===0;return <button key={i} role="tab" aria-selected={i===ri} className={`rp-round ${i===ri?'on':''} ${w?'win':'lose'}`} onClick={()=>setRi(i)}>
+      <b>第 {i+1} 局</b><small>{w?myName:oppName} +{r.result.points} · {FINISH_ZH[r.result.reason]}</small>{i===rounds.length-1&&<em>决胜</em>}
+    </button>;})}
+  </div>;
 }
 
 const fromExplore=()=>useGame.getState().params?.from==='explore';
