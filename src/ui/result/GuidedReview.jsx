@@ -61,7 +61,8 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
     if(opt.next)setNextBtn(true);
     const est=opt.next?4500:estimate(text);
     const tts=!sfx.isMuted()&&typeof window!=='undefined'&&window.speechSynthesis&&window.SpeechSynthesisUtterance;
-    let done=false;const finish=()=>{if(done)return;done=true;setNextBtn(false);res(true);};
+    const t0=performance.now(), minRead=opt.next?0:(opt.instant?0:text.length*25)+1400; // typing time + a beat to read
+    let done=false;const finish=force=>{if(done)return;const wait=minRead-(performance.now()-t0);if(!force&&wait>0&&alive(id)){setTimeout(finish,Math.min(wait,400));return;}done=true;setNextBtn(false);res(true);};
     if(tts){
       try{
         window.speechSynthesis.cancel();
@@ -69,11 +70,11 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
         u.onend=()=>setTimeout(finish,opt.next?1200:250);u.onerror=()=>sleep(est,id).then(finish);
         window.speechSynthesis.speak(u);
         sleep(est*1.8+2500,id).then(finish); // safety net: some browsers drop onend
-        const skipWatch=()=>{if(done)return;if(!alive(id)){window.speechSynthesis.cancel();return finish();}if(st.current.skip){st.current.skip=null;window.speechSynthesis.cancel();return finish();}setTimeout(skipWatch,80);};skipWatch();
+        const skipWatch=()=>{if(done)return;if(!alive(id)){window.speechSynthesis.cancel();return finish(true);}if(st.current.skip){st.current.skip=null;window.speechSynthesis.cancel();return finish(true);}setTimeout(skipWatch,80);};skipWatch();
         return;
       }catch{/* fall through */}
     }
-    sleep(est,id).then(finish);
+    sleep(est,id).then(()=>finish(true));
   }),[]);// eslint-disable-line
   const waitAnswer=id=>new Promise(res=>{st.current.answer=i=>{st.current.answer=null;res(i);};const w=()=>{if(!alive(id)){st.current.answer=null;return res(null);}if(st.current.answer)setTimeout(w,120);};w();});
   const waitViewer=async id=>{const t0=performance.now();while(alive(id)&&!viewer.current?.playMoment&&performance.now()-t0<5000)await sleep(100,id);};

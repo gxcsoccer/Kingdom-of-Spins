@@ -92,7 +92,7 @@ const ReplayViewer = forwardRef(function ReplayViewer({ beys, samples = [], even
   useEffect(() => {
     let raf;
     const loop = () => {
-      const t = player.clock;
+      const t = player.getTime(); // advance the clock even if the canvas isn't rendering
       if (headRef.current) headRef.current.style.left = `${(t / duration) * 100}%`;
       if (timeRef.current) timeRef.current.textContent = `${fmt(t)} / ${fmt(duration)}`;
       raf = requestAnimationFrame(loop);

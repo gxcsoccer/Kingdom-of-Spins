@@ -2,7 +2,8 @@ import {useEffect, useMemo, useRef, useState} from 'react';
 import {bookArt} from './chapters.js';
 import {EXPERIMENTS} from './experiments.jsx';
 import {flipImage, flipTap, markTap} from './api.js';
-import {bankGate} from '../ai/fallback.js';
+import {labQuiz} from './labquiz.js';
+import {getSeen, markSeen, pickQuiz} from '../knowledge/quizSeen.js';
 import {getCard} from '../knowledge/cards.js';
 import {speak, stopSpeaking, ttsSupported} from '../fusion/voice.js';
 import '../ui/result/result.css';
@@ -72,8 +73,10 @@ export default function ChapterBook({chapter, onClose, onUnlock}) {
   const [branch, setBranch] = useState(null);     // {pages:[page...], i}
   const [busy, setBusy] = useState(false);
   const [tapMark, setTapMark] = useState(null);
-  const quiz = useMemo(()=>bankGate(chapter.quiz, 'book-'+chapter.id), [chapter.id]);
+  // Page ⑤ tests this chapter's own experiment (numbers from the lab's model), never a repeat for this kid.
+  const quiz = useMemo(()=>labQuiz(chapter.id, getSeen()) || pickQuiz(chapter.quiz), [chapter.id]);
   const page = chapter.pages[n];
+  useEffect(()=>{ if (page.kind==='quiz' && quiz) markSeen(quiz.id); }, [n]);   // eslint-disable-line
   const bp = branch ? branch.pages[branch.i] : null;
   const Lab = EXPERIMENTS[chapter.experiment];
   useEffect(()=>()=>stopSpeaking(), []);

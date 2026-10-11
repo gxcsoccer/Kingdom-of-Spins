@@ -591,7 +591,7 @@ ${cardLines(geo)}
     if (award) events.push(awardEvent(award, extra.line || (BEYS[award] ? (page.panels[0]?.text||'') : '')));
     for (const e of Array.isArray(gmEvents) ? gmEvents.slice(0,4) : []) {
       if (e?.type==='clue' && e.text && !events.some(x=>x.type==='clue') && !clueRepeats(e.text, st.clues)) events.push({type:'clue', text:clean2(e.text,70)});
-      else if (e?.type==='gate' && !noGate && GATE_BANK[e.cardId] && !events.some(x=>x.type==='gate')) events.push(bankGate(e.cardId, `${e.cardId}-${(+st.steps||0)+1}`, clean2(e.lead||'',40)));
+      else if (e?.type==='gate' && !noGate && GATE_BANK[e.cardId] && !events.some(x=>x.type==='gate')) events.push(bankGate(e.cardId, '', clean2(e.lead||'',40), Array.isArray(st.quizSeen)?st.quizSeen:[]));
       else if (e?.type==='geo_fact' && getCard(e.cardId)?.layer==='geo' && !events.some(x=>x.type==='geo_fact')) events.push({type:'geo_fact', cardId:e.cardId});
     }
     if (award && leftAfter===0) events.push({type:'complete'});

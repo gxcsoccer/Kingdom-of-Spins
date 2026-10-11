@@ -195,7 +195,9 @@ const QUIZ = {
 };
 export function templateQuiz(m={}) {
   const key = m.kind==='finish' ? ((m.data?.reason==='over'||m.data?.reason==='xtreme') ? 'finish-over' : 'finish-spin') : m.kind;
-  return {...(QUIZ[key] || QUIZ['big-hit'])};
+  const concept = key==='finish-over' ? 'ph-momentum' : momentCard(m);
+  const q = pickFromBank(concept, []);
+  return q ? {...shuffled(q), cardId:concept} : {...(QUIZ[key] || QUIZ['big-hit'])};
 }
 export function sanitizeQuiz(raw, m) {
   const t = templateQuiz(m);
@@ -419,34 +421,14 @@ export function templateFlipTap(page={}, x=.5, y=.5) {
   return templateFlipPage({cardId: next===page.cardId ? 'ph-energy-loss' : next, from: near.label});
 }
 
-// ── Gate quiz bank: correctness comes from here (card-driven), the model only picks which card. ──
-export const GATE_BANK = {
-  'geo-tides': {q:'潮水一天涨落，主要是谁的引力在拉海水？', options:['月球','风','海里的大鱼'], answer:0, explain:'月球的引力拉着海水，大多数海边一天涨潮两次、落潮两次。'},
-  'geo-compass': {q:'你面朝北站着，右手边是哪个方向？', options:['东','西','南'], answer:0, explain:'面朝北：右手是东，左手是西，背后是南。'},
-  'geo-sun-direction': {q:'在中国，中午的时候影子大概指向哪边？', options:['北','南'], answer:0, explain:'北半球中午太阳在南边的天空，所以影子指向北。'},
-  'geo-map-scale': {q:'地图上 1 厘米代表 1 千米，两地在地图上相距 3 厘米，真实距离大约是？', options:['3 千米','30 千米','3 米'], answer:0, explain:'比例尺 1 厘米 = 1 千米，3 厘米就是 3 千米。'},
-  'geo-coast': {q:'海边的细沙主要是怎么来的？', options:['海浪把岩石慢慢磨碎','从天上掉下来的'], answer:0, explain:'海浪年复一年拍打、冲刷岩石，把它们磨成了沙子。'},
-  'geo-lighthouse': {q:'夜里船员怎么分辨是哪一座灯塔？', options:['看它独特的闪光节奏','看灯塔的颜色深浅'], answer:0, explain:'每座灯塔的闪光节奏都不一样，数一数就知道是哪座。'},
-  'geo-altitude-cold': {q:'从海边爬上 1000 米高的山顶，气温大约会怎样？', options:['降低约 6°C','升高约 6°C','不变'], answer:0, explain:'海拔每升高 100 米约降 0.6°C，1000 米大约降 6°C。'},
-  'geo-thunderstorm': {q:'雷暴云里的闪电是怎么产生的？', options:['冰粒和水滴碰撞带电后放电','太阳光照进云里'], answer:0, explain:'积雨云里冰粒和水滴互相碰撞带上电，放电就是闪电。'},
-  'geo-thunder-distance': {q:'看到闪电后数到 3 秒才听到雷声，雷电大约有多远？', options:['约 1 千米','约 10 米','约 100 千米'], answer:0, explain:'声音每秒约走 340 米，3 秒约 1 千米；光几乎瞬间就到了。'},
-  'geo-snowline': {q:'冰川是怎么来的？', options:['积雪年年堆积压成冰，再慢慢往下流','海水冻住后被推上山'], answer:0, explain:'雪线以上积雪化不完，越积越厚被压成冰，在重力作用下慢慢流动。'},
-  'geo-contour': {q:'等高线地图上，线挤得很密的地方说明什么？', options:['山坡很陡','山坡很平','那里有河'], answer:0, explain:'等高线越密，同样的距离高度变化越大，坡就越陡。'},
-  'geo-rain-shadow': {q:'湿润的风吹向一座大山，哪一边的雨更多？', options:['迎风坡','背风坡'], answer:0, explain:'风在迎风坡被迫爬升、冷却下雨；翻过山后变干，背风坡少雨。'},
-  'geo-volcano': {q:'火山喷出来的东西最初来自哪里？', options:['地下深处熔化的岩石（岩浆）','山顶的积雪'], answer:0, explain:'地下深处的岩石熔化成岩浆，从地壳裂缝冲出地面形成火山。'},
-  'geo-plates': {q:'地球的板块一年大约移动多远？', options:['几厘米','几千米'], answer:0, explain:'板块移动得很慢，每年只有几厘米，但相撞的地方容易有火山和地震。'},
-  'geo-hot-spring': {q:'温泉的水为什么是热的？', options:['被地下炽热的岩石加热','被太阳晒热的'], answer:0, explain:'雨水渗进地下被深处的热岩石加热，再冒出地面成了温泉。'},
-  'geo-magma-lava': {q:'岩浆喷出地面以后叫什么？', options:['熔岩','温泉','冰川'], answer:0, explain:'在地下叫岩浆，喷出地面叫熔岩，冷却后变成火山岩。'},
-  'ph-friction-area': {q:'哪种轴尖碰地面积最小、转速掉得最慢？', options:['尖轴','平轴'], answer:0, explain:'尖轴只用一个小点碰地，摩擦的力臂短，转速掉得慢。'},
-  'ph-inertia': {q:'同样重的陀螺，重量放在哪里更难被弄停？', options:['外圈','中心'], answer:0, explain:'重量越靠外，转动惯量越大，越难被弄停。'},
-  'ph-momentum': {q:'两只陀螺相撞，哪只更难被撞飞？', options:['更重的那只','更轻的那只'], answer:0, explain:'动量 = 质量 × 速度，越重的陀螺被撞时速度变化越小。'},
-  'ph-gyro-stability': {q:'陀螺转得快的时候为什么不容易倒？', options:['角动量大，重力只能让它慢慢画圈','因为地面有磁力'], answer:0, explain:'转得快角动量大，重力想推倒它时，它只会慢慢进动。'},
-};
+// ── Gate quiz bank: correctness comes from the shared bank (src/knowledge/quizbank.js); the model only picks the card. ──
+import {QUIZ_BANK, pickFromBank, shuffled} from '../knowledge/quizbank.js';
+export const GATE_BANK = QUIZ_BANK;
 // Build a validated gate from the bank; options are shuffled so the answer isn't always A.
-export function bankGate(cardId, quizId, lead='') {
-  const g = GATE_BANK[cardId]; if (!g) return null;
-  const order = g.options.map((_,i)=>i).sort(()=>Math.random()-.5);
-  return {type:'gate', quizId: quizId || ('g-'+cardId), lead: String(lead||'').slice(0,40), q: g.q, options: order.map(i=>g.options[i]), answer: order.indexOf(g.answer), explain: g.explain, cardId};
+export function bankGate(cardId, quizId, lead='', seen=[]) {
+  const q0 = pickFromBank(cardId, seen); if (!q0) return null;
+  const q = shuffled(q0);
+  return {type:'gate', quizId: q.id, lead: String(lead||'').slice(0,40), q: q.q, options: q.options, answer: q.answer, explain: q.explain, cardId};
 }
 
 // ── Free question ──

@@ -12,6 +12,7 @@ import BeyArt from '../ui/BeyArt.jsx';
 import {Portrait} from '../ui/common.jsx';
 import * as sfx from '../game/sfx.js';
 import {exploreStep} from './api.js';
+import {getSeen, markSeen} from '../knowledge/quizSeen.js';
 import ProtoArchive from './ProtoArchive.jsx';
 import {prototypeOf} from '../game/prototypes.js';
 import '../flipbook/flipbook.css';
@@ -70,7 +71,7 @@ export default function ExploreScreen(){
     const g=(e.gm&&typeof e.gm==='object')?e.gm:{};
     const found=new Set(e.found),met=new Set(e.met);
     if(project)for(const v of lastEvents.current){if(v.type==='find_bey')found.add(v.beyId);if(v.type==='meet_blader')met.add(v.bladerId);}
-    return {found:[...found],met:[...met],steps:e.steps,runs:e.runs,sinceLast:g.sinceLast||0,gm:g.memory||'',trail:(g.trail||[]).map(t=>t.page.title),scene:g.scene,hidePlan:g.hidePlan||null,sinceGate:g.sinceGate??9,runAwards:g.runAwards||0,clues:(g.clues||[]).slice(0,6),scenes:(g.trail||[]).map(t=>t.page.sceneKey).filter(Boolean),pendingGate:g.pendingGate||null};
+    return {found:[...found],met:[...met],steps:e.steps,runs:e.runs,sinceLast:g.sinceLast||0,gm:g.memory||'',trail:(g.trail||[]).map(t=>t.page.title),scene:g.scene,hidePlan:g.hidePlan||null,sinceGate:g.sinceGate??9,runAwards:g.runAwards||0,clues:(g.clues||[]).slice(0,6),quizSeen:getSeen().slice(-120),scenes:(g.trail||[]).map(t=>t.page.sceneKey).filter(Boolean),pendingGate:g.pendingGate||null};
   },[region.id]);
   useEffect(()=>{if(voice&&cur)speak([narration,pageText(cur.page)].filter(Boolean).join('。'));},[voice,cur?.page.id]);// eslint-disable-line
 
@@ -207,6 +208,7 @@ function EventOverlay({ev,region,onFind,onMeet,onGeo,onAnswer,onGateDone,onDone,
   const [got,setGot]=useState(null);
   useEffect(()=>{
     if(ev.type==='find_bey'){const b=onFind(ev.beyId);setGot(b||BEYS[ev.beyId]);}
+    if(ev.type==='gate')markSeen(ev.quizId);
     if(ev.type==='geo_fact'){onGeo(ev.cardId);const t=setTimeout(onDone,9000);return()=>clearTimeout(t);}
   },[]);// eslint-disable-line
   if(ev.type==='find_bey'){const bey=got||BEYS[ev.beyId];return (
