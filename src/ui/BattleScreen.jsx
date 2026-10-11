@@ -37,6 +37,9 @@ export default function BattleScreen(){
   const [speed,setSpeed]=useState(1);
   const [paused,setPaused]=useState(false);
   const roundRef=useRef(0);
+  // Static stand-in so BattleScene (and its canvas/shaders) is mounted before the first launch.
+  const idlePlayer=useMemo(()=>{const st={time:0,bodies:[{p:[-.09,0,.045],q:[1,0,0,0],rpm:0,tilt:0},{p:[.09,0,.045],q:[1,0,0,0],rpm:0,tilt:0}]};
+    return {beys:[myBey,opp.bey],events:[],getTime:()=>0,getState:()=>st};},[myBey,opp.bey]);
 
   useEffect(()=>()=>{player?.dispose();sfx.spinHum(false);},[player]);
   const [muted,setMutedState]=useState(sfx.isMuted());
@@ -72,7 +75,8 @@ export default function BattleScreen(){
     <div className="page dark battle-page">
       <Hud player={player} names={[myName,opp.name]} beys={[myBey,opp.bey]} score={score} target={target} color={opp.color} round={roundRef.current}/>
       <div className="battle-stage">
-        {player?<BattleScene player={player} style={{position:'absolute',inset:0}}/>:<div className="battle-idle bg-arena"><BeyArt bey={myBey} size={220} spin/><span className="h-display h-outline" style={{fontSize:80}}>VS</span><BeyArt bey={opp.bey} size={220} spin/></div>}
+        {/* One BattleScene stays mounted from the start (idle player until the first launch) so the WebGL canvas is warm and the cut-in hands straight into the battle. */}
+        <BattleScene player={player||idlePlayer} frameloop={player?'always':'demand'} style={{position:'absolute',inset:0}}/>
         {phase==='fight'&&<div className="fight-controls">
           <button className="btn small" onClick={()=>{player.setPaused(!paused);setPaused(!paused);}}>{paused?'▶ 继续':'⏸ 暂停'}</button>
           {[1,2,4].map(s=><button key={s} className={`btn small ${speed===s?'yellow':''}`} onClick={()=>{player.setSpeed(s);setSpeed(s);}}>{s}×</button>)}

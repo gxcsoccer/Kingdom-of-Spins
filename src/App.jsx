@@ -11,10 +11,11 @@ const FusionScreen=lazy(()=>import('./ui/FusionScreen.jsx'));
 const VersusScreen=lazy(()=>import('./ui/VersusScreen.jsx'));
 const CodexScreen=lazy(()=>import('./ui/CodexScreen.jsx'));
 const ArtCheck=lazy(()=>import('./ui/ArtCheck.jsx'));
+const ExploreScreen=lazy(()=>import('./explore/ExploreScreen.jsx'));
 const FlipbookHost=lazy(()=>import('./flipbook/Flipbook.jsx').then(m=>({default:m.FlipbookHost})));
 const ShowcaseCanvas=lazy(()=>import('./scene/BeyShowcase.jsx').then(m=>({default:m.ShowcaseCanvas})));
 
-const SCREENS={title:TitleScreen,starter:StarterScreen,map:MapScreen,shop:ShopScreen,collection:CollectionScreen,battle:BattleScreen,fusion:FusionScreen,versus:VersusScreen,codex:CodexScreen};
+const SCREENS={title:TitleScreen,starter:StarterScreen,map:MapScreen,shop:ShopScreen,collection:CollectionScreen,battle:BattleScreen,fusion:FusionScreen,versus:VersusScreen,codex:CodexScreen,explore:ExploreScreen};
 
 export default function App(){
   const screen=useGame(s=>s.screen), nonce=useGame(s=>s.nonce);

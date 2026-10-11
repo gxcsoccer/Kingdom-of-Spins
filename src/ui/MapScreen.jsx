@@ -1,6 +1,8 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {useGame,bladerById} from '../game/store.js';
 import {BLADERS,TIERS,tierUnlocked} from '../game/story.js';
+import {REGIONS,regionUnlocked} from '../game/regions.js';
+import {BEYS} from '../game/beys.js';
 import {TypeBadge} from './common.jsx';
 import BeyArt from './BeyArt.jsx';
 import './map.css';
@@ -8,26 +10,27 @@ import './map.css';
 // Illustrated world map: the ink-wash map IS the page. Bladers and places are hotspots on the
 // landscape; tapping one zooms the camera in and page-flips into a full comic page.
 
+const prog=(save,r)=>{const e=save.explore?.[r.id]||{};const met=new Set([...(e.met||[]),...r.bladers.filter(id=>save.defeated.includes(id))]);
+  return {found:(e.found||[]).filter(id=>r.beys.includes(id)).length,met:r.bladers.filter(id=>met.has(id)).length,metSet:met,foundSet:new Set(e.found||[])};};
+const realUnlocked=(r,save)=>regionUnlocked(r,{...save,demo:false});
+
 function hint(save){
-  if(!save.defeated.length)return '先去村子里挑战普通对手吧！打赢能赚金币。';
-  if(save.collection.length<3){
-    if(save.coins>=100)return `你有 ${save.coins} 金币，可以去商店开盲盒；或者来融合工坊，让我帮你设计一只新陀螺！`;
-    return `再有 ${3-save.collection.length} 只陀螺，山那边的雾就会散开——职业对手在等你！试试融合工坊？`;
-  }
+  const [harbor,thunder]=REGIONS, ph=prog(save,harbor), pt=prog(save,thunder);
+  if(ph.found<harbor.beys.length&&!ph.met)return '去新手港湾探险吧！找找藏起来的陀螺，还能遇到会和你对战的小伙伴。';
+  if(ph.found<harbor.beys.length)return `新手港湾还藏着 ${harbor.beys.length-ph.found} 只陀螺，再去找找看！`;
+  if(!realUnlocked(thunder,save)&&!save.demo)return `再有 ${Math.max(0,3-save.collection.length)} 只陀螺，雷霆山脉的雾就会散开！试试商店盲盒或融合工坊？`;
+  if(pt.met<thunder.bladers.length)return '雷霆山脉开放了！去山里找职业对手，打败他们就能邀请他们入队。';
   if(save.team.length<3)return '打败职业对手，就能邀请他们加入你的队伍！';
-  if(!tierUnlocked('boss',save))return '超级职业已经解锁，他们可不好对付……先预测再出手！';
-  return '龙王在城堡里等你。准备好你最强的陀螺吧！';
+  return '龙焰火山岛的龙王在等你……准备好你最强的陀螺吧！';
 }
 
-// Hotspot positions in % of the 1920×1080 map art.
-const SPOTS={
-  ran:[6.5,58], tetsu:[10,74], hop:[20,71],          // village & harbour (foreground)
-  raiga:[5.5,15], hyomi:[23,12], iwaki:[8,39],         // torii island, rock island, west cliffs
-  shadow:[93.5,55], blaze:[84,41], nova:[72,9],        // mountain gate, east cliffs, snowy peak
-  ryuoh:[91,14],                                       // dragon castle
+// Region entry points on the 1920×1080 map art: pin = the place on the landscape, card = where the badge floats.
+const REGION_POS={
+  harbor:{pin:[11,73],card:[15,56]},
+  thunder:{pin:[13,20],card:[22,30]},
+  volcano:{pin:[90,16],card:[82,40]},
 };
-const TIER_FOG={pro:[[5.5,15],[23,12],[8,39],[14,26]],super:[[93.5,55],[84,41],[72,9],[88,30]],boss:[[91,14],[86,8]]};
-const LOCK_AT={pro:[15,27],super:[86,50],boss:[90,23]};
+const REGION_FOG={thunder:[[5.5,15],[23,12],[8,39],[15,25]],volcano:[[93.5,55],[84,41],[72,9],[88,30],[91,14],[86,8]]};
 const PLACES=[
   {id:'shop',label:'盲盒商店',img:'/art/bg/shop.jpg',crop:'3% 42% / auto 240%',at:[38,64],go:'shop'},
   {id:'fusion',label:'AI 融合工坊',img:'/art/bg/lab.jpg',crop:'4% 60% / auto 210%',at:[50,68],go:'fusion',doctor:true},
@@ -35,7 +38,6 @@ const PLACES=[
   {id:'codex',label:'知识图鉴',icon:'scroll',at:[60,87],go:'codex'},
   {id:'collection',label:'我的陀螺',icon:'bag',at:[73,79],go:'collection'},
 ];
-const PATH=['hop','tetsu','ran','iwaki','raiga','hyomi','nova','blaze','shadow','ryuoh'];
 const reduced=()=>typeof matchMedia!=='undefined'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 const baseOf=bey=>(bey?.id||'').includes('-')?bey.id.split('-').pop():bey?.id;
 
@@ -52,16 +54,72 @@ function useStage(){
   return st;
 }
 
-function Medallion({b,state,onClick}){
-  const [ok,setOk]=useState(true);
+function Face({id,lit,size}){
+  const b=BLADERS.find(x=>x.id===id);
+  return <span className={`wm-mini ${lit?'lit':''}`} title={lit?b?.name:'？？？'} style={{'--c':b?.color,width:size,height:size}}><img src={`/art/bladers/${id}.png`} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></span>;
+}
+function BeyChip({id,lit}){
+  return <span className={`wm-beychip ${lit?'lit':''}`} title={lit?BEYS[id]?.name:'？？？'}><img src={`/art/beys/${id}.png`} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></span>;
+}
+
+function RegionBadge({r,save,locked,onClick}){
+  const pos=REGION_POS[r.id], p=prog(save,r);
   return (
-    <button className={`wm-spot ${state.cls}`} style={{left:`${SPOTS[b.id][0]}%`,top:`${SPOTS[b.id][1]}%`,'--c':b.color}} onClick={onClick} disabled={state.locked} aria-label={`${b.name}${state.locked?'（未解锁）':''}`}>
-      <span className="wm-ring"/>
-      <span className="wm-face">{ok?<img src={`/art/bladers/${b.id}.png`} alt="" onError={()=>setOk(false)}/>:<b>{b.name[0]}</b>}</span>
-      <span className="wm-name">{b.name}</span>
-      {state.beat&&<span className="wm-stamp">✓ 已击败</span>}
-      {state.recruited&&<span className="wm-flag" title="已入队">队</span>}
-    </button>
+    <>
+      <span className={`wm-pin ${locked?'locked':''}`} style={{left:`${pos.pin[0]}%`,top:`${pos.pin[1]}%`,'--c':r.color}}><i/></span>
+      <button className={`wm-region ${locked?'locked':''} ${r.comingSoon?'soon':''}`} style={{left:`${pos.card[0]}%`,top:`${pos.card[1]}%`,'--c':r.color}} onClick={onClick}
+        aria-label={`${r.name}${locked?'（未解锁）':''}`}>
+        <span className="wm-region-glow"/>
+        <span className="wm-region-order">{['壹','贰','叁'][r.order-1]||r.order}</span>
+        <span className="wm-region-name">{r.name}</span>
+        <span className="wm-region-sub">{r.en} · {r.landform}</span>
+        <span className="wm-region-row"><em>陀螺 {p.found}/{r.beys.length}</em>{r.beys.map(id=><BeyChip key={id} id={id} lit={p.foundSet.has(id)}/>)}</span>
+        <span className="wm-region-row"><em>{r.recruitable?.length?'队员':'对手'} {p.met}/{r.bladers.length}</em>{r.bladers.map(id=><Face key={id} id={id} lit={p.metSet.has(id)}/>)}</span>
+        {r.comingSoon&&<span className="wm-region-soon">即将开放</span>}
+        {locked&&r.unlock&&<span className="wm-region-lock">🔒 {r.unlock.label}</span>}
+        {!locked&&!r.comingSoon&&<span className="wm-region-go">进入探险 ▶</span>}
+        {r.comingSoon&&<span className="wm-region-go alt">直接挑战 ▶</span>}
+      </button>
+    </>
+  );
+}
+
+// Comic page listing a region's bladers (used for the volcano's direct-challenge path).
+function RegionPicker({r,save,closing,onPick,onBack}){
+  const open=b=>save.demo||tierUnlocked(b.tier,save);
+  const list=r.bladers.map(id=>BLADERS.find(b=>b.id===id)).filter(Boolean);
+  return (
+    <div className={`wm-page ${closing?'closing':''}`} style={{'--c':r.color}} role="dialog" aria-label={r.name}>
+      <div className="wm-sheet wm-picker">
+        <header className="wm-picker-head"><span className="wm-picker-name">{r.name}</span><span className="wm-picker-sub">{r.landform} · 即将开放探险 · 现在可以直接挑战</span></header>
+        <div className="wm-picker-grid">
+          {list.map(b=>{const ok=open(b), beat=save.defeated.includes(b.id);return (
+            <button key={b.id} className={`wm-p wm-pick ${ok?'':'locked'} ${b.tier==='boss'?'boss':''}`} style={{'--c':b.color}} onClick={()=>ok&&onPick(b)} disabled={!ok}>
+              <img className="wm-pick-img" src={`/art/bladers/${b.id}.png`} alt=""/>
+              <span className="wm-pick-tier">{TIERS[b.tier].label}</span>
+              <span className="wm-pick-name">{b.name}</span>
+              {beat&&<span className="wm-pick-beat">已击败</span>}
+              {!ok&&<span className="wm-pick-lock">🔒 {TIERS[b.tier].req}</span>}
+            </button>);})}
+        </div>
+        <section className="wm-p wm-p-act"><button className="wm-back" onClick={onBack}>← 返回地图</button><span className="wm-picker-tip">点一位对手，看看他的陀螺</span></section>
+      </div>
+    </div>
+  );
+}
+
+// "进入区域" title page that flips in before navigating to the explore screen.
+function EnterCard({r}){
+  return (
+    <div className="wm-page" style={{'--c':r.color}}>
+      <div className="wm-sheet wm-enter">
+        <div className="wm-burst"/>
+        <div className="wm-enter-k">REGION {r.order}</div>
+        <div className="wm-enter-name">{r.name}</div>
+        <div className="wm-enter-sub">{r.en} · {r.landform}</div>
+        <div className="wm-enter-go">进入区域…</div>
+      </div>
+    </div>
   );
 }
 
@@ -120,35 +178,41 @@ function CharacterPage({b,save,onBack,onChallenge,closing}){
 export default function MapScreen(){
   const {save,go,setDemo}=useGame();
   const stage=useStage();
-  const [focus,setFocus]=useState(null);   // {b, x, y} zooming / open
-  const [page,setPage]=useState(null);     // blader whose page is open
+  const [focus,setFocus]=useState(null);   // {x,y} zoom origin (%)
+  const [picker,setPicker]=useState(null); // region whose blader picker is open
+  const [page,setPage]=useState(null);     // blader whose character page is open
+  const [entering,setEntering]=useState(null);
   const [closing,setClosing]=useState(false);
   const panRef=useRef();
-  const open=t=>save.demo||tierUnlocked(t,save);
+  const locked=r=>!regionUnlocked(r,save);
 
-  // Fog clears once per tier when it becomes unlocked.
-  const [clearing]=useState(()=>Object.keys(TIER_FOG).filter(t=>{
-    if(!tierUnlocked(t,save))return false; // real unlocks only (demo mode doesn't consume the animation)
-    const k=`kos.seenUnlocked.${t}`;try{if(localStorage.getItem(k))return false;localStorage.setItem(k,'1');}catch{return false;}return true;
+  // Fog clears once per region when it becomes unlocked for real (demo mode doesn't consume it).
+  const [clearing]=useState(()=>REGIONS.filter(r=>r.unlock&&realUnlocked(r,save)).map(r=>r.id).filter(id=>{
+    const k=`kos.seenUnlocked.region.${id}`;try{if(localStorage.getItem(k))return false;localStorage.setItem(k,'1');}catch{return false;}return true;
   }));
+  useEffect(()=>{if(stage.pan&&panRef.current)panRef.current.scrollLeft=0;},[stage.pan]);
 
-  useEffect(()=>{ // phones: start panned to the village
-    if(stage.pan&&panRef.current)panRef.current.scrollLeft=0;
-  },[stage.pan]);
-
-  const enter=b=>{
-    const [x,y]=SPOTS[b.id];
-    setFocus({b,x,y});
-    setTimeout(()=>{setPage(b);setClosing(false);},reduced()?0:520);
+  const wait=ms=>reduced()?0:ms;
+  const zoomTo=r=>{const [x,y]=REGION_POS[r.id].pin;setFocus({x,y});};
+  const tapRegion=r=>{
+    if(r.comingSoon){zoomTo(r);setTimeout(()=>{setPicker(r);setClosing(false);},wait(520));return;}
+    if(locked(r))return;
+    zoomTo(r);
+    setTimeout(()=>setEntering(r),wait(480));
+    setTimeout(()=>go('explore',{regionId:r.id}),wait(1350));
   };
-  const back=()=>{
-    if(reduced()){setPage(null);setFocus(null);return;}
-    setClosing(true);
-    setTimeout(()=>{setPage(null);setClosing(false);setFocus(null);},520);
+  const closePage=()=>{ // character page -> back to picker (volcano)
+    if(reduced()){setPage(null);return;}
+    setClosing(true);setTimeout(()=>{setPage(null);setClosing(false);},480);
+  };
+  const closePicker=()=>{
+    if(reduced()){setPicker(null);setFocus(null);return;}
+    setClosing(true);setTimeout(()=>{setPicker(null);setClosing(false);setFocus(null);},480);
   };
 
   const team=save.team.map(t=>bladerById(t.bladerId)).filter(Boolean);
-  const pathD=useMemo(()=>PATH.map((id,i)=>`${i?'L':'M'}${SPOTS[id][0]*19.2},${SPOTS[id][1]*10.8}`).join(' '),[]);
+  const pathD=useMemo(()=>REGIONS.map((r,i)=>`${i?'L':'M'}${REGION_POS[r.id].pin[0]*19.2},${REGION_POS[r.id].pin[1]*10.8}`).join(' '),[]);
+  const overlay=!!(picker||page||entering);
 
   return (
     <div className="wm">
@@ -157,48 +221,40 @@ export default function MapScreen(){
         <div className="wm-hud-title">冒险地图</div>
         <div className="wm-hud-chips">
           <span>🪙 {save.coins}</span>
-          <span>陀螺 {save.collection.length}/3</span>
+          <span>陀螺 {save.collection.length}</span>
           <span>队员 {save.team.length}/3</span>
           {team.length>0&&<span className="wm-hud-team">{team.map(b=><img key={b.id} src={`/art/bladers/${b.id}.png`} alt={b.name} title={b.name}/>)}</span>}
-          <label className="wm-hud-demo" title="演示模式：解锁全部对手"><input type="checkbox" checked={!!save.demo} onChange={e=>setDemo(e.target.checked)}/>演示</label>
+          <label className="wm-hud-demo" title="演示模式：解锁全部区域和对手"><input type="checkbox" checked={!!save.demo} onChange={e=>setDemo(e.target.checked)}/>演示</label>
         </div>
       </header>
 
       <div ref={panRef} className={`wm-viewport ${stage.pan?'pan':''}`}>
-        <div className={`wm-stage ${focus?'zoom':''} ${page&&!closing?'hidden':''}`} style={{width:stage.w,height:stage.h,'--sw':`${stage.w}px`,transformOrigin:focus?`${focus.x}% ${focus.y}%`:'50% 50%'}}>
+        <div className={`wm-stage ${focus?'zoom':''} ${overlay&&!closing?'hidden':''}`} style={{width:stage.w,height:stage.h,'--sw':`${stage.w}px`,transformOrigin:focus?`${focus.x}% ${focus.y}%`:'50% 50%'}}>
           <img className="wm-art" src="/art/bg/map.jpg" alt="" draggable={false}/>
           <svg className="wm-path" viewBox="0 0 1920 1080" preserveAspectRatio="none"><path d={pathD}/></svg>
           <div className="wm-calli">陀螺王国<small>KINGDOM OF SPINS</small></div>
 
-          {Object.entries(TIER_FOG).map(([tier,blobs])=>(!open(tier)||clearing.includes(tier))&&(
-            <div key={tier} className={`wm-fog-group ${open(tier)&&clearing.includes(tier)?'clearing':''}`}>
-              {blobs.map(([x,y],i)=><div key={i} className="wm-fog" style={{left:`${x}%`,top:`${y}%`,animationDelay:`${-i*2.3}s`}}/>)}
+          {REGIONS.map(r=>REGION_FOG[r.id]&&(locked(r)||clearing.includes(r.id))&&(
+            <div key={r.id} className={`wm-fog-group ${!locked(r)&&clearing.includes(r.id)?'clearing':''}`}>
+              {REGION_FOG[r.id].map(([x,y],i)=><div key={i} className="wm-fog" style={{left:`${x}%`,top:`${y}%`,animationDelay:`${-i*2.3}s`}}/>)}
             </div>
           ))}
 
-          {BLADERS.map(b=>{
-            const locked=!open(b.tier), beat=save.defeated.includes(b.id), recruited=save.team.some(t=>t.bladerId===b.id);
-            return <Medallion key={b.id} b={b} state={{locked,beat,recruited,cls:`${locked?'locked':''} ${beat?'beat':''} tier-${b.tier}`}} onClick={()=>enter(b)}/>;
-          })}
-
-          {Object.entries(LOCK_AT).map(([tier,[x,y]])=>!open(tier)&&(
-            <div key={tier} className="wm-lock" style={{left:`${x}%`,top:`${y}%`}}>
-              <span className="wm-lock-string"/>
-              <span className="wm-lock-tag"><b>🔒 {TIERS[tier].label}</b>{TIERS[tier].req}</span>
-            </div>
-          ))}
+          {REGIONS.map(r=><RegionBadge key={r.id} r={r} save={save} locked={locked(r)} onClick={()=>tapRegion(r)}/>)}
 
           {PLACES.map(p=><Place key={p.id} p={p} count={p.id==='codex'?save.cards.length:p.id==='collection'?save.collection.length:null} onClick={()=>go(p.go)}/>)}
         </div>
       </div>
 
-      {stage.pan&&!page&&<div className="wm-swipe">👆 左右拖动地图，去看看远方</div>}
+      {stage.pan&&!overlay&&<div className="wm-swipe">👆 左右拖动地图，去看看远方</div>}
       <div className="wm-doctor">
         <DoctorFace size={86}/>
         <div className="wm-doctor-say">{hint(save)}</div>
       </div>
 
-      {page&&<CharacterPage b={page} save={save} closing={closing} onBack={back} onChallenge={()=>go('battle',{bladerId:page.id})}/>}
+      {picker&&!page&&<RegionPicker r={picker} save={save} closing={closing} onPick={b=>{setPage(b);setClosing(false);}} onBack={closePicker}/>}
+      {page&&<CharacterPage b={page} save={save} closing={closing} onBack={closePage} onChallenge={()=>go('battle',{bladerId:page.id})}/>}
+      {entering&&<EnterCard r={entering}/>}
     </div>
   );
 }
