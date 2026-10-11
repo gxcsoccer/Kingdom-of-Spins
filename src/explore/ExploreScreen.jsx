@@ -77,7 +77,7 @@ export default function ExploreScreen(){
   },[region.id]);// eslint-disable-line
   const started=useRef(false);
   useEffect(()=>{if(started.current||region.comingSoon)return;started.current=true;
-    if(!gm?.trail?.length)startRun();else if(gm.pendingGate)setQueue([{type:'gate',...gm.pendingGate}]);},[]);// eslint-disable-line
+    if(!gm?.trail?.length)startRun();else if(gm.pendingGate)addEvents([{type:'gate',...gm.pendingGate}]);},[]);// eslint-disable-line
 
   const here=gm?.scene||START_SCENE[region.id];
   const targets=useMemo(()=>gm?openTargets(region.id,gm.hidePlan||[],ex.found,ex.met,here):[],[gm,ex.found,ex.met,here,region.id]);
@@ -102,7 +102,7 @@ export default function ExploreScreen(){
         const gate=(r.events||[]).find(e=>e.type==='gate');if(gate){gg.pendingGate={quizId:gate.quizId,lead:gate.lead,q:gate.q,answer:gate.answer,explain:gate.explain,options:gate.options,cardId:gate.cardId};gg.sinceGate=0;}});
       // 已经拿到过的地理卡不再弹（AI 常常每一步都推同一张“越高越冷”）。
       const owned=useGame.getState().save.cards||[];
-      const evs=(r.events||[]).filter(e=>e.type==='gate'||(e.type==='geo_fact'&&!owned.includes(e.cardId)));if(evs.length)setQueue(q=>[...q,...evs.filter(e=>e.type!=='geo_fact'||!q.some(x=>x.cardId===e.cardId))]);
+      const evs=(r.events||[]).filter(e=>e.type==='gate'||(e.type==='geo_fact'&&!owned.includes(e.cardId)));if(evs.length)setQueue(q=>[...q,...evs.filter(e=>e.type!=='geo_fact'||!q.some(x=>x.cardId===e.cardId)).map(e=>({...e,qid:`${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`}))]);
     });
   }
   function flash(c){const key=Date.now();setChip({...c,key});setTimeout(()=>alive.current&&setChip(ch=>ch?.key===key?null:ch),2600);}
@@ -129,7 +129,7 @@ export default function ExploreScreen(){
       const name=targetName(hit);
       upd((g,x)=>{g.done=[...(g.done||[]),{id:hit.id,type:hit.type,name,where:sc.title}];g.sinceFind=0;});
       const left=targets.length-1;
-      setQueue(q=>[...q,hit.type==='bey'?{type:'find_bey',beyId:hit.id,text:`就在「${label}」里！`}:{type:'meet_blader',bladerId:hit.id,line:bladerById(hit.id)?.line},...(left===0?[{type:'complete'}]:[])]);
+      addEvents([hit.type==='bey'?{type:'find_bey',beyId:hit.id,text:`就在「${label}」里！`}:{type:'meet_blader',bladerId:hit.id,line:bladerById(hit.id)?.line},...(left===0?[{type:'complete'}]:[])]);
       writeFlavor({type:'inspect',spot},{type:'found',id:hit.id,name},live.id);
       return;
     }
@@ -149,8 +149,12 @@ export default function ExploreScreen(){
     let best=0,d=9;view.hotspots.forEach((h,i)=>{const e=Math.hypot(h.x-x,h.y-y);if(e<d){d=e;best=i;}});
     inspect(best);
   }
-  const pop=()=>setQueue(q=>q.slice(1));
-  const ev0=queue[0];
+  // 每个事件带唯一 qid：弹层按 qid 关闭，不会因为两条内容一样的事件而关不掉或多关一条。
+  const addEvents=evs=>setQueue(q=>[...q,...evs.map(e=>({...e,qid:`${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`}))]);
+  const drop=qid=>setQueue(q=>q.filter(e=>e.qid!==qid));
+  // 知识卡是不挡路的小提示，和“找到了 / 遇见了 / 小考验”这些弹层分开显示。
+  const ev0=queue.find(e=>e.type!=='geo_fact'),toast=queue.find(e=>e.type==='geo_fact');
+  const pop=()=>ev0&&drop(ev0.qid);
 
   if(region.comingSoon)return <div className="page dark ex-soon"><div className="panel" style={{padding:30,color:'#111',textAlign:'center'}}><div className="sfx" style={{fontSize:56}}>即将开放！</div><p style={{fontWeight:800}}>{region.name}（{region.landform}）还在建造中，敬请期待～</p><button className="btn primary big" onClick={()=>go('map')}>回到地图</button></div></div>;
 
@@ -207,7 +211,8 @@ export default function ExploreScreen(){
         {(gm?.done||[]).length>0&&<div className="ex-clues"><div className="ex-h">✅ 已完成任务</div>{gm.done.slice(-3).reverse().map((d,i)=><div key={i} className="ex-clue">{d.type==='bey'?'🌀':'⚔️'} {d.name} · {d.where}</div>)}</div>}
       </aside>
 
-      {ev0&&<EventOverlay key={JSON.stringify(ev0)} ev={ev0} region={region}
+      {toast&&<GeoToast key={toast.qid} ev={toast} onGeo={id=>unlockCards([id])} onDone={()=>drop(toast.qid)}/>}
+      {ev0&&<EventOverlay key={ev0.qid} ev={ev0} region={region}
         onFind={id=>{const b=findBey(region.id,id);sfx.beep?.(true);return b;}}
         onMeet={(id,fight)=>{meetBlader(region.id,id);pop();if(fight)go('battle',{bladerId:id,from:'explore',regionId:region.id});}}
         onGeo={id=>unlockCards([id])}
@@ -219,13 +224,17 @@ export default function ExploreScreen(){
   );
 }
 
+function GeoToast({ev,onGeo,onDone}){
+  useEffect(()=>{onGeo(ev.cardId);const t=setTimeout(onDone,9000);return()=>clearTimeout(t);},[]);// eslint-disable-line
+  // 捕获阶段关闭：卡片里的按钮（翻开绘本等）不会吞掉这次点击。
+  return <div className="ex-toast slidein" onClickCapture={onDone}><div className="kicker">🌍 真实世界的地理 · 新知识卡</div><KnowledgeCard card={ev.cardId} compact isNew/><div className="ex-get-hint" style={{color:'#111'}}>点一下收起</div></div>;
+}
 function EventOverlay({ev,region,onFind,onMeet,onGeo,onAnswer,onGateDone,onDone,go,onArchive}){
   const [choice,setChoice]=useState(null);
   const [got,setGot]=useState(null);
   useEffect(()=>{
     if(ev.type==='find_bey'){const b=onFind(ev.beyId);setGot(b||BEYS[ev.beyId]);}
     if(ev.type==='gate')markSeen(ev.quizId);
-    if(ev.type==='geo_fact'){onGeo(ev.cardId);const t=setTimeout(onDone,9000);return()=>clearTimeout(t);}
   },[]);// eslint-disable-line
   if(ev.type==='find_bey'){const bey=got||BEYS[ev.beyId];return (
     <div className="ex-ov ex-get" onClick={onDone}>
@@ -257,8 +266,6 @@ function EventOverlay({ev,region,onFind,onMeet,onGeo,onAnswer,onGateDone,onDone,
         </div>}
       </div>
     </div>);}
-  if(ev.type==='geo_fact')return (
-    <div className="ex-toast slidein" onClick={onDone}><div className="kicker">🌍 真实世界的地理 · 新知识卡</div><KnowledgeCard card={ev.cardId} compact isNew/><div className="ex-get-hint" style={{color:'#111'}}>点一下收起</div></div>);
   if(ev.type==='complete')return (
     <div className="ex-ov ex-get">
       <div className="ex-get-burst"/>
