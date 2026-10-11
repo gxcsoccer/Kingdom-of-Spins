@@ -1,0 +1,25 @@
+.lab{border:4px solid #111;background:#111;color:#fff;padding:18px;box-shadow:8px 8px 0 var(--red)}
+.lab-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.lab-sub{font-weight:800;color:#ccc}
+.lab-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.lab-step{padding:16px;color:#111;position:relative;display:flex;flex-direction:column;gap:8px}
+.lab-n{position:absolute;top:-14px;left:-10px;width:34px;height:34px;border-radius:50%;background:var(--yellow);border:3px solid #111;display:grid;place-items:center;font-family:var(--display);font-weight:900}
+.lab-from{border:2px dashed #111;padding:3px 10px;font-weight:800;border-radius:999px}
+.lab-ctrl{width:100%;border-collapse:collapse;font-size:13px}
+.lab-ctrl th{text-align:left;white-space:nowrap;padding:6px 8px;background:var(--paper-2);border:2px solid #111}
+.lab-ctrl td{padding:6px 8px;border:2px solid #111}
+.lab-running{display:flex;gap:16px;align-items:center;padding:18px;color:#111}
+.lab-bar{height:18px;border:3px solid #111;background:var(--tone-light),#fff;margin:10px 0;overflow:hidden}
+.lab-bar i{display:block;height:100%;background:repeating-linear-gradient(-45deg,var(--yellow) 0 10px,#ffe866 10px 20px);transition:width .3s}
+.lab-verdict{text-align:center;margin:4px 0 12px}
+.lab-table{width:100%;border-collapse:collapse;font-weight:800;text-align:center}
+.lab-table th,.lab-table td{border:2px solid #111;padding:8px}
+.lab-table thead th{background:var(--paper-2)}
+.lab-table thead th.win{background:var(--yellow)}
+.lab-table tbody th{text-align:left;background:var(--paper-2)}
+.lab-trials{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.lab-trial{display:flex;gap:10px;align-items:center}
+.lab-trial .w{color:#0c8f74;font-weight:800}.lab-trial .l{color:#b3122a;font-weight:800}
+.lab-concl{font-weight:900;font-size:17px;line-height:1.5}
+.lab-repeat{background:var(--paper-2);border:2px solid #111;padding:6px 10px;font-weight:700}
+.lab-pred{font-weight:800}

@@ -1,0 +1,158 @@
+import {useState} from 'react';
+import {VARIABLES,TRIALS,EXP_MAX_TIME,runExperiment} from '../game/experiment.js';
+import * as ai from '../ai/client.js';
+import {getCard} from '../knowledge/cards.js';
+import {KnowledgeChip} from '../knowledge/KnowledgeCard.jsx';
+import {DoctorFace} from '../ui/MapScreen.jsx';
+import {FINISH_ZH} from '../game/story.js';
+import './lab.css';
+
+const PRED=[{id:'more',label:'会更好 👍'},{id:'less',label:'会更差 👎'},{id:'same',label:'差不多 🤔'}];
+const fmtVal=(key,v)=>VARIABLES[key].options.find(o=>o.value===v)?.label??String(v);
+
+function localReview({variable,prediction,stats,verdict}){
+  const {A,B}=stats;
+  const ok=prediction&&((prediction==='more'&&verdict==='B更好')||(prediction==='less'&&verdict==='A更好')||(prediction==='same'&&verdict==='差不多'));
+  return {verdict,
+    conclusion:`在这个模型里，改成「${variable.to}」后：赢了 ${B.wins}/${B.trials} 次（原来 ${A.wins}/${A.trials}），第 3 秒转速约 ${B.avgRpm3.toLocaleString()} 转（原来 ${A.avgRpm3.toLocaleString()}）。`,
+    why:'只改了一个地方，其他条件都一样，所以差别就来自这个改动。',
+    repeatLesson:B.wins===0||B.wins===B.trials?'3 次结果一致，说明不是运气。':'3 次结果不一样——碰撞很敏感，所以科学家要重复做实验。',
+    predictionFeedback:prediction?(ok?'你猜对了！🪙 +20':'没猜中，但你学到了新东西！'):'下次先预测一下吧！',
+    nextIdea:'试试改另一个变量？',fallback:true};
+}
+
+export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,onUnlock}){
+  const [key,setKey]=useState(suggest?.key||'bit');
+  const cur=VARIABLES[key].launch?Math.round(launches[0].rpm/100)*100:VARIABLES[key].get(mine);
+  const opts=VARIABLES[key].options.filter(o=>o.value!==cur);
+  const [value,setValue]=useState(suggest?.value??opts[0]?.value);
+  const [pred,setPred]=useState(null);
+  const [phase,setPhase]=useState('setup'); // setup | running | done
+  const [progress,setProgress]=useState(0);
+  const [res,setRes]=useState(null);
+  const [review,setReview]=useState(null);
+  const pickKey=k=>{setKey(k);const c=VARIABLES[k].launch?Math.round(launches[0].rpm/100)*100:VARIABLES[k].get(mine);setValue(VARIABLES[k].options.find(o=>o.value!==c)?.value);};
+  const variable={key,label:VARIABLES[key].label,from:VARIABLES[key].launch?`${cur.toLocaleString()} rpm`:fmtVal(key,cur),to:fmtVal(key,value)};
+
+  const run=async()=>{
+    setPhase('running');setProgress(0);setReview(null);
+    const r=await runExperiment({mine,opp,launches,key,value,onProgress:setProgress});
+    setRes(r);setPhase('done');
+    const payload={names,variable,prediction:pred,metric:{label:'胜场 / 第 3 秒转速',unit:'rpm'},stats:r.stats,verdict:r.verdict,
+      trials:r.trials.map(t=>({A:{winner:t.A.result.winner,reason:t.A.result.reason,time:t.A.result.time,rpm3:Math.round(t.A.rpm3[0])},B:{winner:t.B.result.winner,reason:t.B.result.reason,time:t.B.result.time,rpm3:Math.round(t.B.rpm3[0])}}))};
+    let rv=null;
+    try{rv=ai.experiment?await ai.experiment(payload):null;}catch{}
+    rv={...localReview({variable,prediction:pred,stats:r.stats,verdict:r.verdict}),...(rv||{}),verdict:r.verdict};
+    setReview(rv);
+    const ok=pred&&((pred==='more'&&r.verdict==='B更好')||(pred==='less'&&r.verdict==='A更好')||(pred==='same'&&r.verdict==='差不多'));
+    if(ok)onReward?.(20);
+    if(rv.cardId)onUnlock?.([rv.cardId]);
+  };
+
+  return (
+    <div className="lab">
+      <div className="lab-head"><span className="h-display h-yellow" style={{fontSize:28}}>🔬 科学实验室</span><span className="lab-sub">只改一个变量 · 做 {TRIALS} 次对照 · 看证据</span></div>
+      {phase==='setup'&&<div className="lab-grid">
+        <div className="panel lab-step">
+          <div className="lab-n">1</div><div className="prep-h">想改哪一个？</div>
+          <div className="row wrap" style={{gap:8}}>{Object.entries(VARIABLES).map(([k,v])=><button key={k} className={`chip ${key===k?'on':''}`} onClick={()=>pickKey(k)}>{v.label}</button>)}</div>
+          <div className="row wrap mt" style={{gap:8,alignItems:'center'}}>
+            <span className="lab-from">{variable.from}</span><b>→</b>
+            {opts.map(o=><button key={o.value} className={`chip ${value===o.value?'on':''}`} onClick={()=>setValue(o.value)}>{o.label}</button>)}
+          </div>
+          <table className="lab-ctrl mt"><tbody>
+            <tr><th>🔀 改变（自变量）</th><td><b>{variable.label}</b>：{variable.from} → {variable.to}</td></tr>
+            <tr><th>🔒 保持不变（控制变量）</th><td>对手 {names[1]}、发射角度和速度、其他零件、物理模型</td></tr>
+            <tr><th>📏 测量什么</th><td>赢了几次、第 3 秒还剩多少转速</td></tr>
+          </tbody></table>
+        </div>
+        <div className="panel lab-step">
+          <div className="lab-n">2</div><div className="prep-h">先预测：改了以后会怎样？</div>
+          <div className="col" style={{gap:8}}>{PRED.map(p=><button key={p.id} className={`btn small ${pred===p.id?'primary':''}`} style={{justifyContent:'flex-start'}} onClick={()=>setPred(p.id)}>{p.label}</button>)}</div>
+          <div className="muted" style={{fontSize:12,marginTop:8}}>科学家总是先写下猜想，再用实验检验。猜对有 🪙 +20。</div>
+          <button className="btn primary big mt" onClick={run} disabled={value==null}>开始实验 ▶</button>
+        </div>
+      </div>}
+      {phase==='running'&&<div className="panel lab-running">
+        <DoctorFace mood="thinking" size={72}/>
+        <div className="grow">
+          <div className="prep-h">实验中… 同时跑 {TRIALS} 场原版 + {TRIALS} 场改装版</div>
+          <div className="lab-bar"><i style={{width:`${Math.round(progress*100)}%`}}/></div>
+          <div className="muted" style={{fontSize:12}}>每一对比赛的发射条件完全一样，只有「{variable.label}」不同（每场最多 {EXP_MAX_TIME} 秒）</div>
+        </div>
+      </div>}
+      {phase==='done'&&res&&<Results res={res} review={review} variable={variable} names={names} pred={pred} onAgain={()=>{setPhase('setup');setPred(null);}}/>}
+    </div>
+  );
+}
+
+function Results({res,review,variable,names,pred,onAgain}){
+  const {stats,trials,verdict}=res;
+  const card=review?.cardId&&getCard(review.cardId);
+  const winner=verdict==='B更好'?'B':verdict==='A更好'?'A':null;
+  return (
+    <div className="lab-results slidein">
+      <div className="lab-verdict"><span className="sfx" style={{fontSize:44}}>{verdict==='B更好'?'改装版胜出！':verdict==='A更好'?'原版更强！':'差不多！'}</span></div>
+      <div className="lab-grid">
+        <div className="panel lab-step">
+          <table className="lab-table">
+            <thead><tr><th></th><th className={winner==='A'?'win':''}>A 原版<br/><small>{variable.from}</small></th><th className={winner==='B'?'win':''}>B 改装<br/><small>{variable.to}</small></th></tr></thead>
+            <tbody>
+              <tr><th>赢了几次</th><td>{stats.A.wins} / {stats.A.trials}</td><td>{stats.B.wins} / {stats.B.trials}</td></tr>
+              <tr><th>第 3 秒转速</th><td>{stats.A.avgRpm3.toLocaleString()}</td><td>{stats.B.avgRpm3.toLocaleString()}</td></tr>
+              <tr><th>平均回合时长</th><td>{stats.A.avgTime} 秒</td><td>{stats.B.avgTime} 秒</td></tr>
+              <tr><th>平均碰撞次数</th><td>{stats.A.avgHits}</td><td>{stats.B.avgHits}</td></tr>
+            </tbody>
+          </table>
+          <div className="lab-trials mt">{trials.map((t,i)=><div key={i} className="lab-trial"><b>第 {i+1} 次</b>
+            <span className={t.A.result.winner===0?'w':'l'}>A {t.A.result.winner===0?'赢':'输'}·{FINISH_ZH[t.A.result.reason]}</span>
+            <span className={t.B.result.winner===0?'w':'l'}>B {t.B.result.winner===0?'赢':'输'}·{FINISH_ZH[t.B.result.reason]}</span></div>)}</div>
+          <OverlayChart trials={trials}/>
+        </div>
+        <div className="panel lab-step">
+          <div className="row" style={{gap:10,alignItems:'flex-start'}}><DoctorFace mood={review?'excited':'thinking'} size={60}/>
+            <div className="col grow" style={{gap:8}}>
+              {!review&&<div className="bubble">正在分析实验数据……</div>}
+              {review&&<>
+                <div className="lab-concl">{review.conclusion}</div>
+                <div><b>为什么？</b>{review.why}</div>
+                <div className="lab-repeat">🔁 {review.repeatLesson}</div>
+                {pred&&<div className="lab-pred">🎯 {review.predictionFeedback}</div>}
+                {card&&<KnowledgeChip card={card} defaultOpen/>}
+                <div className="muted" style={{fontSize:12}}>下一个实验点子：{review.nextIdea}</div>
+              </>}
+            </div>
+          </div>
+          <button className="btn yellow mt" onClick={onAgain}>再做一个实验</button>
+        </div>
+      </div>
+      <div className="model-note mt">实验结果来自理想化物理模型（未用真陀螺校准）。它能检验“在这个模型里”的因果关系，不代表真实比赛。</div>
+    </div>
+  );
+}
+
+function OverlayChart({trials}){
+  const W=480,H=150,P={l:40,r:10,t:10,b:22};
+  const T=Math.max(...trials.flatMap(t=>[t.A,t.B].map(r=>r.samples.at(-1)?.time||0)),1);
+  const R=Math.max(1000,...trials.flatMap(t=>[t.A,t.B].flatMap(r=>r.samples.map(s=>s.rpm[0]))));
+  const x=t=>P.l+(W-P.l-P.r)*t/T, y=r=>H-P.b-(H-P.t-P.b)*r/R;
+  const line=r=>r.samples.map((s,k)=>`${k?'L':'M'}${x(s.time).toFixed(1)},${y(s.rpm[0]).toFixed(1)}`).join('');
+  return (
+    <figure style={{margin:'12px 0 0'}}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="原版和改装版你的陀螺转速对比">
+        <rect x={P.l} y={P.t} width={W-P.l-P.r} height={H-P.t-P.b} fill="#fff" stroke="#111" strokeWidth="2"/>
+        {[0,.5,1].map(f=><text key={f} x={P.l-5} y={y(R*f)+4} fontSize="10" textAnchor="end" fontWeight="700">{Math.round(R*f/100)*100}</text>)}
+        {trials.map((t,i)=><g key={i} opacity={i?0.35:1}>
+          <path d={line(t.A)} fill="none" stroke="#2f7bff" strokeWidth={i?1.5:3}/>
+          <path d={line(t.B)} fill="none" stroke="#ff2d4a" strokeWidth={i?1.5:3} strokeDasharray="6 4"/>
+        </g>)}
+        <text x={W-P.r} y={H-6} fontSize="10" textAnchor="end" fontWeight="700">{T.toFixed(1)} 秒</text>
+      </svg>
+      <figcaption style={{fontSize:12,fontWeight:800,display:'flex',gap:12,flexWrap:'wrap'}}>
+        <span><i style={{display:'inline-block',width:16,height:3,background:'#2f7bff',verticalAlign:'middle'}}/> A 原版你的转速</span>
+        <span><i style={{display:'inline-block',width:16,height:0,borderTop:'3px dashed #ff2d4a',verticalAlign:'middle'}}/> B 改装版你的转速</span>
+        <span className="muted">粗线 = 第 1 次，细线 = 第 2、3 次</span>
+      </figcaption>
+    </figure>
+  );
+}

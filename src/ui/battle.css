@@ -33,3 +33,16 @@
 .result-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px}
 @media (max-width:900px){.result-grid{grid-template-columns:1fr}.hud{grid-template-columns:1fr 1fr}.hud-mid{display:none}}
 .story{line-height:1.7;font-weight:700;padding-left:22px}
+.review{border:4px solid #111;background:#1b1c24;padding:16px;box-shadow:8px 8px 0 #000}
+.review-head{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.review-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px}
+@media (max-width:980px){.review-grid{grid-template-columns:1fr}}
+.moment-list{display:flex;flex-direction:column;gap:10px}
+.moment{background:#fff;color:#111;border:3px solid #111;box-shadow:4px 4px 0 #000;padding:10px 12px;transition:transform .15s}
+.moment.on{outline:4px solid var(--yellow);transform:translateX(-4px)}
+.moment p{margin:6px 0;line-height:1.6;font-weight:700;font-size:14px}
+.moment-hit{display:flex;gap:10px;align-items:center;width:100%;background:none;border:none;padding:0;text-align:left;color:#111}
+.moment-hit small{display:block;color:#666;font-weight:800}
+.moment-n{font-size:26px;font-weight:900;color:var(--red)}
+.moment-play{border:2px solid #111;background:var(--yellow);padding:4px 8px;font-weight:900;font-size:12px}
+.takeaway{background:var(--yellow);color:#111;border:3px solid #111;padding:10px 12px;font-weight:900}

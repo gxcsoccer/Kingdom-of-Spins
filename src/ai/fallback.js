@@ -164,6 +164,111 @@ export function templateCommentary(summary={}, names=['A','B']) {
   };
 }
 
+// ── Key moments ── (moments are computed from real battle data by the game; we only word them)
+const BIT_LABEL = {needle:'尖轴', ball:'圆轴', flat:'平轴', rush:'冲刺轴'};
+const MOMENT_CARD = {'first-hit':'ph-momentum', 'big-hit':'ph-energy-convert', 'spin-drop':'ph-tilt-fall', 'dash':'bx-xdash', 'finish':'bx-finish-points'};
+export const momentCard = m => m.kind==='finish' && (m.data?.reason==='spin'||m.data?.reason==='judge') ? 'ph-energy-loss' : (MOMENT_CARD[m.kind] || 'ph-momentum');
+const rpmDrop = (d={}, i) => d.rpmBefore && d.rpmAfter ? Math.abs(d.rpmBefore[i]) - Math.abs(d.rpmAfter[i]) : null;
+const fmtDrop = n => `约 ${(Math.round(Math.abs(n)/100)*100).toLocaleString('en-US')} 转`;
+export function templateMoment(m={}, names=['A','B']) {
+  const who = i => i===0 ? `你的 ${names[0]||'陀螺'}` : (names[1]||'对手');
+  const d = m.data || {}, t = fmtT(m.time);
+  const drops = [0,1].map(i=>rpmDrop(d,i));
+  const bigger = drops[0]!=null ? (drops[0]>=drops[1]?0:1) : null;
+  let title, explain;
+  switch (m.kind) {
+    case 'first-hit':
+      title = '第一次交锋！';
+      explain = `${t}两只陀螺第一次相撞${d.relSpeed!=null?`，相对速度 ${fmtV(d.relSpeed)}`:''}。在这个模型里，谁更重、刃更靠外，谁就更不容易被弹开。`;
+      break;
+    case 'big-hit':
+      title = '全场最猛一撞！';
+      explain = `${t}${d.relSpeed!=null?`相对速度 ${fmtV(d.relSpeed)} 的猛撞`:'一记猛撞'}${bigger!=null&&drops[bigger]>50?`，${who(bigger)} 的转速一下掉了${fmtDrop(drops[bigger])}`:''}——转动的能量变成了弹开和晃动。`;
+      break;
+    case 'spin-drop': {
+      const b = m.body ?? 0, drop = d.drop ?? drops[b];
+      title = '转速大跳水';
+      explain = `${t}${who(b)} 的转速${drop?`掉了${fmtDrop(drop)}`:'掉得很快'}。转速低了角动量变小，陀螺就开始晃，越晃越容易倒。`;
+      break;
+    }
+    case 'dash':
+      title = 'X 冲刺！';
+      explain = `${t}${who(m.body ?? 0)} 的 Bit 咬上边缘齿轨，把一部分转动变成了向前冲的速度！冲刺很猛，但转速也会被消耗。`;
+      break;
+    case 'finish': {
+      const w = d.winner ?? 0, r = d.reason;
+      title = {xtreme:'Xtreme 终结！', over:'撞出场外！', spin:'最后的站立者', judge:'时间到！'}[r] || '决胜时刻';
+      explain = r==='over'||r==='xtreme'
+        ? `${t}${who(1-w)} 被撞出了场地，${who(w)} 拿下 ${r==='xtreme'?3:2} 分！在这个模型里，被撞时速度变化越大的一方越容易出局。`
+        : `${t}${who(1-w)} 转不动倒下了，${who(w)} 还在转！在这个模型里，摩擦和碰撞一点点吃掉转速，谁先转不动谁就输。`;
+      break;
+    }
+    default:
+      title = '关键时刻'; explain = `${t}发生了关键变化。`;
+  }
+  return {id:m.id, title, explain, cardId: momentCard(m)};
+}
+export function designTakeaway(summary={}, names=['A','B']) {
+  const p = summary.parts?.[0] || {}, r = summary.result || {}, me = `你的 ${names[0]||'陀螺'}`;
+  const won = r.winner===0, bit = BIT_LABEL[p.tip] || 'Bit';
+  if (r.reason==='over'||r.reason==='xtreme') return won ? `${me} 把对手撞出场外，说明它的刃和重量在碰撞中占了上风（在这个模型里）。` : `${me} 被撞出去了：试试更重的刃或更矮的 Ratchet，让它更难被撞飞。`;
+  if (won) return `${me} 熬到了最后：外圈配重 ${p.ring??'?'}% 加 ${bit}，让转速掉得更慢（在这个模型里）。`;
+  return `${me} 先转不动了：${bit}的摩擦和碰撞消耗了转速，试试外圈配重更高或更尖的轴。`;
+}
+export function templateMoments(summary={}, moments=[], names=['A','B']) {
+  const r = summary.result || {}, w = r.winner===1?1:0;
+  return {
+    headline: (w===0 ? `${names[0]||'你'} 赢啦！` : `${names[1]||'对手'} 胜出！`).slice(0,14),
+    moments: (moments||[]).map(m=>templateMoment(m, names)),
+    takeaway: designTakeaway(summary, names),
+    fallback: true,
+  };
+}
+
+// ── Controlled experiment ── (A = original setting, B = changed variable; index 0 = player)
+export function experimentVerdict(stats={}) {
+  const A = stats.A || {}, B = stats.B || {};
+  if ((B.wins??0) !== (A.wins??0)) return (B.wins??0) > (A.wins??0) ? 'B更好' : 'A更好';
+  const ta = +A.avgTime||0, tb = +B.avgTime||0, base = Math.max(ta, tb, 1e-6);
+  if (Math.abs(tb-ta)/base > .15) return tb > ta ? 'B更好' : 'A更好';
+  return '差不多';
+}
+const VAR_CARD = [[/bit|tip|轴/i,'ph-friction-area'],[/ring|配重|惯量/i,'ph-inertia'],[/height|ratchet|高度/i,'ph-com-height'],[/wing|翼/i,'ph-wing-contact'],[/rpm|launch|发射|转速/i,'ph-launch-rpm'],[/mass|重/i,'ph-mass-tradeoff'],[/style|type|类型/i,'bx-types']];
+export const variableCard = (variable={}) => (VAR_CARD.find(([re])=>re.test(`${variable.key||''} ${variable.label||''}`))||[0,'sm-control'])[1];
+const VAR_WHY = {
+  'ph-friction-area': '轴尖碰地的面积和摩擦变了：摩擦大跑得猛但转速掉得快，摩擦小更省转速。',
+  'ph-inertia': '外圈配重改变了转动惯量：重量越靠外，越难被弄停，也越难被撞得改变转动。',
+  'ph-com-height': 'Ratchet 高度改变了重心和刃的碰撞高度：重心低更稳，高了更容易被掀歪。',
+  'ph-wing-contact': '翼片数改变了刃的形状：翼片少撞击更集中，翼片多更圆滑，碰撞方式就不一样了。',
+  'ph-launch-rpm': '发射转速改变了一开始的角动量：转得越快越稳，也有更多能量可以消耗。',
+  'ph-mass-tradeoff': '重量改变了动量：越重越难被撞飞，但同样的发射力转速会更低。',
+  'bx-types': '类型改变了刃的形状和配重，碰撞和持久的取舍就跟着变了。',
+  'sm-control': '只改了一个变量，所以结果的差别就来自这个变量。',
+};
+const NEXT_VARS = [['ph-friction-area','换一种 Bit（轴尖）'],['ph-inertia','调外圈配重'],['ph-com-height','换 Ratchet 高度'],['ph-wing-contact','改翼片数量'],['ph-launch-rpm','改发射转速']];
+export function templateExperiment({names=['A','B'], variable={}, prediction=null, metric={}, stats={}, trials=[]}={}) {
+  const verdict = experimentVerdict(stats), A = stats.A||{}, B = stats.B||{};
+  const me = `你的 ${names[0]||'陀螺'}`, from = variable.from ?? '原来', to = variable.to ?? '新设置', label = variable.label || '这个变量';
+  const n = Math.max(+A.trials||0, +B.trials||0, trials.length||0);
+  const winsTxt = `${label}为「${to}」时赢 ${B.wins??0}/${B.trials??n} 次，「${from}」时赢 ${A.wins??0}/${A.trials??n} 次`;
+  const timeTxt = A.avgTime!=null && B.avgTime!=null ? `，平均坚持 ${(+B.avgTime).toFixed(1)} 秒 vs ${(+A.avgTime).toFixed(1)} 秒` : '';
+  const conclusion = `${winsTxt}${timeTxt}。在这个模型里，${verdict==='B更好'?`改成「${to}」更好`:verdict==='A更好'?`原来的「${from}」更好`:'两种差不多'}。`;
+  const cardId = variableCard(variable);
+  // Consistency across trials: did the player win in the same configurations each time?
+  const bw = trials.filter(t=>t?.B?.winner===0).length, aw = trials.filter(t=>t?.A?.winner===0).length, m = trials.length;
+  const consistent = m>0 && (bw===0||bw===m) && (aw===0||aw===m);
+  const clear = m>0 && Math.abs(bw-aw) >= Math.ceil(m/2);
+  const repeatLesson = !m ? '多做几次同样的实验，结论才可靠。'
+    : consistent ? `${m} 次结果都一样，说明这个差别很稳定，不是运气。`
+    : clear ? `改成「${to}」${m} 次赢 ${bw} 次，原来赢 ${aw} 次——大多数时候都这样，不只是运气。`
+    : `${m} 次里结果不太一样，碰撞很敏感，要多做几次才能看清规律。`;
+  const actual = verdict==='B更好'?'more':verdict==='A更好'?'less':'same';
+  const predictionFeedback = !prediction ? '下次先猜一猜，再看实验结果！'
+    : prediction===actual ? '你猜对了！科学家的直觉 👍' : '和你猜的不一样——这正是实验的意义！';
+  const next = NEXT_VARS.find(([c])=>c!==cardId) || NEXT_VARS[0];
+  return {verdict, conclusion: conclusion.slice(0,90), why: VAR_WHY[cardId] || VAR_WHY['sm-control'], repeatLesson, predictionFeedback, cardId, nextIdea:`下次只${next[1]}，其他都不变，看看会怎样？`, fallback:true};
+}
+
 // ── Free question ──
 export function templateAsk(question='') {
   const cards = relevantCards(question, 2);

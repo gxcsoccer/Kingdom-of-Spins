@@ -73,3 +73,32 @@
 .ks-showcase { width: 100%; height: 100%; min-height: 120px; }
 .ks-showcase canvas { position: absolute !important; inset: 0; }
 .ks-showcase-bg { opacity: .55; }
+
+/* ---------- ReplayViewer */
+.ks-rv { border: 5px solid #111; box-shadow: 8px 8px 0 #111; background: #fbf8f1; font-family: "Hiragino Sans", "PingFang SC", "Arial Black", sans-serif; }
+.ks-rv-stage { position: relative; overflow: hidden; border-bottom: 5px solid #111; }
+.ks-rv-empty { display: grid; place-items: center; height: 100%; font-weight: 900; }
+.ks-rv-slowtag { position: absolute; top: 12px; right: 14px; padding: 4px 12px; background: #111; color: #ffd400; font-weight: 900; font-style: italic; letter-spacing: .06em; transform: skew(-10deg); pointer-events: none; }
+.ks-rv-caption { position: absolute; left: 50%; bottom: 18%; display: flex; align-items: center; gap: 14px; transform: translateX(-50%); pointer-events: none; animation: ks-rv-cap 2.6s cubic-bezier(.2, 1.4, .4, 1) both; white-space: nowrap; }
+.ks-rv-caption-num { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: #ffd400; border: 5px solid #111; box-shadow: 5px 5px 0 #111; font-size: 40px; font-weight: 900; line-height: 1; }
+.ks-rv-caption-title { padding: 10px 22px; background: #fff; border: 5px solid #111; box-shadow: 7px 7px 0 #111; font-size: clamp(20px, 3vw, 36px); font-weight: 900; transform: skew(-8deg) rotate(-2deg); }
+@keyframes ks-rv-cap { 0% { opacity: 0; transform: translateX(-50%) scale(1.8); } 12% { opacity: 1; transform: translateX(-50%) scale(1); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-12px); } }
+
+.ks-rv-bar { padding: 10px 14px 14px; background: #fbf8f1; }
+.ks-rv-buttons { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.ks-rv-btn { font: inherit; font-weight: 900; font-size: 15px; padding: 6px 14px; background: #fff; border: 3px solid #111; box-shadow: 4px 4px 0 #111; cursor: pointer; transition: transform .06s; }
+.ks-rv-btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 #111; }
+.ks-rv-btn.on { background: #ffd400; }
+.ks-rv-time { margin-left: auto; font-weight: 900; font-variant-numeric: tabular-nums; }
+.ks-rv-track { position: relative; height: 64px; border: 3px solid #111; background:
+  radial-gradient(rgba(17,17,17,.16) 1px, transparent 1.4px) 0 0 / 6px 6px, #fff; cursor: pointer; touch-action: none; user-select: none; }
+.ks-rv-spark { position: absolute; inset: 4px 0 18px; width: 100%; height: calc(100% - 22px); pointer-events: none; opacity: .85; }
+.ks-rv-tick { position: absolute; bottom: 0; width: 1px; height: 6px; background: #111; pointer-events: none; }
+.ks-rv-tick.major { height: 12px; width: 2px; }
+.ks-rv-tick span { position: absolute; bottom: 12px; left: 3px; font-size: 10px; font-weight: 900; color: #111; }
+.ks-rv-hit { position: absolute; top: 0; bottom: 0; transform: translateX(-50%); background: #ff2d4a; opacity: .85; pointer-events: none; }
+.ks-rv-finish { position: absolute; top: 0; bottom: 0; border-left: 3px dashed #111; padding-left: 3px; font-size: 10px; font-weight: 900; pointer-events: none; }
+.ks-rv-moment { position: absolute; top: -18px; transform: translateX(-50%); width: 30px; height: 30px; border-radius: 50%; background: #ffd400; border: 3px solid #111; box-shadow: 3px 3px 0 #111; font-size: 18px; font-weight: 900; line-height: 1; display: grid; place-items: center; cursor: pointer; padding: 0; z-index: 2; }
+.ks-rv-moment.active, .ks-rv-moment:hover { background: #ff2d4a; color: #fff; transform: translateX(-50%) scale(1.15); }
+.ks-rv-head { position: absolute; top: -6px; bottom: -6px; width: 4px; margin-left: -2px; background: #111; pointer-events: none; z-index: 3; }
+.ks-rv-head::before { content: ''; position: absolute; top: -8px; left: -6px; border: 8px solid transparent; border-top-color: #111; }

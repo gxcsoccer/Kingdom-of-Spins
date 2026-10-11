@@ -12,6 +12,10 @@ import {Portrait,Modal,TypeBadge} from './common.jsx';
 import {DoctorFace} from './MapScreen.jsx';
 import LaunchGauge from './LaunchGauge.jsx';
 import RpmChart from './RpmChart.jsx';
+import ExperimentLab from '../lab/ExperimentLab.jsx';
+import {findMoments} from '../game/moments.js';
+import * as aiClient from '../ai/client.js';
+import ReplaySlot from './ReplaySlot.jsx';
 import './battle.css';
 import * as sfx from '../game/sfx.js';
 
@@ -21,7 +25,7 @@ const PREDICT=[{id:'ko',label:'把对手撞出界（OVER / XTREME）',match:r=>r
 const REWARD={normal:[120,60],pro:[160,80],super:[220,100],boss:[400,150]};
 
 export default function BattleScreen(){
-  const {save,params,go,recordMatch,unlockCards,recruit}=useGame();
+  const {save,params,go,recordMatch,unlockCards,recruit,addCoins}=useGame();
   const blader=params.bladerId?bladerById(params.bladerId):null;
   const opp=useMemo(()=>blader?{name:blader.name,bey:blader.bey,launch:blader.launch,color:blader.color,blader}:{name:'CPU',bey:params.oppBey||BEYS.titan,launch:{rpm:4900,tilt:4,speed:.35,aim:.5},color:'#8d99a6'},[blader,params.oppBey]);
   const target=save.demo?2:(params.points||WIN_POINTS);
@@ -85,8 +89,8 @@ export default function BattleScreen(){
         </div>}
         {onPrep&&<PrepPanel {...{save,myBey,setBeyUid,style,setStyle,prediction,setPrediction,shoot,opp,experiment,first:phase==='prep'&&!rounds.length,lastRound:rounds.at(-1),myName}}/>}
       </div>
-      {phase==='result'&&<ResultPanel {...{won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,
-        onExperiment:()=>{const last=rounds.at(-1);setExperiment({launches:last.launches,prev:last});setScore([0,0]);setRounds([]);roundRef.current=0;setPlayer(null);setPhase('prep');}}}/>}
+      {phase==='result'&&<ResultPanel {...{won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins,
+        }}/>}
     </div>
   );
 }
@@ -138,10 +142,30 @@ function PrepPanel({save,myBey,setBeyUid,style,setStyle,prediction,setPrediction
   );
 }
 
-function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,onExperiment}){
+const MOMENT_TITLE={'first-hit':'第一次碰撞','big-hit':'最猛的一撞','spin-drop':'转速大跳水','dash':'冲刺！','finish':'决胜时刻'};
+function localMoment(m,names){
+  const n=i=>i===0?`你的 ${names[0]}`:names[1];const d=m.data||{};
+  if(m.kind==='first-hit'||m.kind==='big-hit')return `相对速度 ${(d.relSpeed||0).toFixed(1)} m/s 的碰撞。撞完 ${n(0)} 约 ${Math.round((d.rpmAfter?.[0]||0)/100)*100} 转、${n(1)} 约 ${Math.round((d.rpmAfter?.[1]||0)/100)*100} 转——撞击会把转动的能量变成乱跑和晃动。`;
+  if(m.kind==='spin-drop')return `1 秒内 ${n(m.body)} 的转速掉了约 ${Math.round((d.drop||0)/100)*100} 转。看看这一秒它撞到了什么？`;
+  if(m.kind==='finish')return `${n(1-d.winner)} ${({spin:'先停转了',over:'飞出了场地',xtreme:'掉进了 Xtreme 口',judge:'时间到时转速更低'})[d.reason]||''}。`;
+  return '';
+}
+function suggestVariable(bey,won){
+  if(!won&&(bey.bit==='flat'||bey.bit==='rush'))return {key:'bit',value:'ball'};
+  if(bey.bit==='needle')return {key:'bit',value:'ball'};
+  if((bey.blade?.ring??60)<70)return {key:'ring',value:80};
+  return {key:'bit',value:'needle'};
+}
+
+function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins}){
   const [ai,setAi]=useState(null);
   const [recruitOpen,setRecruitOpen]=useState(false);
+  const [active,setActive]=useState(null);
+  const [cursor,setCursor]=useState(null);
+  const viewer=useRef(null);
   const decisive=rounds.at(-1);
+  const names=[myBey.name,opp.bey.name];
+  const moments=useMemo(()=>findMoments(decisive.samples,decisive.events,decisive.result),[decisive]);
   const pred=PREDICT.find(p=>p.id===prediction);
   const predOk=pred&&(won?pred.match?.(decisive.result.reason):pred.id==='lose');
   const tier=blader?.tier;
@@ -151,48 +175,55 @@ function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recor
   const [canRecruit]=useState(()=>won&&tier==='pro'&&!save.team.some(t=>t.bladerId===blader.id));
   useEffect(()=>{
     if(done.current)return;done.current=true;
-    if(!decisive.experiment)recordMatch({bladerId:won?blader?.id:null,won,coins,prediction:pred?{id:pred.id,correct:!!predOk,opp:opp.name}:null});
-    commentary(decisive.summary,[myBey.name,opp.bey.name]).then(r=>{setAi(r);if(r?.science?.cardId)unlockCards([r.science.cardId]);});
+    recordMatch({bladerId:won?blader?.id:null,won,coins,prediction:pred?{id:pred.id,correct:!!predOk,opp:opp.name}:null});
+    const req=aiClient.moments?aiClient.moments({summary:decisive.summary,moments,names}):commentary(decisive.summary,names);
+    Promise.resolve(req).then(r=>{setAi(r||{});const ids=(r?.moments||[]).map(m=>m.cardId).concat(r?.science?.cardId||[]).filter(Boolean);if(ids.length)unlockCards(ids);}).catch(()=>setAi({}));
     if(canRecruit)setTimeout(()=>setRecruitOpen(true),900);
   },[]);// eslint-disable-line
-  const card=ai?.science?.cardId&&getCard(ai.science.cardId);
+  const aiM=id=>(ai?.moments||[]).find(m=>m.id===id);
+  const play=m=>{setActive(m.id+':'+Date.now());viewer.current?.playMoment?.(m.id);};
   return (
     <div className="result slidein">
       <div className="row wrap" style={{gap:24,alignItems:'center'}}>
         <div className={`h-display ${won?'h-red':'h-outline'}`} style={{fontSize:'clamp(56px,8vw,96px)',transform:'rotate(-4deg)'}}>{won?'VICTORY!':'DEFEAT…'}</div>
         <div>
           <div style={{fontWeight:900,fontSize:22}}>{score[0]} : {score[1]} · 决胜：{FINISH_LABEL[decisive.result.reason]}（{FINISH_ZH[decisive.result.reason]}）</div>
-          <div style={{marginTop:4,fontWeight:700}}>{decisive.experiment?'🔬 实验对局不计奖励':<>奖励：🪙 +{coins}{first&&won?' · 首次击败！':''}</>}</div>
+          <div style={{marginTop:4,fontWeight:700}}>奖励：🪙 +{coins}{first&&won?' · 首次击败！':''}{pred?` · 预测：${predOk?'猜对了 ✓':'没猜中'}`:''}</div>
         </div>
       </div>
-      <div className="result-grid mt">
-        <div className="panel" style={{padding:18,color:'#111'}}>
-          <div className="row" style={{gap:12}}><DoctorFace mood={ai?'excited':'thinking'} size={64}/><div className="h-display" style={{fontSize:26}}>融合博士的复盘</div></div>
-          {!ai&&<div className="bubble mt">正在看回放、读数据……</div>}
-          {ai&&<>
-            <div className="panel-title mt" style={{fontSize:20}}>{ai.headline}</div>
-            <ol className="story">{(ai.story||[]).map((s,i)=><li key={i}>{s}</li>)}</ol>
-            {card?<KnowledgeChip card={card} defaultOpen/>:ai.science&&<div className="bubble">{ai.science.title}：{ai.science.body}</div>}
-            <div className="model-note mt">复盘只引用这一局记录到的事件；结论都是「在这个模型里」成立。{ai.fallback?'（AI 暂时没连上，这是模板复盘）':''}</div>
-          </>}
-        </div>
-        <div className="col" style={{gap:14}}>
-          {pred&&!decisive.experiment&&<div className="panel" style={{padding:14,color:'#111'}}><b>你的预测：</b>{pred.label} → {predOk?<b style={{color:'#0c8f74'}}>猜对了！🪙 +20</b>:<b>没猜中，看看复盘找原因</b>}</div>}
-          {decisive.experiment&&<ExperimentCompare rounds={rounds} myName={myName} opp={opp}/>}
-          <div className="panel" style={{padding:14,color:'#111'}}><b>📈 证据：决胜回合的转速曲线</b><RpmChart samples={decisive.samples} events={decisive.events} names={[myBey.name,opp.bey.name]} colors={[myBey.colors?.primary||'#2f7bff',opp.bey.colors?.primary||'#f2b632']}/></div>
-          <div className="panel ink" style={{padding:16,boxShadow:'6px 6px 0 var(--red)'}}>
-            <div className="h-display h-yellow" style={{fontSize:20}}>科学小实验：只改一个变量</div>
-            <p style={{lineHeight:1.6,fontWeight:700}}>{ai?.tryNext||'保持对手和发射条件完全一样，只换一个零件，结果会变吗？'}</p>
-            <div className="row wrap" style={{gap:8}}>
-              <button className="btn yellow small" onClick={onExperiment}>同样条件再打一次</button>
-              <button className="btn small" onClick={()=>go('fusion',{back:'map'})}>去融合工坊改造</button>
+
+      <section className="review mt">
+        <div className="review-head"><DoctorFace mood={ai?'excited':'thinking'} size={56}/><div><div className="h-display" style={{fontSize:26}}>复盘 · {ai?.headline||'关键时刻'}</div><div className="muted" style={{color:'#bbb',fontWeight:700}}>点一个关键时刻，慢动作回看发生了什么</div></div></div>
+        <div className="review-grid">
+          <div className="review-stage">
+            <ReplaySlot ref={viewer} beys={[myBey,opp.bey]} samples={decisive.samples} events={decisive.events} moments={moments.map(m=>({id:m.id,time:m.time,title:aiM(m.id)?.title||MOMENT_TITLE[m.kind]}))} activeMoment={active} onSeek={setCursor}/>
+            <div className="panel" style={{padding:12,color:'#111',marginTop:12}}><b>📈 转速曲线（点图表跳到那一刻）</b>
+              <RpmChart samples={decisive.samples} events={decisive.events} moments={moments} cursor={cursor} onSeek={t=>{setCursor(t);viewer.current?.seek?.(t);}} names={names} colors={[myBey.colors?.primary||'#2f7bff',opp.bey.colors?.primary||'#f2b632']}/>
             </div>
           </div>
-          <div className="row" style={{gap:10}}>
-            <button className="btn primary grow" onClick={()=>go('map')}>回到地图</button>
-            <button className="btn grow" onClick={()=>go('battle',{...useGame.getState().params})}>再战一次</button>
+          <div className="moment-list">
+            {moments.map(m=>{const a=aiM(m.id);const card=a?.cardId&&getCard(a.cardId);return (
+              <div key={m.id} className={`moment ${active?.startsWith(m.id+':')?'on':''}`}>
+                <button className="moment-hit" onClick={()=>play(m)}>
+                  <span className="moment-n">{'①②③④'[m.n-1]}</span>
+                  <span className="grow"><b>{a?.title||MOMENT_TITLE[m.kind]}</b><small>{m.time.toFixed(1)} 秒</small></span>
+                  <span className="moment-play">▶ 回放</span>
+                </button>
+                <p>{ai?(a?.explain||localMoment(m,names)):'博士正在看这一段……'}</p>
+                {card&&<KnowledgeChip card={card}/>}
+              </div>);})}
+            {ai?.takeaway&&<div className="takeaway">💡 {ai.takeaway}</div>}
+            <div className="model-note" style={{color:'#aaa'}}>复盘只引用这一局记录到的数据；因果结论都是「在这个模型里」成立。</div>
           </div>
         </div>
+      </section>
+
+      <div className="mt2"><ExperimentLab mine={myBey} opp={opp.bey} launches={decisive.launches} names={names} suggest={suggestVariable(myBey,won)} onReward={n=>addCoins(n)} onUnlock={unlockCards}/></div>
+
+      <div className="row mt2" style={{gap:10,maxWidth:720}}>
+        <button className="btn primary grow" onClick={()=>go('map')}>回到地图</button>
+        <button className="btn grow" onClick={()=>go('battle',{...useGame.getState().params})}>再战一次</button>
+        <button className="btn grow" onClick={()=>go('fusion',{back:'map'})}>去融合工坊改造</button>
       </div>
       {recruitOpen&&<RecruitModal blader={blader} save={save} onDone={(uid)=>{recruit(blader.id,uid);setRecruitOpen(false);}} onClose={()=>setRecruitOpen(false)}/>}
     </div>

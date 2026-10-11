@@ -20,3 +20,18 @@ if (which==='followup') await call('/api/ai/fusion/chat', {parents:[BEYS.goatpuf
 if (which==='commentary') await call('/api/ai/commentary', {names:['Dragoon','Mist Fish'], summary:{model:'MuJoCo', parts:[{wings:3,style:'attack',reach:.029,ring:70,massG:42.7,tip:'flat',height:60,inertiaZ:2.1e-5},{wings:2,style:'defense',reach:.027,ring:55,massG:45.7,tip:'ball',height:60,inertiaZ:1.9e-5}], result:{winner:1,reason:'spin',points:1,time:4.91}, stats:[{hits:2,maxSpeed:1.6},{hits:2,maxSpeed:.5}], events:[{time:.4632,type:'collision',relSpeed:1.5432,intensity:1,rpm:[6515,4932]},{time:2.1,type:'collision',relSpeed:.8,intensity:.6,rpm:[2100,3300]},{time:4.91,type:'finish',winner:1,reason:'spin',points:1}]}});
 if (which==='ask') await call('/api/ai/ask', {question:'为什么尖尖的轴转得更久？'});
 if (which==='fallback') { await call('/api/ai/fusion/chat', {parents:[BEYS.titan, BEYS.fish], wish:'要很重很稳'}, {}); await call('/api/ai/fusion/chat', {parents:[BEYS.goatpuff, BEYS.ninjamight], wish:'嗯'}, {}); await call('/api/ai/commentary', {names:['Fish','Titan'], summary:{parts:[{ring:80},{ring:68}],result:{winner:0,reason:'judge',points:1,time:30}, events:[{time:1.2,type:'collision',relSpeed:.4,intensity:.3,rpm:[4800,4700]}]}}, {}); }
+
+const SUM = {parts:[{wings:3,style:'attack',reach:.029,ring:70,massG:42.7,tip:'flat',height:60,inertiaZ:2.1e-5},{wings:4,style:'stamina',reach:.025,ring:80,massG:38.7,tip:'needle',height:55,inertiaZ:1.5e-5}], result:{winner:1,reason:'spin',points:1,time:9.82}};
+const MOMENTS = [
+  {id:'m1',time:.4632,kind:'first-hit',data:{relSpeed:1.2341,intensity:.6,rpmBefore:[6800,6900],rpmAfter:[6210,6655]}},
+  {id:'m2',time:2.1187,kind:'big-hit',data:{relSpeed:1.9012,intensity:1,rpmBefore:[5900,6400],rpmAfter:[4650,5980]}},
+  {id:'m3',time:3.5,kind:'dash',body:0,data:{}},
+  {id:'m4',time:7.204,kind:'spin-drop',body:0,data:{drop:2100}},
+  {id:'m5',time:9.82,kind:'finish',data:{reason:'spin',winner:1}},
+];
+const EXP = {names:['Dragoon','Mist Fish'], variable:{key:'bit',label:'轴尖',from:'平轴',to:'圆轴'}, prediction:'more', metric:{label:'坚持时间',unit:'秒'},
+  stats:{A:{wins:0,trials:3,avgTime:6.4,avgRpm3:4100,avgHits:5.3},B:{wins:2,trials:3,avgTime:14.2,avgRpm3:5600,avgHits:3.7}},
+  trials:[{A:{winner:1,reason:'spin',time:6.1,rpm3:4000},B:{winner:0,reason:'spin',time:15.2,rpm3:5700}},{A:{winner:1,reason:'over',time:3.9,rpm3:3900},B:{winner:0,reason:'judge',time:30,rpm3:5600}},{A:{winner:1,reason:'spin',time:9.2,rpm3:4400},B:{winner:1,reason:'over',time:4.5,rpm3:5500}}]};
+if (which==='moments') await call('/api/ai/moments', {summary:SUM, moments:MOMENTS, names:['Dragoon','Mist Fish']});
+if (which==='experiment') await call('/api/ai/experiment', EXP);
+if (which==='fallback2') { await call('/api/ai/moments', {summary:SUM, moments:MOMENTS, names:['Dragoon','Mist Fish']}, {}); await call('/api/ai/experiment', EXP, {}); }

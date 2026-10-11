@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import BattleScene from './BattleScene.jsx';
 import BeyShowcase, { ShowcaseCanvas } from './BeyShowcase.jsx';
 import { createMockPlayer } from './mockPlayer.js';
+import ReplayViewer from './ReplayViewer.jsx';
 import { BEYS } from '../game/beys.js';
 
 // Art sandbox: BattleScene driven by the mock player + a row of showcases.
@@ -11,8 +12,37 @@ const FUSED = [
   { id: 'ninjapuff', name: 'NinjaPuff', zh: '忍者泡芙', type: 'defense', parents: ['goatpuff', 'ninjamight'], colors: { primary: '#f2b632', secondary: '#e7d9ff', accent: '#d35bff' },
     blade: { wings: 4, reach: .027, ring: 60, mass: 35, style: 'defense' }, ratchet: { height: 60, prongs: 5 }, bit: 'ball' },
 ];
+function ReplaySandbox() {
+  const data = useMemo(() => {
+    const beys = [BEYS.dragoon, BEYS.fish];
+    const mp = createMockPlayer({ beys, duration: 12, loop: false });
+    const samples = [];
+    for (let t = 0; t <= 12.0001; t += 1 / 60) samples.push(mp.getState(t));
+    const hits = mp.events.filter(e => e.type === 'collision');
+    const moments = [
+      { id: 'm1', time: hits[0]?.time ?? 2, title: '第一次正面冲撞！' },
+      { id: 'm2', time: hits[2]?.time ?? 6, title: '外圈重量让 Fish 扛住了' },
+      { id: 'm3', time: 12, title: 'XTREME 终结' },
+    ];
+    return { beys, samples, events: mp.events, moments };
+  }, []);
+  const [active, setActive] = useState(null);
+  const [cursor, setCursor] = useState(0);
+  return (
+    <div style={{ background: '#fbf8f1', minHeight: '100vh', padding: 20, fontFamily: 'system-ui' }}>
+      <div style={{ height: location.search.includes('fold') ? 900 : 0 }}>(filler above the fold)</div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        {data.moments.map(m => <button key={m.id} onClick={() => setActive(m.id)}>{m.title}</button>)}
+        <span>onSeek: {cursor.toFixed(2)}s</span>
+      </div>
+      <ReplayViewer beys={data.beys} samples={data.samples} events={data.events} moments={data.moments} activeMoment={active} onSeek={setCursor} />
+    </div>
+  );
+}
+
 export default function Sandbox() {
   const ids = Object.keys(BEYS);
+  if (typeof location !== 'undefined' && location.search.includes('replay')) return <ReplaySandbox />;
   if (typeof location !== 'undefined' && location.search.includes('big')) {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, padding: 12, background: '#fbf8f1', height: '100vh', boxSizing: 'border-box' }}>

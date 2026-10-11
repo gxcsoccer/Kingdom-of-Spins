@@ -16,7 +16,7 @@ const Z = new THREE.Vector3(0, 0, 1);
 // ---------- one bey: position + tilt from physics, visual spin from rpm, floor shadow, ground trail
 function BeyActor({ player, index, fx }) {
   const bey = player.beys[index];
-  const posRef = useRef(), tiltRef = useRef(), shadowRef = useRef(), rpmRef = useRef(0), lastT = useRef(0);
+  const posRef = useRef(), tiltRef = useRef(), shadowRef = useRef(), rpmRef = useRef(0), lastT = useRef(0), seekV = useRef(0);
   const trail = useMemo(() => {
     const N = 42, pos = new Float32Array(N * 2 * 3), col = new Float32Array(N * 2 * 4);
     const g = new THREE.BufferGeometry();
@@ -55,7 +55,7 @@ function BeyActor({ player, index, fx }) {
     const pts = trail.pts;
     const lastP = pts[pts.length - 1];
     if (!lastP || Math.hypot(lastP[0] - b.p[0], lastP[1] - b.p[1]) > .0025) pts.push([b.p[0], b.p[1], fh + .0012]);
-    if (t < lastT.current - .05) pts.length = 0; // rewound / new battle
+    if (t < lastT.current - .05 || (player.seekVersion || 0) !== seekV.current) { pts.length = 0; seekV.current = player.seekVersion || 0; } // rewound / seeked
     lastT.current = t;
     while (pts.length > trail.N) pts.shift();
     const pos = trail.g.attributes.position.array, col = trail.g.attributes.color.array;
@@ -155,12 +155,20 @@ function Director({ player, fx, sparks, overlay, onEvent }) {
   const { camera, size } = useThree();
   const target = useMemo(() => new THREE.Vector3(), []), tmp = useMemo(() => new THREE.Vector3(), []), tmp2 = useMemo(() => new THREE.Vector3(), []);
   const base = useMemo(() => new THREE.Vector3(), []), dirV = useMemo(() => new THREE.Vector3(0, 3.7, 4.3).normalize(), []);
-  const shake = useRef(0), punch = useRef(0), idx = useRef(0), launched = useRef(false);
+  const shake = useRef(0), punch = useRef(0), idx = useRef(0), launched = useRef(false), seekV = useRef(0);
 
   useFrame((_, dt) => {
     const t = player.getTime();
     const f = fx.current;
     if (t < f.lastT - .05) { idx.current = 0; f.dash = [-1, -1]; launched.current = false; overlay.current?.reset(); }
+    if ((player.seekVersion || 0) !== seekV.current) {
+      // Jumped (replay scrub): resync without firing effects for skipped events.
+      seekV.current = player.seekVersion || 0;
+      const ev0 = player.events || [];
+      let k = 0; while (k < ev0.length && ev0[k].time <= t) k++;
+      idx.current = k; f.dash = [-1, -1]; launched.current = t >= INTRO * .92;
+      overlay.current?.reset();
+    }
     if (!launched.current && t >= INTRO * .92) {
       launched.current = true;
       const st0 = player.getState(t);
@@ -261,10 +269,11 @@ const Overlay = forwardRef(function Overlay({ beys }, ref) {
 });
 
 /**
- * <BattleScene player={player} onEvent? overlay? style? className? />
+ * <BattleScene player={player} onEvent? overlay? style? className? frameloop? children? />
+ * player.seekVersion (optional number): bump it on a jump/seek so skipped events don't fire effects.
  * player: { getTime(), getState(t), events[], beys[] } (see CONTRACT.md)
  */
-export default function BattleScene({ player, onEvent, overlay = true, className = '', style }) {
+export default function BattleScene({ player, onEvent, overlay = true, className = '', style, frameloop = 'always', children }) {
   const fx = useRef({ dash: [-1, -1], lastT: 0 });
   const sparks = useRef({}), overlayRef = useRef(null);
   if (!player) return <div className={`ks-battle ${className}`} style={style} />;
@@ -273,6 +282,7 @@ export default function BattleScene({ player, onEvent, overlay = true, className
       <div className="ks-battle-bg" />
       <Canvas
         flat
+        frameloop={frameloop}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         camera={{ fov: 30, near: .05, far: 60, position: [0, 3.55, 4.35] }}
@@ -293,6 +303,7 @@ export default function BattleScene({ player, onEvent, overlay = true, className
         </EffectComposer>
       </Canvas>
       {overlay && <Overlay ref={overlayRef} beys={player.beys} />}
+      {children}
     </div>
   );
 }

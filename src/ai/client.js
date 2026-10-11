@@ -1,6 +1,6 @@
 // Browser client for /api/ai/*. Never throws: on network error/timeout it returns the same
 // deterministic template the worker would, flagged with `fallback: true`.
-import {templateFusion, templateCommentary, templateAsk} from './fallback.js';
+import {templateFusion, templateCommentary, templateAsk, templateMoments, templateExperiment} from './fallback.js';
 
 async function post(path, body, ms) {
   const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(), ms);
@@ -37,4 +37,24 @@ export async function ask(question, context='') {
     if (out?.answer) return out;
     throw new Error('empty');
   } catch { return templateAsk(question); }
+}
+
+// moments: [{id,time,kind,body?,data}] computed from real battle data
+// → {headline, moments:[{id,title,explain,cardId}], takeaway, fallback?}
+export async function explainMoments(summary, moments, names=['A','B']) {
+  try {
+    const out = await post('/api/ai/moments', {summary, moments, names}, 13000);
+    if (out?.moments?.length || out?.headline) return out;
+    throw new Error('empty');
+  } catch { return templateMoments(summary, moments, names); }
+}
+
+// input: {names, variable:{key,label,from,to}, prediction:'more'|'less'|'same'|null, metric, stats:{A,B}, trials}
+// → {verdict:'B更好'|'A更好'|'差不多', conclusion, why, repeatLesson, predictionFeedback, cardId, nextIdea, fallback?}
+export async function explainExperiment(input) {
+  try {
+    const out = await post('/api/ai/experiment', input, 13000);
+    if (out?.verdict && out?.conclusion) return out;
+    throw new Error('empty');
+  } catch { return templateExperiment(input); }
 }

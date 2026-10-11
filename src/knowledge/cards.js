@@ -84,6 +84,20 @@ export const CARDS = [
   {id:'sm-repeat', layer:'physics', title:'多比几次', tags:['科学方法','统计'], trigger:'battle.retry',
     body:'赢一次可能是运气。同样的设置多比几次，看大多数时候谁赢，结论才更可靠。'},
 
+  {id:'sm-control', layer:'physics', title:'控制变量', tags:['科学方法','对照','变量'], trigger:'lab.start',
+    body:'公平的实验：只改一个东西（变量），对手、发射力、场地全都不变。这样结果变了，才知道是谁的功劳。'},
+  {id:'sm-sample', layer:'physics', title:'样本越多越可靠', tags:['科学方法','重复','统计'], trigger:'lab.result',
+    body:'只比 1 次可能碰上运气。比 3 次、10 次，看大多数结果，就像多问几个人再下结论。'},
+  {id:'sm-sensitive', layer:'physics', title:'差一点点，结果大不同', tags:['科学方法','混沌','碰撞'], trigger:'lab.result',
+    body:'碰撞的位置只差一点点，后面的路线就可能完全不同，就像弹珠游戏。所以要多做几次实验看规律。'},
+  {id:'ph-energy-convert', layer:'physics', title:'碰撞中的能量转换', tags:['能量','碰撞','转速'], trigger:'battle.collision',
+    body:'撞击时，转动的能量会变成弹开的跑动、晃动，还有热和声音。所以猛撞之后转速常常一下掉很多。'},
+  {id:'ph-launch-rpm', layer:'physics', title:'发射越猛角动量越大', tags:['发射','转速','角动量'], trigger:'lab.rpm',
+    body:'发射时转得越快，角动量越大，陀螺越稳、越能熬。但能量多一倍，需要的发射力也要更大。'},
+  {id:'ph-wing-contact', layer:'physics', title:'翼片数与碰撞', tags:['wings','碰撞','blade'], trigger:'lab.wings',
+    body:'翼片少，刃边有大缺口，撞上时像拳头一样集中发力；翼片多，外形更圆，撞击更像擦过去。'},
+  {id:'ph-tilt-fall', layer:'physics', title:'转速低了就会倒', tags:['倾角','转速','停转'], trigger:'battle.spin',
+    body:'转速越来越低，角动量不够抵抗重力，陀螺就越晃越歪，最后倒下——这就是 Spin 停转。'},
   // ── Game design (original settings / idealized model) ──
   {id:'gd-fusion-blade-only', layer:'design', title:'融合只换 Blade', tags:['融合'], trigger:'fusion.start',
     body:'在陀螺王国里，融合只会创造新的 Blade；Ratchet 和 Bit 保持原样，从你选的那只陀螺继承。'},
@@ -112,7 +126,7 @@ const KEYWORDS = {
   'mt-plastic':['塑料','轻'], 'mt-density':['密度'], 'bx-xdash':['dash','冲刺','齿轮','齿轨','极限'],
   'bx-finish-points':['得分','分','xtreme','出界','爆裂','停转'], 'bx-ratchet-numbers':['3-60','ratchet','棘轮','高度'],
   'bx-three-parts':['blade','ratchet','bit','部件','组装'], 'bx-types':['攻击','防御','持久','平衡','类型'],
-  'bx-cx-parts':['cx','锁芯','拆'], 'sm-one-variable':['变量','对照','改'], 'sm-predict':['预测','猜'],
+  'bx-cx-parts':['cx','锁芯','拆'], 'sm-one-variable':['变量','对照','改'], 'sm-control':['变量','对照','公平','控制'], 'sm-sample':['重复','多次','样本','运气'], 'sm-sensitive':['敏感','运气','不一样','混沌'], 'ph-energy-convert':['能量','撞','转速','掉'], 'ph-launch-rpm':['发射','转速','rpm'], 'ph-wing-contact':['翼','翼片','wings'], 'ph-tilt-fall':['倒','停转','歪'], 'sm-predict':['预测','猜'],
   'gd-fusion-blade-only':['融合'], 'gd-ideal-model':['真实','模型','真的'],
 };
 export function relevantCards(text='', n=6) {
