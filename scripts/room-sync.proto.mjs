@@ -25,7 +25,7 @@ ok(!A.inbox.some(m => m.type === 'go'), 'one arm alone does not start');
 B.send({type: 'arm'});
 const [ga, gb] = await Promise.all([A.wait('go'), B.wait('go')]);
 ok(ga.at === gb.at && ga.deadline - ga.at === 10000 && ga.at - Date.now() > 2500, `go broadcast to both, same at (+${ga.at - Date.now()}ms), 10 s window`);
-A.send({type: 'pull', power: .72}); const pb = await B.wait('pull'); ok(pb.power === .72 && pb.slot === 0, 'pull relayed to the other kid');
+A.send({type: 'pull', power: .72}); const pb = await B.wait('pull'); ok(pb.power === .72 && pb.slot === ja.slot, 'pull relayed to the other kid');   // A 和 B 同时加入，座位号以 joined 为准
 await new Promise(r => setTimeout(r, 200)); ok(!A.inbox.some(m => m.type === 'pull'), 'pull not echoed to sender');
 // reconnect during the launch window: B drops and rejoins with the same pid → gets the same go again
 B.ws.close(); await new Promise(r => setTimeout(r, 300));
