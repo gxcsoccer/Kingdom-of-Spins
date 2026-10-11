@@ -296,3 +296,9 @@ button.codex-tile:hover{transform:translate(-2px,-2px)}
 .sketch-paste{margin-top:6px;font-size:13px;font-weight:800;color:#555}
 .sketch-paste kbd{display:inline-block;border:2px solid #111;border-bottom-width:4px;border-radius:5px;background:#fff;padding:0 6px;font:inherit;font-size:12px;margin:0 2px}
 .sketch-drop.drag{outline:5px dashed var(--red);outline-offset:-12px;background:#fff1c2}
+/* 聊天变长时只在聊天记录里滚动：网格行高固定为剩余空间，输入框和方案卡始终在一屏内 */
+.fusion .chat-layout{grid-template-rows:minmax(0,1fr)}
+.fusion .chat-panel{min-height:0;overflow:hidden}
+.fusion .chat-log{min-height:0;overscroll-behavior:contain}
+.fusion .chat-panel>.opts,.fusion .chat-input{flex:none}
+.fusion .cand-zone{min-height:0}
