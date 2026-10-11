@@ -1,3 +1,4 @@
+import {playClip} from './voiceClips.js';
 // Procedural battle audio (WebAudio) + spoken countdown. Uses /art/audio/*.mp3 if the user supplies them.
 let ctx, master, muted=false, spinNodes=null;
 const ac=()=>{if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=.55;master.connect(ctx.destination);}if(ctx.state==='suspended')ctx.resume();return ctx;};
@@ -43,5 +44,7 @@ export function spinRpm(a=0,b=0){
   spinNodes.g.gain.setTargetAtTime(Math.min(.05,(Math.abs(a)+Math.abs(b))/200000),t,.1);
 }
 export function say(text,lang='en-US',rate=1.15){
-  if(muted||!window.speechSynthesis)return;try{const u=new SpeechSynthesisUtterance(text);u.lang=lang;u.rate=rate;u.pitch=1.15;speechSynthesis.cancel();speechSynthesis.speak(u);}catch{}
+  if(muted)return;
+  if(playClip(text))return;   // 预生成配音（队员招式名等）
+  if(!window.speechSynthesis)return;try{const u=new SpeechSynthesisUtterance(text);u.lang=lang;u.rate=rate;u.pitch=1.15;speechSynthesis.cancel();speechSynthesis.speak(u);}catch{}
 }

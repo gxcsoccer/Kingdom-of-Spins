@@ -1,5 +1,6 @@
 // Browser speech helpers for 融合博士: TTS via speechSynthesis, hold-to-talk via SpeechRecognition.
 import {useCallback, useEffect, useRef, useState} from 'react';
+import {playClip, stopClip} from '../game/voiceClips.js';
 
 const synth = typeof window!=='undefined' ? window.speechSynthesis : null;
 let zhVoice = null;
@@ -10,9 +11,16 @@ function pickVoice() {
 }
 if (synth) { pickVoice(); synth.addEventListener?.('voiceschanged', pickVoice); }
 
-export const ttsSupported = Boolean(synth);
+export const ttsSupported = Boolean(synth) || typeof Audio !== 'undefined';
 export function speak(text, {rate=1.05, pitch=1.2}={}) {
-  if (!synth || !text) return;
+  if (!text) return;
+  synth?.cancel();
+  // 有预生成的博士配音就用它（声线固定、更像角色），播放失败再回退到浏览器朗读。
+  if (playClip(text, {onFail: () => speakSynth(text, rate, pitch)})) return;
+  speakSynth(text, rate, pitch);
+}
+function speakSynth(text, rate, pitch) {
+  if (!synth) return;
   synth.cancel();
   // Strip emoji/symbols that TTS engines read out awkwardly.
   const clean = String(text).replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'').replace(/[*_#>]/g,'');
@@ -21,7 +29,7 @@ export function speak(text, {rate=1.05, pitch=1.2}={}) {
   if (zhVoice || pickVoice()) u.voice = zhVoice;
   synth.speak(u);
 }
-export const stopSpeaking = () => synth?.cancel();
+export const stopSpeaking = () => { stopClip(); synth?.cancel(); };
 
 const Recognition = typeof window!=='undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 export const micSupported = Boolean(Recognition);
