@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
+import {hush} from '../game/voiceClips.js';
 import {beyTitle} from './beyName.js';
 import {useGame,bladerById} from '../game/store.js';
 import {BEYS} from '../game/beys.js';
@@ -26,6 +27,17 @@ export {STYLES,cpuLaunch,playerLaunch};
 
 export const RESULT_KEY=()=>resultCacheKey(useGame.getState().saveKey,location.pathname,location.search);
 export const clearSavedResult=(key=RESULT_KEY())=>{try{sessionStorage.removeItem(key);}catch{}};
+// 只有“刷新页面后第一次挂载的对战页”才恢复结算；站内的再战一次 / 带改装版再战 / 新开一场都从头开始。
+// （纯函数：按本次页面加载的 timeOrigin 记账，React 开发模式重复调用初始化也不会误判。）
+const LOAD_ID=()=>String(Math.round(performance.timeOrigin||0));
+const pageWasReloaded=()=>{try{return performance.getEntriesByType('navigation')[0]?.type==='reload';}catch{return false;}};
+function peekSavedResult(){
+  try{
+    if(!pageWasReloaded()||sessionStorage.getItem('kos-result-used')===LOAD_ID())return null;
+    const r=JSON.parse(sessionStorage.getItem(RESULT_KEY())||'null');return r&&Date.now()-r.at<3600_000?r:null;
+  }catch{return null;}
+}
+const markRestoreUsed=()=>{try{sessionStorage.setItem('kos-result-used',LOAD_ID());}catch{}};
 export default function BattleScreen(){
   const tasks=useTaskScope();
   const {save,params,go,recordMatch,unlockCards,recruit,addCoins}=useGame();
@@ -36,7 +48,8 @@ export default function BattleScreen(){
   const myName=save.profile?.nickname||'你';
 
   // 结算页刷新保护：整场打完后把结果存进 sessionStorage，刷新同一个地址时直接回到结算页（奖励不会重复发放）。
-  const [restored]=useState(()=>{try{const r=JSON.parse(sessionStorage.getItem(RESULT_KEY())||'null');return r&&Date.now()-r.at<3600_000?r:null;}catch{return null;}});
+  const [restored]=useState(peekSavedResult);
+  useEffect(()=>{markRestoreUsed();if(!restored)clearSavedResult();},[]);// eslint-disable-line   本次页面加载只恢复一次；没恢复就清掉旧结果
   const [beyUid,setBeyUid]=useState(restored?.beyUid||params.beyUid||save.collection[0]?.uid);
   // 谁上场: null = the kid; else a recruited teammate's blader id (single-player battles only).
   const team=useMemo(()=>teamRoster(save),[save.team,save.collection]);// eslint-disable-line
@@ -107,7 +120,7 @@ export default function BattleScreen(){
   const pauseRef=useRef(false);
   const setPausedAll=on=>{pauseRef.current=on;if(player&&phase==='fight'){player.setPaused(on||paused);}if(on)sfx.spinHum(false);else if(phase==='fight'&&!paused)sfx.spinHum(true);};
   const exitBattle=()=>{
-    player?.dispose?.();sfx.spinHum(false);window.speechSynthesis?.cancel();
+    player?.dispose?.();sfx.spinHum(false);hush();
     const p=useGame.getState().params||{};
     if(p.from==='explore')go('explore',{regionId:p.regionId||p.region});
     else if(p.from&&p.from!=='battle')go(p.from);

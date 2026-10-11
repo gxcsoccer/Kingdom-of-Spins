@@ -87,6 +87,46 @@ test('a failed cloud read must not upload a stale local save over unseen cloud p
   assert.equal(writes.length, 0, 'a failed read does not mean there is no cloud save');
 });
 
+test('progress made after a failed cloud read is uploaded once the cloud answers (never silently lost)', async t => {
+  const {sync, backend, writes, storage} = await setup(t);
+  let fail = true;
+  backend.loadSave = async () => fail ? {data: null, error: {message: 'offline'}} : {data: {...freshSave(), coins: 5}, error: null};
+  storage.setItem('kos-save-kid-A', JSON.stringify({...freshSave(), coins: 5}));
+  await sync.activateKid(kid('A'));
+  useGame.getState().addCoins(595);                      // the kid keeps playing while the cloud is unreachable
+  assert.equal(writes.length, 0);
+  fail = false;
+  t.mock.timers.tick(1000); await new Promise(r => setImmediate(r));   // background re-read succeeds
+  t.mock.timers.tick(1500); await new Promise(r => setImmediate(r));
+  assert.equal(writes.at(-1)?.data.coins, 600, 'the progress made meanwhile reaches the cloud');
+  assert.equal(useGame.getState().save.coins, 600, 'and is not replaced by the older cloud copy');
+});
+
+test('an untouched kid takes the cloud copy once a failed read is retried', async t => {
+  const {sync, backend, writes} = await setup(t);
+  let fail = true;
+  backend.loadSave = async () => fail ? {data: null, error: {message: 'offline'}} : {data: {...freshSave(), coins: 42}, error: null};
+  await sync.activateKid(kid('A'));
+  fail = false;
+  t.mock.timers.tick(1000); await new Promise(r => setImmediate(r));
+  assert.equal(useGame.getState().save.coins, 42);
+  t.mock.timers.tick(1500);
+  assert.equal(writes.length, 0, 'nothing to upload: cloud already has it');
+});
+
+test('a stuck cloud write cannot block switching kids forever', async t => {
+  const {sync, backend} = await setup(t);
+  await sync.activateKid(kid('A'));
+  backend.writeSave = () => new Promise(() => {});      // network hangs
+  useGame.getState().addCoins(1);
+  t.mock.timers.tick(1500);
+  const switching = sync.activateKid(kid('B'));
+  t.mock.timers.tick(8000); await new Promise(r => setImmediate(r));
+  const r = await switching;
+  assert.equal(r.error, null);
+  assert.equal(useGame.getState().activeKid.id, 'B');
+});
+
 test('a new kid with no cloud record receives its first save', async t => {
   const {sync, backend, writes} = await setup(t);
   backend.loadSave = async () => ({data: null, error: null});

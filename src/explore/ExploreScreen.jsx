@@ -134,7 +134,7 @@ export default function ExploreScreen(){
   function flash(c){const key=Date.now();setChip({...c,key});setTimeout(()=>alive.current&&setChip(ch=>ch?.key===key?null:ch),2600);}
 
   function moveTo(key){
-    if(!gm||blocking||key===here)return;
+    if(!gm||blocking||revealing.current||key===here)return;
     const sc=sceneByKey(region.id,here),dest=sceneByKey(region.id,key);
     if(!dest)return;
     if(!(sc?.exits.includes(key)||(gm.visited||[]).includes(key))){const p=shortestPath(region.id,here,key);const nx=p&&sceneByKey(region.id,p[1]);
@@ -153,7 +153,7 @@ export default function ExploreScreen(){
     const key=`${here}:${spot}`;if((ex.discovered||[]).includes(key))return '';
     updateExplore(region.id,x=>{x.discovered=[...new Set([...(x.discovered||[]),key])];});addCoins(2);
     const card=spotCard(region.id,here,spot),owned=useGame.getState().save.cards||[];
-    if(card&&!owned.includes(card))addEvents([{type:'geo_fact',cardId:card}]);
+    if(card&&!owned.includes(card)){unlockCards([card]);addEvents([{type:'geo_fact',cardId:card}]);}
     return card&&!owned.includes(card)?'　✨新发现 +🪙2 · 💡解锁知识卡！':'　✨新发现 +🪙2';
   }
   function inspect(spot){
@@ -265,7 +265,7 @@ export default function ExploreScreen(){
         onFind={id=>{const b=findBey(region.id,id);sfx.beep?.(true);return b;}}
         onMeet={(id,fight)=>{meetBlader(region.id,id);pop();if(fight)go('battle',{bladerId:id,from:'explore',regionId:region.id});}}
         onGeo={id=>unlockCards([id])}
-        onAnswer={(g,choice)=>{const ok=choice===g.answer;if(ok){addCoins(10);sfx.beep?.(true);}else sfx.beep?.();unlockCards([g.cardId]);return ok;}}
+        onAnswer={(g,choice)=>{const ok=choice===g.answer;upd(gg=>{gg.pendingGate=null;});if(ok){addCoins(10);sfx.beep?.(true);}else sfx.beep?.();unlockCards([g.cardId]);return ok;}}
         onGateDone={()=>{pop();upd(g=>{g.pendingGate=null;});}}
         onDone={pop} go={go} onArchive={()=>{pop();setArchive(true);}}/>}
       {archive&&<ProtoArchive regionId={region.id} onClose={()=>setArchive(false)}/>}

@@ -3,7 +3,7 @@ import ReplaySlot from '../ReplaySlot.jsx';
 import {DoctorFace} from '../MapScreen.jsx';
 import {getCard} from '../../knowledge/cards.js';
 import {openFlipbook} from '../../flipbook/store.js';
-import {voiceLine,prefetchVoice} from '../../game/voiceClips.js';
+import {voiceLine,prefetchVoice,hush,pauseVoice,resumeVoice} from '../../game/voiceClips.js';
 import * as sfx from '../../game/sfx.js';
 import {momentCard} from '../../ai/fallback.js';
 import {freshQuiz, markSeen} from '../../knowledge/quizSeen.js';
@@ -153,13 +153,14 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
   },[moments,say,titleOf,fallbackOf,addCoins,unlockCards]);// eslint-disable-line
 
   useEffect(()=>{if(boxH>0&&st.current.run===0){const t=setTimeout(run,700);return()=>clearTimeout(t);}},[boxH,run]);
-  useEffect(()=>()=>{st.current.run++;window.speechSynthesis?.cancel();},[]);
+  useEffect(()=>()=>{st.current.run++;hush();},[]);
 
   const togglePause=()=>{const p=!st.current.paused;st.current.paused=p;setPausedS(p);
     try{p?window.speechSynthesis?.pause():window.speechSynthesis?.resume();}catch{}
+    if(p)pauseVoice();else resumeVoice();
     if(p)viewer.current?.pause?.();else if(caption)viewer.current?.play?.();};
   const skip=()=>{if(quiz&&quiz.answer==null)return;st.current.skip=true;if(st.current.paused)togglePause();};
-  const toggleMute=()=>{const m=!muted;sfx.setMuted(m);setMutedS(m);if(m)window.speechSynthesis?.cancel();};
+  const toggleMute=()=>{const m=!muted;sfx.setMuted(m);setMutedS(m);if(m)hush();};
   const answer=i=>st.current.answer?.(i);
   const next=()=>{st.current.skip=true;};
   const shown=line.text.slice(0,typed);

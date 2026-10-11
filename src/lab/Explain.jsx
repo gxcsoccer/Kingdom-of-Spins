@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useState} from 'react';
+import {hush} from '../game/voiceClips.js';
 import InstallMod from './InstallMod.jsx';
 import {specFromBey,makePart,TIPS} from '../physics/model.js';
 import {DoctorFace} from '../ui/MapScreen.jsx';
@@ -147,7 +148,7 @@ export default function Explain({change,mine,variant,res,review,onMore,onAgain,o
     const t=setTimeout(()=>setI(x=>Math.min(steps.length-1,x+1)),Math.max(4500,String(cur.say).length*(voice?230:120)));
     return()=>clearTimeout(t);
   },[tour,i,auto,voice]);// eslint-disable-line
-  useEffect(()=>()=>window.speechSynthesis?.cancel(),[]);
+  useEffect(()=>()=>hush(),[]);
   const mood=i===4?(agree?'excited':'thinking'):i===5?'excited':'normal';
   const V=verdict==='B更好'?{cls:'B',t:'改装更强！',icon:'⬆'}:verdict==='A更好'?{cls:'A',t:'原版更强',icon:'⬇'}:{cls:'eq',t:'差不多',icon:'≈'};
   const arrow=(a,b)=>b>a?'up':b<a?'down':'same';
@@ -186,8 +187,8 @@ export default function Explain({change,mine,variant,res,review,onMore,onAgain,o
         <button onClick={()=>setAuto(a=>!a)}>{auto?'⏸':'▶'}</button>
         <span className="lx-dots">{steps.map((_,k)=><i key={k} className={k===i?'on':k<i?'past':''} onClick={()=>{setAuto(false);setI(k);}}/>)}</span>
         <button className="next" onClick={()=>{setAuto(false);setI(x=>Math.min(steps.length-1,x+1));}} disabled={i===steps.length-1}>▶</button>
-        <button className={`lx-voice ${voice?'on':''}`} onClick={()=>{setVoice(v=>!v);window.speechSynthesis?.cancel();}} title="朗读">{voice?'🔊':'🔈'}</button>
-        <button className="lx-close" onClick={()=>{window.speechSynthesis?.cancel();setTour(false);}}>✕ 回到结论</button>
+        <button className={`lx-voice ${voice?'on':''}`} onClick={()=>{setVoice(v=>!v);hush();}} title="朗读">{voice?'🔊':'🔈'}</button>
+        <button className="lx-close" onClick={()=>{hush();setTour(false);}}>✕ 回到结论</button>
       </div>
     </div>
   );

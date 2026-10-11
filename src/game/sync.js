@@ -36,7 +36,8 @@ function stopWriter(discard = false) {
   const previous = writer; writer = null;
   // A second selection can arrive while the first selection is flushing.
   // Every reader must wait for that write, including a switch back to its slot.
-  if (previous) stopping = Promise.all([stopping, previous.stop(discard)]).then(() => {});
+  // A stuck cloud request must not block switching kids / signing out forever: wait at most 8 s.
+  if (previous) stopping = Promise.race([Promise.all([stopping, previous.stop(discard)]), new Promise(r => setTimeout(r, 8000))]).then(() => {});
   return stopping;
 }
 
@@ -52,11 +53,29 @@ export async function activateKid(kid) {
   useGame.getState().useSlot(key, error ? null : remote);
   useGame.setState({onChange: null});
   useGame.getState().setProfile({nickname: kid.nickname, avatar: kid.avatar || null, kidId: kid.id});
-  // A failed read is not an empty cloud slot. Keep local play available, but
-  // require a successful activation before replacing unseen cloud progress.
-  writer = error ? null : debouncedWriter(kid.id);
-  useGame.setState({onChange: writer?.write || null, activeKid: {id: kid.id, nickname: kid.nickname, avatar: kid.avatar}});
+  // A failed read is not an empty cloud slot, so don't upload the local copy straight away. But never stop
+  // syncing: retry the read in the background; until it succeeds, local play is queued and uploaded once we
+  // know the cloud state (or after the retries give up), so progress made during a flaky start is never lost.
+  writer = debouncedWriter(kid.id);
+  let readOk = !error, dirty = null;
+  const onChange = save => { if (readOk) writer?.write(save); else dirty = save; };
+  useGame.setState({onChange, activeKid: {id: kid.id, nickname: kid.nickname, avatar: kid.avatar}});
   if (!remote && !error) writer.write(useGame.getState().save); // first cloud copy
+  if (error) (async () => {
+    for (const wait of [1000, 3000, 8000, 15000]) {
+      await new Promise(r => setTimeout(r, wait));
+      if (request !== activation) return;
+      const again = await loadSave(kid.id);
+      if (request !== activation) return;
+      if (again.error) continue;
+      readOk = true;
+      if (dirty) writer?.write(dirty);                       // played meanwhile: this device's progress wins
+      else if (again.data) useGame.getState().useSlot(key, again.data);   // untouched: take the cloud copy
+      else writer?.write(useGame.getState().save);           // cloud slot really empty: first copy
+      return;
+    }
+    readOk = true; if (dirty) writer?.write(dirty);          // cloud unreachable for ~30 s: keep the kid's progress
+  })();
   try { localStorage.setItem(LAST_KID, kid.id); } catch {}
   return {error};
 }

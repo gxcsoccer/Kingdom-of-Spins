@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {hush} from '../../game/voiceClips.js';
 import {beyTitle} from '../beyName.js';
 import {useGame} from '../../game/store.js';
 import {FINISH_LABEL,FINISH_ZH,BLADERS} from '../../game/story.js';
@@ -98,7 +99,7 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
     const onKey=e=>{if(recruitOpen||e.target.closest?.('input,textarea,select'))return;if(e.key==='ArrowRight')goPage(p=>p+1);if(e.key==='ArrowLeft')goPage(p=>p-1);};
     window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);
   },[goPage,recruitOpen]);
-  useEffect(()=>{if(page!==1)sfx.say&&window.speechSynthesis?.cancel();},[page]);
+  useEffect(()=>{if(page!==1)sfx.say&&hush();},[page]);
   // Swipe between pages (touch only; mouse drags are left to the 3D replay / scrubber).
   const swipe=useRef(null);
   const onPointerDown=e=>{if(e.pointerType!=='touch'||e.target.closest('.ks-rv-track,canvas,input,.rp-scroll'))return;swipe.current={x:e.clientX,y:e.clientY};};
@@ -110,7 +111,7 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
         <div className="rp-chips">{PAGES.map((p,i)=><button key={p.id} className={`rp-chip ${i===page?'on':''}`} onClick={()=>goPage(i)}><span>{i+1}</span>{p.label}</button>)}</div>
         {page!==3&&rounds.length>1&&<RoundPicker rounds={rounds} ri={ri} setRi={setRi} myName={myName} oppName={opp.name}/>}
         <div className="rp-score">{myName} <b>{score[0]} : {score[1]}</b> {opp.name}</div>
-        <button className="rp-continue" onClick={()=>{window.speechSynthesis?.cancel();fromExplore()?backToExplore():fromVersus()?go('versus'):go('map');}}>{fromExplore()?'🧭 继续探险 ▶':fromVersus()?'⚔️ 回到对战模式 ▶':'🗺️ 继续冒险 ▶'}</button>
+        <button className="rp-continue" onClick={()=>{hush();fromExplore()?backToExplore():fromVersus()?go('versus'):go('map');}}>{fromExplore()?'🧭 继续探险 ▶':fromVersus()?'⚔️ 回到对战模式 ▶':'🗺️ 继续冒险 ▶'}</button>
       </div>
       <div className="rp-stage">
         <div key={page} className={`rp-page ${dir>0?'turn-fwd':'turn-back'}`}>
@@ -189,7 +190,7 @@ function ReviewPage(props){
   const [mode,setMode]=useState('guide');
   const titleOf=useCallback(m=>MOMENT_TITLE[m.kind]||'关键时刻',[]);
   const fallbackOf=useCallback(m=>localMoment(m,props.names),[props.names]);
-  if(mode==='guide')return <GuidedReview {...props} titleOf={titleOf} fallbackOf={fallbackOf} onManual={()=>{window.speechSynthesis?.cancel();setMode('manual');}}/>;
+  if(mode==='guide')return <GuidedReview {...props} titleOf={titleOf} fallbackOf={fallbackOf} onManual={()=>{hush();setMode('manual');}}/>;
   return <ManualReview {...props} onGuide={()=>setMode('guide')}/>;
 }
 
@@ -211,7 +212,7 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
   useEffect(()=>{if(quizOn&&sel&&quizMap[sel])markSeen(quizMap[sel].id,quizMap[sel].alsoIds||[]);},[quizOn,sel]);// eslint-disable-line
   const clearEffects=()=>{timers.current.forEach(clearTimeout);timers.current=[];};
   const clear=()=>{sequence.current?.stop();clearEffects();};
-  useEffect(()=>()=>{clear();window.speechSynthesis?.cancel();},[]);
+  useEffect(()=>()=>{clear();hush();},[]);
   // 先猜再揭晓: with an unanswered quiz the replay freezes just BEFORE the moment, the quiz shows with no
   // explanation; only after the kid answers does the slow-mo play and the explanation appear.
   const reveal=(m)=>{

@@ -3,6 +3,7 @@
 // server 'start' → both browsers run the same deterministic physics → result → 'final' → round banner → … → champion.
 // The seat is remembered (code + pid) so a refresh or network drop rejoins the same room and progress.
 import {useEffect,useMemo,useRef,useState} from 'react';
+import {hush} from '../../game/voiceClips.js';
 import {useGame} from '../../game/store.js';
 import {FINISH_LABEL,FINISH_ZH} from '../../game/story.js';
 import {createRoom,joinRoom} from '../../net/room.js';
@@ -102,7 +103,7 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
     const r=await createRoom();setBusy(false);
     if(r.data?.code){mem.clear();join(r.data.code);}else setError('创建房间失败了，再试一次？');
   };
-  const leave=()=>{api.current?.leave();mem.clear();player?.dispose?.();sfx.spinHum(false);window.speechSynthesis?.cancel();onExit();};
+  const leave=()=>{api.current?.leave();mem.clear();player?.dispose?.();sfx.spinHum(false);hush();onExit();};
 
   function startMatch(m){
     if(matchRef.current===m.matchId)return;

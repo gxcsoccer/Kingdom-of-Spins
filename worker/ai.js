@@ -449,11 +449,12 @@ function chapterOf(body) {
 }
 const branchText = (v, n) => clean2(String(v||'').replace(/\s+/g,''), 80).slice(0, 80);
 async function flipTap(body, env) {
-  const ch = chapterOf(body), x = Math.max(0, Math.min(1, +body.x||.5)), y = Math.max(0, Math.min(1, +body.y||.5));
+  const num = v => Number.isFinite(+v) ? Math.max(0, Math.min(1, +v)) : .5;
+  const ch = chapterOf(body), x = num(body.x), y = num(body.y);
   const exclude = new Set((Array.isArray(body.exclude) ? body.exclude : []).map(String));
   const allowed = ch.cards.filter(id=>!exclude.has(id));
   const pool = allowed.length ? allowed : ch.cards;
-  const spots = (Array.isArray(body.spots) ? body.spots : []).slice(0,6).map(sp=>({x:+sp.x, y:+sp.y, label:clean2(sp.label,8), cardId:ch.cards.includes(sp.cardId) ? sp.cardId : null})).filter(sp=>Number.isFinite(sp.x)&&Number.isFinite(sp.y));
+  const spots = (Array.isArray(body.spots) ? body.spots : []).filter(sp=>sp&&typeof sp==='object').slice(0,6).map(sp=>({x:+sp.x, y:+sp.y, label:clean2(sp.label,8), cardId:ch.cards.includes(sp.cardId) ? sp.cardId : null})).filter(sp=>Number.isFinite(sp.x)&&Number.isFinite(sp.y));
   const near = spots.map(sp=>({...sp, d:Math.hypot(sp.x-x, sp.y-y)})).sort((a,b)=>a.d-b.d)[0];
   const hit = near && near.d < .07 && near.cardId && pool.includes(near.cardId) ? near : null;   // tapped right on a hotspot
   const fallback = () => {
@@ -484,7 +485,8 @@ ${pool.map(id=>{const c=getCard(id);return `${id} ${c.title}：${c.body}`;}).joi
     const t = templateFlipBranch({chapter:ch, tapped, cardId});
     const raw = (Array.isArray(out.panels) ? out.panels : []).slice(0,3).map(v=>branchText(typeof v==='string' ? v : v?.text));
     // Each line ≤28 字; line 1 must name what was tapped; anything off-spec falls back to the card's own line.
-    const panels = t.panels.map((p,i)=>{ const r = raw[i]; if (!r || r.length > 28 || (i===0 && !/你点的/.test(r))) return p; return {text:r}; });
+    const replaced = cardId !== out.cardId;   // 模型选的卡不在本章：它写的正文讲的是别的卡，整页改用模板
+    const panels = t.panels.map((p,i)=>{ const r = raw[i]; if (replaced || !r || r.length > 28 || (i===0 && !/你点的/.test(r))) return p; return {text:r}; });
     const title = clean2(out.title, 12) || t.title;
     return json({page:{...t, title, panels}, via: out.__via});
   } catch (e) { return json({page: fallback(), fallback:true, error:String(e.message||e).slice(0,200)}); }
@@ -626,7 +628,8 @@ async function exploreFlavor(body, env) {
   const region = regionById(body.regionId);
   if (!region) return json({error:'unknown region'}, 400);
   const sc = sceneByKey(region.id, body.scene) || sceneByKey(region.id, START_SCENE[region.id]);
-  const a = body.action || {}, o = body.outcome || {};
+  if (!sc) return json({error:'region not open'}, 400);
+  const a = body.action || {}, o = {...(body.outcome || {}), name: clean2(body.outcome?.name, 12)};
   const spot = Number.isInteger(+a.spot) ? sc.spots[+a.spot] : null;
   const what = a.type==='inspect' ? `孩子仔细查看了「${spot?.label||'某处'}」。` : a.type==='move' ? `孩子从「${sceneByKey(region.id,a.from)?.title||'别处'}」走到了「${sc.title}」。` : `孩子刚来到${region.name}的「${sc.title}」${body.firstRun?'（第一次来）':''}。`;
   const res = o.type==='found' ? `结果（已决定）：在这里${BEYS[o.id]?'找到了陀螺':'遇见了陀螺手'}「${o.name}」！写出发现的一刻。`

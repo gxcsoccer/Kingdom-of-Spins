@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import {hush} from '../game/voiceClips.js';
 import {createPortal} from 'react-dom';
 
 // Always-visible ⏸ button + pause sheet with 继续 / 退出 (exit asks for confirmation).
@@ -6,7 +7,7 @@ import {createPortal} from 'react-dom';
 export default function PauseMenu({onPause,onExit}){
   const [open,setOpen]=useState(false);
   const [confirm,setConfirm]=useState(false);
-  const show=()=>{setOpen(true);setConfirm(false);onPause?.(true);window.speechSynthesis?.cancel();};
+  const show=()=>{setOpen(true);setConfirm(false);onPause?.(true);hush();};
   const resume=()=>{setOpen(false);setConfirm(false);onPause?.(false);};
   return <>
     <button className="pm-btn" onClick={show} aria-label="暂停 / 退出">⏸<span> 暂停 / 退出</span></button>

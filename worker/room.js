@@ -134,7 +134,7 @@ export class BattleRoom extends DurableObject {
     if (r.last) this.send(ws, {type: 'final', ...r.last, score: r.score, matchOver: r.status === 'done', champion: r.champion});
     // Re-send an in-flight match so a reconnecting client can (re)simulate it.
     if (r.status === 'locked' && r.match) this.send(ws, {type: 'start', ...startPayload(r.match)});
-    else if (r.status === 'waiting' && r.go) this.send(ws, {type: 'go', ...r.go});
+    else if (r.status === 'waiting' && r.go && !r.players[slot]?.ready) this.send(ws, {type: 'go', ...r.go});   // 已经发射过的不再补发，免得被要求重新发射
   }
 
   async lockAndStart() {
