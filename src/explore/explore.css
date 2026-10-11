@@ -210,3 +210,9 @@ button.ex-item:not(:disabled){cursor:pointer}
 /* 标题横幅跨在上边框上，不挡画面顶部的可点物体 */
 .ex-banner{top:0;left:22px;transform:translateY(-62%) skew(-10deg);max-width:38%}
 .ex2 .ex-chip.alt{top:auto;bottom:12%;height:auto}
+/* 发现册进度 + 知识钩子 */
+.ex-disc{position:relative;display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:4px 8px;border:2px solid rgba(255,212,0,.6);border-radius:6px;overflow:hidden;font-weight:900;font-size:13px;color:#fff}
+.ex-disc span{color:#ffd400;position:relative;z-index:1}.ex-disc b{position:relative;z-index:1}
+.ex-disc i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,212,0,.15),rgba(255,212,0,.45));transition:width .4s}
+.ex2 .fb-hot.hook i{border-color:#7cd8ff;box-shadow:0 0 0 3px #111,0 0 0 6px rgba(124,216,255,.9),0 0 24px #7cd8ff}
+.ex2 .fb-hot.hook span{border-color:#7cd8ff;color:#bfeaff}

@@ -4,7 +4,7 @@ import {regionById,emptyExplore} from '../game/regions.js';
 import {BEYS} from '../game/beys.js';
 import {BLADERS} from '../game/story.js';
 import {getCard,CARDS} from '../knowledge/cards.js';
-import {FLAVOR} from './flavor.js';
+import {FLAVOR,spotCard} from './flavor.js';
 import {bankGate,GATE_BANK} from '../ai/fallback.js';
 import KnowledgeCard from '../knowledge/KnowledgeCard.jsx';
 import {SCENES,sceneUrl,sceneByKey,START_SCENE} from '../game/scenes.js';
@@ -58,7 +58,6 @@ function flavor({regionId,scene,action,outcome,sinceGate,quizSeen,target,hintLev
   // 已经站在目标场景：博士立刻说清楚“就在这张图里”，不再提赶路。
   if(target&&outcome.type!=='found'&&target.scene===scene){const spot=sc?.spots?.[target.spot]?.label;
     r.narration=`${targetName(target)} 就在这张图里！${hintLevel>=1&&spot?`找找「${spot}」附近。`:'点点画里的东西找找看。'}`;}
-  if(action.type!=='inspect'&&f.geo)r.events.push({type:'geo_fact',cardId:f.geo});
   if(action.type==='inspect'&&outcome.type!=='found'&&(sinceGate||0)>=5){
     const pool=CARDS.filter(c=>c.layer==='geo'&&c.region===regionId).map(c=>c.id).filter(id=>GATE_BANK[id]);
     const cardId=f.geo&&GATE_BANK[f.geo]?f.geo:pool[Math.floor(Math.random()*pool.length)];
@@ -111,6 +110,8 @@ export default function ExploreScreen(){
   const view=viewIdx!=null?trail[viewIdx]:live;
   const totalTasks=region.beys.length+region.bladers.length,doneTasks=ex.found.filter(id=>region.beys.includes(id)).length+ex.met.filter(id=>region.bladers.includes(id)).length;
   const complete=doneTasks>=totalTasks;
+  const hookOpen=(scene,i)=>{const c=spotCard(region.id,scene,i);return !!c&&!(save.cards||[]).includes(c);};
+  const totalSpots=(SCENES[region.id]||[]).reduce((n,sc)=>n+sc.spots.length,0),foundSpots=(ex.discovered||[]).filter(k=>(SCENES[region.id]||[]).some(sc=>k.startsWith(sc.key+':'))).length;
   useEffect(()=>{if(voice&&gm?.narration)speak(gm.narration);},[gm?.narration,voice]);
 
   // GM flavour in the background — never blocks the UI.
@@ -142,9 +143,18 @@ export default function ExploreScreen(){
     writeFlavor({type:'move',from},{type:'arrive'},page.id);
   }
 
+  // 第一次点开一个东西 = 新发现（🪙2，计入发现册）；带 💡 的东西还会解锁知识卡。返回提示后缀。
+  function discover(spot){
+    const key=`${here}:${spot}`;if((ex.discovered||[]).includes(key))return '';
+    updateExplore(region.id,x=>{x.discovered=[...new Set([...(x.discovered||[]),key])];});addCoins(2);
+    const card=spotCard(region.id,here,spot),owned=useGame.getState().save.cards||[];
+    if(card&&!owned.includes(card))addEvents([{type:'geo_fact',cardId:card}]);
+    return card&&!owned.includes(card)?'　✨新发现 +🪙2 · 💡解锁知识卡！':'　✨新发现 +🪙2';
+  }
   function inspect(spot){
     if(!gm||blocking)return;
     const sc=sceneByKey(region.id,here);const label=sc?.spots[spot]?.label;
+    const bonus=discover(spot);
     // Any open target hidden at exactly this scene+spot is found (not only the current one).
     const hit=targets.find(t=>t.scene===here&&t.spot===spot);
     if(hit){
@@ -160,7 +170,8 @@ export default function ExploreScreen(){
       if(target&&here===target.scene){g.tries={...(g.tries||{}),[target.id]:((g.tries||{})[target.id]||0)+1};if(g.tries[target.id]>=3&&(g.hint?.[target.id]||0)<1)g.hint={...(g.hint||{}),[target.id]:1};}
       if(target&&g.sinceFind>=8)g.hint={...(g.hint||{}),[target.id]:2};
       const p=(g.trail||[]).at(-1);if(p){p.tapped=label;p.line=`你仔细看了看「${label}」……`;p.tried=[...new Set([...(p.tried||[]),spot])];}});
-    if(h)flash({kind:'heat',level:h.level,text:`👆「${label}」${h.text}`});
+    if(h)flash({kind:'heat',level:h.level,text:`👆「${label}」${h.text}${bonus}`});
+    else if(bonus)flash({kind:'heat',level:'miss',text:`👆「${label}」${bonus.trim()}`});
     sfx.beep?.(h?.level==='hot');
     writeFlavor({type:'inspect',spot},{type:'heat',level:h?.level},live.id);
   }
@@ -211,7 +222,7 @@ export default function ExploreScreen(){
             <div className="fb-art ex-art" onClick={onImageTap}>
               <SceneImage regionId={region.id} page={view}/>
               <div className="ex-banner"><b>{view.title}</b>{sceneByKey(region.id,view.sceneKey)?.alt&&<small>⛰ {sceneByKey(region.id,view.sceneKey).alt} m</small>}</div>
-              {viewIdx==null&&view.hotspots.map((h,i)=><div key={i} title={h.label} className={`fb-hot ${view.tried?.includes(i)?'tried':''}`} style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.2+i*.12}s`}}><i/><span>{view.tried?.includes(i)?'✓ ':''}{h.label}</span></div>)}
+              {viewIdx==null&&view.hotspots.map((h,i)=><div key={i} title={h.label} className={`fb-hot ${(ex.discovered||[]).includes(`${view.sceneKey}:${i}`)?'tried':''} ${hookOpen(view.sceneKey,i)?'hook':''}`} style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.2+i*.12}s`}}><i/><span>{(ex.discovered||[]).includes(`${view.sceneKey}:${i}`)?'✓ ':hookOpen(view.sceneKey,i)?'💡 ':''}{h.label}</span></div>)}
               {tapFx&&<div key={tapFx.key} className="ex-ripple" style={{left:`${tapFx.x*100}%`,top:`${tapFx.y*100}%`}}/>}
               {chip&&<div key={chip.key} className={`ex-chip ${chip.kind} ${chip.level||''}`}>{chip.text}</div>}
               {/* 出口是画面边缘的路牌：往北的路牌就在画面上边，方向和线索、小地图一致 */}
@@ -231,6 +242,7 @@ export default function ExploreScreen(){
           <div className="ex-items">{region.beys.map(id=><div key={id} className={`ex-item ${found.has(id)?'got':''} ${target?.id===id?'now':''}`} title={found.has(id)?BEYS[id]?.name:'？？？'}><BeyArt bey={BEYS[id]} size={44}/><span>{found.has(id)?BEYS[id]?.name:target?.id===id?'寻找中':'？？？'}</span></div>)}</div>
           <div className="ex-h">⚔️ 陀螺手 <small>{region.bladers.filter(id=>met.has(id)).length}/{region.bladers.length}</small></div>
           <div className="ex-items">{region.bladers.map(id=>{const b=bladerById(id);const m=met.has(id);return <button key={id} className={`ex-item ${m?'got':''} ${target?.id===id?'now':''}`} disabled={!m} title={m?`再挑战 ${b?.name}`:'？？？'} onClick={()=>m&&go('battle',{bladerId:id,from:'explore',regionId:region.id})}><Portrait blader={b} size={44}/><span>{m?b?.name:target?.id===id?'寻找中':'？？？'}</span></button>;})}</div>
+          <div className="ex-disc"><b>✨ 发现册</b><span>{foundSpots}/{totalSpots}</span><i style={{width:`${Math.round(100*foundSpots/Math.max(1,totalSpots))}%`}}/></div>
           <div className="ex-steps">第 {ex.runs||1} 次寻宝 · 走了 {ex.steps||0} 步</div>
           {prototypeOf(region.id)&&<button className={`btn small ${complete?'yellow':''}`} style={{marginTop:6,width:'100%'}} disabled={!complete} onClick={()=>setArchive(true)}>{complete?'📜 真实原型档案':'📜 原型档案（全部完成后解锁）'}</button>}
         </div>
@@ -253,7 +265,7 @@ export default function ExploreScreen(){
 function GeoToast({ev,onGeo,onDone}){
   useEffect(()=>{onGeo(ev.cardId);const t=setTimeout(onDone,9000);return()=>clearTimeout(t);},[]);// eslint-disable-line
   // 捕获阶段关闭：卡片里的按钮（翻开绘本等）不会吞掉这次点击。
-  return <div className="ex-toast slidein" onClickCapture={onDone}><div className="kicker">🌍 真实世界的地理 · 新知识卡</div><KnowledgeCard card={ev.cardId} compact isNew/><div className="ex-get-hint" style={{color:'#111'}}>点一下收起</div></div>;
+  return <div className="ex-toast slidein" onClickCapture={onDone}><div className="kicker">{getCard(ev.cardId)?.layer==='geo'?'🌍 真实世界的地理':'🔬 陀螺里的科学'} · 新知识卡</div><KnowledgeCard card={ev.cardId} compact isNew/><div className="ex-get-hint" style={{color:'#111'}}>点一下收起</div></div>;
 }
 function EventOverlay({ev,region,onFind,onMeet,onGeo,onAnswer,onGateDone,onDone,go,onArchive}){
   const [choice,setChoice]=useState(null);

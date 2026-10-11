@@ -678,3 +678,13 @@ export const FLAVOR = {
   }
  }
 };
+
+// 知识点钩子：点到这些物体会解锁对应的知识卡（标签上带 💡）。键 = 场景/物体序号。
+export const SPOT_CARDS = {
+  harbor: {'lighthouse/0':'geo-lighthouse','tidal_path/0':'geo-tides','high_tide/3':'geo-tides','fish_shop/2':'geo-tides','boatyard/1':'geo-compass','watchtower/1':'geo-map-scale',
+    'cliff_path/0':'geo-coast','cave/0':'geo-coast','cove/3':'geo-coast','practice_stadium/3':'ph-precession','beach_battle/0':'bx-types','market/1':'bx-three-parts'},
+  thunder: {'trailhead/2':'geo-altitude-cold','snowline/0':'geo-snowline','snowline/1':'geo-altitude-cold','glacier_lake/0':'geo-snowline','thunder_tower/0':'geo-thunderstorm',
+    'storm_ridge/0':'geo-thunderstorm','storm_ridge/1':'geo-thunder-distance','contour_map/0':'geo-contour','windward/0':'geo-rain-shadow','leeward/0':'geo-rain-shadow',
+    'summit_view/1':'geo-altitude-cold','ice_arena/0':'ph-friction-area','iron_fortress/1':'bx-xdash'},
+};
+export const spotCard = (regionId, scene, spot) => SPOT_CARDS[regionId]?.[`${scene}/${spot}`] || null;
