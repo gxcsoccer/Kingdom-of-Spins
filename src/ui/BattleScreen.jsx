@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {useGame,bladerById} from '../game/store.js';
 import {BEYS} from '../game/beys.js';
-import {WIN_POINTS,FINISH_LABEL,FINISH_ZH} from '../game/story.js';
+import {WIN_ROUNDS,FINISH_LABEL,FINISH_ZH} from '../game/story.js';
 import {createBattle} from '../game/battlePlayer.js';
 import {commentary} from '../ai/client.js';
 import {getCard} from '../knowledge/cards.js';
@@ -23,7 +23,7 @@ export default function BattleScreen(){
   const {save,params,go,recordMatch,unlockCards,recruit,addCoins}=useGame();
   const blader=params.bladerId?bladerById(params.bladerId):null;
   const opp=useMemo(()=>blader?{name:blader.name,bey:blader.bey,launch:blader.launch,color:blader.color,blader}:{name:'CPU',bey:params.oppBey||BEYS.titan,launch:{rpm:4900,tilt:4,speed:.35,aim:.5},color:'#8d99a6'},[blader,params.oppBey]);
-  const target=save.demo?2:(params.points||WIN_POINTS);
+  const target=save.demo?2:(params.rounds||WIN_ROUNDS);   // rounds to win (5 局 3 胜)
   const myName=save.profile?.nickname||'你';
 
   const [beyUid,setBeyUid]=useState(params.beyUid||save.collection[0]?.uid);
@@ -60,7 +60,7 @@ export default function BattleScreen(){
     if(phase!=='fight'||!player)return;
     let raf;const tick=()=>{player.getTime();if(player.finished){
       const res=player.result, pts=res.points;
-      const next=[...score];next[res.winner]+=pts;
+      const next=[...score];next[res.winner]+=1;
       setScore(next);
       setRounds(r=>[...r,{...player.meta,result:res,summary:player.summary,samples:player.samples,events:player.events}]);
       setTimeout(()=>setPhase(next[0]>=target||next[1]>=target?'result':'roundEnd'),2600);
@@ -85,7 +85,7 @@ export default function BattleScreen(){
         </div>}
         {onPrep&&<LaunchSequence key={roundRef.current} me={{name:myName,avatar:/^[1-4]$/.test(String(save.profile?.avatar))?String(save.profile.avatar):null}} opp={opp} beys={save.collection} beyUid={myBey.uid} setBeyUid={setBeyUid}
           first={phase==='prep'&&!rounds.length} lastRound={rounds.at(-1)} onPredict={setPrediction} onLaunch={shoot}
-          lastLabel={rounds.length?`上一回合：${FINISH_LABEL[rounds.at(-1).result.reason]} · ${rounds.at(-1).result.winner?opp.name:myName} +${rounds.at(-1).result.points} 分　比分 ${score[0]} : ${score[1]}`:''}/>}
+          lastLabel={rounds.length?`上一回合：${FINISH_LABEL[rounds.at(-1).result.reason]} · ${rounds.at(-1).result.winner?opp.name:myName} 赢下这局　局分 ${score[0]} : ${score[1]}`:''}/>}
       </div>
       {phase==='result'&&<ResultPanel {...{won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins,
         }}/>}
@@ -98,14 +98,14 @@ function Hud({player,names,beys,score,target,color,round}){
   useEffect(()=>{if(!player)return;let raf;const f=()=>{const cur=player.getState(player.clock);setSt(cur);if(cur&&!player.paused)sfx.spinRpm(cur.bodies[0]?.rpm,cur.bodies[1]?.rpm);raf=requestAnimationFrame(f);};f();return()=>cancelAnimationFrame(raf);},[player]);
   const side=(i)=>{const b=st?.bodies?.[i],rpm=Math.max(0,Math.abs(b?.rpm||0));return (
     <div className={`hud-side ${i?'right':''}`} style={{background:i?color:beys[0].colors?.primary}}>
-      <div className="hud-top"><span className="hud-name"><b>{names[i]}</b><em> · {beys[i].name}</em></span><span className="hud-pts">{score[i]}<small> PT</small></span></div>
+      <div className="hud-top"><span className="hud-name"><b>{names[i]}</b><em> · {beys[i].name}</em></span><span className="hud-pts">{score[i]}<small> 胜</small></span></div>
       <div className="hud-bar"><i style={{width:`${Math.min(100,rpm/70)}%`,background:rpm<1200?'var(--red)':'var(--yellow)'}}/></div>
       <div className="hud-meta">{Math.round(rpm).toLocaleString()} RPM · 倾角 {Math.round(b?.tilt||0)}°</div>
     </div>);};
   return (
     <div className="hud">
       {side(0)}
-      <div className="hud-mid"><div>ROUND {Math.max(1,round)}</div><div className="hud-time">{(st?.time||0).toFixed(1)}s</div><div className="hud-target">先拿 {target} 分</div></div>
+      <div className="hud-mid"><div>ROUND {Math.max(1,round)}</div><div className="hud-time">{(st?.time||0).toFixed(1)}s</div><div className="hud-target">{target*2-1} 局 {target} 胜</div></div>
       {side(1)}
     </div>
   );

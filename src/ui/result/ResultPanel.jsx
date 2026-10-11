@@ -127,9 +127,9 @@ function RoundPicker({rounds,ri,setRi,myName,oppName}){
   const cur=rounds[ri];
   return <div className="rp-rounds" role="tablist" aria-label="选择要复盘的回合">
     <span className="rp-rounds-t">看第几局</span>
-    {rounds.map((r,i)=>{const w=r.result.winner===0;return <button key={i} role="tab" aria-selected={i===ri} title={`第 ${i+1} 局 · ${w?myName:oppName} +${r.result.points} · ${FINISH_ZH[r.result.reason]}`}
+    {rounds.map((r,i)=>{const w=r.result.winner===0;return <button key={i} role="tab" aria-selected={i===ri} title={`第 ${i+1} 局 · ${w?myName:oppName} 赢 · ${FINISH_ZH[r.result.reason]}`}
       className={`rp-round ${i===ri?'on':''} ${w?'win':'lose'}`} onClick={()=>setRi(i)}>{i+1}<i>{FINISH_ICON[r.result.reason]||''}</i>{i===rounds.length-1&&<em>★</em>}</button>;})}
-    <span className="rp-rounds-cap">{cur.result.winner===0?myName:oppName} +{cur.result.points} · {FINISH_ZH[cur.result.reason]}{ri===rounds.length-1?' · 决胜局':''}</span>
+    <span className="rp-rounds-cap">{cur.result.winner===0?myName:oppName} 赢 · {FINISH_ZH[cur.result.reason]}{ri===rounds.length-1?' · 决胜局':''}</span>
   </div>;
 }
 

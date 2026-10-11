@@ -261,7 +261,7 @@ const Overlay = forwardRef(function Overlay({ beys }, ref) {
         <div className={`ks-finish ks-finish-${finish.reason}`}>
           <div className="ks-finish-lines" />
           <div className="ks-finish-en">{fin.en}</div>
-          <div className="ks-finish-zh">{fin.zh}{winner ? ` · ${winner.name} 胜` : ''} <span className="ks-finish-pts">+{finish.points ?? fin.pts}</span></div>
+          <div className="ks-finish-zh">{fin.zh}{winner ? ` · ${winner.name} 胜` : ''} <span className="ks-finish-pts">+1 局</span></div>
         </div>
       )}
     </div>

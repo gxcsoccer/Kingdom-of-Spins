@@ -24,7 +24,7 @@ export const CARDS = [
   {id:'bx-finish-points', layer:'official', title:'四种获胜方式', tags:['规则','得分'], trigger:'battle.finish',
     body:'Xtreme 终结 3 分，Over 出界 2 分，Burst 爆裂 2 分，Spin 停转 1 分。'},
   {id:'bx-first-to-4', layer:'official', title:'先拿 4 分获胜', tags:['规则'], trigger:'battle.match',
-    body:'正式对战里，先拿到 4 分的一方赢下整场比赛，所以一次 Xtreme 终结就差不多赢了一大半！'},
+    body:'正式比赛按分数算：先拿到 4 分获胜（Xtreme 3 分、Over 2 分、Spin 1 分）。陀螺王国为了让小朋友打得更快，改成了 5 局 3 胜。'},
   {id:'bx-xtreme-finish', layer:'official', title:'Xtreme 终结', tags:['规则','xtreme'], trigger:'battle.finish.xtreme',
     body:'把对手撞进场地正前方的 Xtreme 口袋，就是最帅的 Xtreme 终结，一次拿 3 分。'},
   {id:'bx-types', layer:'official', title:'四种类型', tags:['类型'], trigger:'fusion.type',

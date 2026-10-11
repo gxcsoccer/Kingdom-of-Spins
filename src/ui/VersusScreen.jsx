@@ -98,9 +98,9 @@ function OnlineRoom({myBey,onExit}){
       {error&&<div className="prep-exp">{error}</div>}
       <div className="hud">
         {[0,1].map(i=>{const p=room?.players?.[i];return <div key={i} className={`hud-side ${i?'right':''}`} style={{background:i?'#f2b632':'#2f7bff'}}>
-          <div className="row between"><span className="hud-name">{p?.nickname||'等待加入…'}{i===slot?'（你）':''}</span><span className="hud-pts">{room?.score?.[i]??0} PT</span></div>
+          <div className="row between"><span className="hud-name">{p?.nickname||'等待加入…'}{i===slot?'（你）':''}</span><span className="hud-pts">{room?.score?.[i]??0} 胜</span></div>
           <div className="hud-meta">{p?.bey?.name||'—'} · {p?(p.ready?'✓ 已准备':'选择中'):''}</div></div>;})}
-        <div className="hud-mid" style={{gridRow:1,gridColumn:2}}><div>ROUND {room?.round||1}</div><div className="hud-target">先拿 {room?.target||4} 分</div></div>
+        <div className="hud-mid" style={{gridRow:1,gridColumn:2}}><div>ROUND {room?.round||1}</div><div className="hud-target">{(room?.target||3)*2-1} 局 {room?.target||3} 胜</div></div>
       </div>
       <div className="battle-stage">
         {player&&<BattleScene player={player} style={{position:'absolute',inset:0}}/>}

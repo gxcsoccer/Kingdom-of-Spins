@@ -19,7 +19,8 @@ export const TIERS = {
   super:{label:'超级职业',req:'队伍里有 3 名队员解锁'},
   boss:{label:'最终 BOSS',req:'打败全部超级职业解锁'},
 };
-export const WIN_POINTS = 4;
+export const WIN_POINTS = 4;   // official rule (knowledge card); the game uses best-of-5 below
+export const WIN_ROUNDS = 3;   // 5 局 3 胜 (demo mode: 3 局 2 胜)
 export const POINTS = {xtreme:3, over:2, burst:2, spin:1, judge:1};
 export const FINISH_LABEL = {xtreme:'XTREME FINISH', over:'OVER FINISH', burst:'BURST FINISH', spin:'SPIN FINISH', judge:'判定胜'};
 export const FINISH_ZH = {xtreme:'极限出界', over:'出界', burst:'爆裂', spin:'停转', judge:'时间到·转速判定'};

@@ -44,13 +44,21 @@ A2.sendResult({matchId: m.matchId, winner: 0, reason: 'xtreme', time: 9});
 await until(() => finals.some(([, f]) => f.round === 2)); await wait(300);
 const f2 = finals.at(-1)[1];
 log('r2 final', f2.winner, f2.reason, 'mismatch', f2.mismatch, 'score', f2.score, 'matchOver', f2.matchOver, 'champion', f2.champion);
+// Round 3 (best of 5): A wins its 3rd round → match over
+A2.ready({}); B.ready({});
+await until(() => starts[1].length === 3);
+m = starts[1].at(-1);
+A2.sendResult({matchId: m.matchId, winner: 0, reason: 'spin', time: 7}); B.sendResult({matchId: m.matchId, winner: 0, reason: 'spin', time: 7});
+await until(() => finals.some(([, f]) => f.round === 3)); await wait(300);
+const f3 = finals.at(-1)[1];
+log('r3 final', f3.winner, f3.reason, 'score', f3.score, 'matchOver', f3.matchOver, 'champion', f3.champion);
 // Third player rejected
 const C = joinRoom(data.code, {nickname: 'carol', bey: bey('carol'), pid: 'pid-c', origin}, {onError: e => log('carol error', e.code)});
 await wait(2500);
 // Bad code
 const D = joinRoom('ZZZZZ', {nickname: 'dave', pid: 'pid-d', origin}, {onError: e => log('dave error', e.code)});
 await wait(2500);
-const ok = lastState.score[0] === 5 && f2.mismatch === true && f2.matchOver === true && lastState.status === 'done';
+const ok = f2.mismatch === true && f2.matchOver === false && f3.matchOver === true && lastState.score[0] === 3 && lastState.status === 'done';
 log(ok ? 'PASS' : 'FAIL', JSON.stringify(lastState.score), lastState.status);
 [A2, B, C, D].forEach(x => x.leave());
 process.exit(ok ? 0 : 1);

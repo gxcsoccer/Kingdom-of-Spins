@@ -1,10 +1,10 @@
-// BattleRoom Durable Object: one invite room, two players, first to 4 points.
+// BattleRoom Durable Object: one invite room, two players, best of 5 (first to 3 round wins).
 // Physics is deterministic, so the room only coordinates: lock inputs, hand out a seed, compare results.
 import {DurableObject} from 'cloudflare:workers';
 
 export const ROOM_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const POINTS = {xtreme: 3, over: 2, burst: 2, spin: 1, judge: 1};
-export const TARGET = 4;
+export const TARGET = 3;   // 5 局 3 胜: rounds to win
 const RESULT_WAIT_MS = 20_000;       // after the first result, wait this long for the other one
 const IDLE_EXPIRE_MS = 2 * 3600_000; // empty rooms are wiped after 2 h
 
@@ -143,7 +143,7 @@ export class BattleRoom extends DurableObject {
     const chosen = a || b; // host (slot 0) wins disagreements
     const mismatch = Boolean(a && b && (a.winner !== b.winner || a.reason !== b.reason));
     const points = POINTS[chosen.reason];
-    r.score[chosen.winner] += points;
+    r.score[chosen.winner] += 1;   // a won round counts 1 (points kept in `last` for display)
     const matchOver = r.score[chosen.winner] >= TARGET;
     r.last = {matchId: m.matchId, round: m.round, winner: chosen.winner, reason: chosen.reason, points, time: chosen.time, mismatch, timedOut, reported: [0, 1].filter(i => m.results[i])};
     r.match = null;
