@@ -104,3 +104,9 @@ img{max-width:100%}
 .av-pick.on{transform:scale(1.15);box-shadow:0 0 0 3px #fff,0 0 0 7px var(--red),3px 4px 0 7px #111}
 .av-pick.on::after{content:'✓';position:absolute;right:-6px;bottom:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:#fff;border:2px solid #111;font-size:12px;font-weight:900;display:grid;place-items:center;line-height:1}
 .av-pick:not(.on) img{filter:saturate(.75) opacity(.85)}
+
+/* Manga text input (overrides inline styles): thick ink border, slight skew, yellow focus glow */
+input.kos-input{border:3px solid var(--ink)!important;border-radius:0!important;background:#fff!important;font:inherit;font-weight:800!important;font-size:16px!important;padding:9px 12px!important;
+  box-shadow:4px 4px 0 var(--ink)!important;transform:skew(-4deg);outline:none!important;color:var(--ink);transition:box-shadow .12s,background .12s}
+input.kos-input::placeholder{color:#888;font-weight:700}
+input.kos-input:focus{background:#fffbe0!important;box-shadow:4px 4px 0 var(--ink),0 0 0 4px var(--yellow)!important}

@@ -241,3 +241,11 @@
 .wm-lead-bg{stroke:#111;stroke-width:9;stroke-linecap:round;vector-effect:non-scaling-stroke}
 .wm-lead{stroke:var(--c,#fff);stroke-width:4;stroke-dasharray:10 7;stroke-linecap:round;vector-effect:non-scaling-stroke;animation:wmLead 1.2s linear infinite}
 @keyframes wmLead{to{stroke-dashoffset:-17}}
+/* small screens: keep region cards readable (font floor), positions/leader lines unchanged */
+@media (max-width:1100px){
+  .wm-stage{--fs:clamp(12.5px,calc(var(--sw)*.0118),16px)}
+  .wm-region-name{font-size:clamp(20px,calc(var(--sw)*.022),34px)}
+  .wm-region-sub{font-size:11px}
+  .wm-region-row{font-size:12px}.wm-region-row em{font-size:12px}
+  .wm-state-main{font-size:13.5px}.wm-state-stats{font-size:12px}.wm-state-note{font-size:10.5px}
+}

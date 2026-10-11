@@ -330,3 +330,41 @@ button.codex-tile:hover{transform:translate(-2px,-2px)}
 .fusion .chat-panel{border:5px solid var(--ink);box-shadow:8px 8px 0 var(--ink)}
 .fusion .chat-input input{border:3px solid var(--ink);font-size:16px;padding:10px 12px;background:#fff;box-shadow:inset 3px 3px 0 rgba(0,0,0,.08)}
 .fusion .chat-input input:focus{outline:none;box-shadow:inset 3px 3px 0 rgba(0,0,0,.08),0 0 0 3px var(--yellow)}
+
+/* ===== 第④步 做预测 (manga, same level as hero cards) ===== */
+.fusion .predict{display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.fusion .predict-hero{display:grid;grid-template-columns:minmax(220px,34%) 1fr;gap:18px;align-items:center;padding:10px 18px;border:5px solid var(--ink);box-shadow:8px 8px 0 var(--ink);transform:skew(-2deg);
+  background:radial-gradient(circle at 20% 50%,#fff 0 12%,transparent 40%),repeating-conic-gradient(from 0deg at 20% 50%,rgba(255,212,0,.45) 0 4deg,transparent 4deg 12deg),#2b2f45;color:#fff;min-height:0;flex:0 1 auto}
+.fusion .predict-hero .burst{display:none}
+.predict-3d{position:relative;height:clamp(150px,30vh,230px)}
+.predict-3d .ks-showcase{position:absolute;inset:0;background:transparent}
+.fusion .predict-hero :is(img,svg){width:auto!important;height:100%!important}
+.predict-info .kicker{display:inline-block;background:#ffd400;color:#111;padding:1px 10px;transform:skew(-8deg);font-weight:900;letter-spacing:.2em}
+.predict-info .h-display{color:#fff!important;-webkit-text-stroke:6px #111;paint-order:stroke fill;text-shadow:6px 6px 0 #ff2d4a;font-family:"STKaiti","Kaiti SC","KaiTi",var(--display),serif}
+.predict-info > .h-display + div{color:#ffd400!important}
+.predict-opt{font:inherit;font-weight:900;font-size:clamp(15px,2.3vh,19px);padding:12px 20px;border:4px solid var(--ink);background:#fff;color:var(--ink);box-shadow:5px 5px 0 var(--ink);transform:skew(-6deg);cursor:pointer;transition:transform .12s;animation:predIn .35s calc(var(--i)*.06s) cubic-bezier(.2,1.5,.4,1) both}
+.predict-opt:hover{transform:skew(-6deg) translateY(-4px);background:#fffbe0}
+.predict-opt.on{background:var(--ink);color:var(--yellow);box-shadow:5px 5px 0 var(--red),5px 5px 0 3px var(--ink);transform:skew(-6deg) translateY(-4px)}
+@keyframes predIn{from{transform:skew(-6deg) translateY(30px);opacity:0}}
+.predict-back{font:inherit;font-weight:900;font-size:16px;padding:10px 18px;border:4px solid var(--ink);background:#fff;box-shadow:4px 4px 0 var(--ink);transform:skew(-6deg);cursor:pointer}
+.predict-save{font:inherit;font-weight:900;font-size:clamp(20px,3vh,26px);padding:12px 34px;border:5px solid var(--ink);background:var(--red);color:#fff;box-shadow:7px 7px 0 var(--yellow),7px 7px 0 3px var(--ink);transform:skew(-8deg);cursor:pointer;animation:ti-gopulse 1.4s ease-in-out infinite}
+.predict-save:disabled{background:#bbb;box-shadow:4px 4px 0 var(--ink);animation:none;cursor:default}
+.fusion .predict .kcard.compact{max-width:640px}
+
+/* ===== codex progress bar: thick, skewed, manga ===== */
+.codex-progress{width:190px;height:30px;border:4px solid var(--ink);transform:skew(-10deg);box-shadow:4px 4px 0 var(--ink);background:repeating-linear-gradient(-45deg,#fff 0 6px,#f1ede3 6px 12px)}
+.codex-progress i{background:linear-gradient(180deg,#ffe766,#ffd400 60%,#f2b632);border-right:4px solid var(--ink)}
+.codex-progress span{transform:skew(10deg);font-size:15px;line-height:22px;-webkit-text-stroke:3px #fff;paint-order:stroke fill}
+/* chat placeholder: headline lives inside the art panel (never overlaps the chat) */
+.fusion .chat-layout:not(:has(.cand-zone))::before{content:none}
+.fusion .chat-layout:not(:has(.cand-zone))::after{content:'说出你的愿望，\A博士就把它变成陀螺！';white-space:pre;padding:6% 0 0 6%;font-family:var(--display);font-weight:900;font-size:clamp(22px,2.6vw,36px);line-height:1.25;color:#ffd400;-webkit-text-stroke:5px #111;paint-order:stroke fill;text-shadow:5px 5px 0 #ff2d4a}
+/* predict hero: never crop info at short/narrow screens */
+.fusion .predict-hero{grid-template-columns:minmax(170px,30%) 1fr;padding:8px 16px}
+.predict-info{min-width:0}
+.predict-info .h-display{font-size:clamp(30px,5.4vh,56px)!important;line-height:1.05}
+.predict-info .row{flex-wrap:wrap}
+.predict-3d{height:clamp(130px,26vh,210px)}
+@media (max-height:680px){.fusion .predict{gap:6px}.fusion .predict .kcard.compact{display:none}.predict-opt{padding:9px 14px}}
+.predict-info > .h-display + div{margin:2px 0 6px!important;font-size:16px!important}
+.predict-info .row{margin-top:4px!important}
+.predict-info .chip{color:#111;background:#fff;border:2px solid #111;font-weight:900}.predict-info > .h-display + div{font-weight:900!important;-webkit-text-stroke:3px #111;paint-order:stroke fill}

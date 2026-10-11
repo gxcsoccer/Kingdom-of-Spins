@@ -229,7 +229,7 @@ function Lobby({myBey,nickname,avatar,error,busy,create,join,onExit}){
           <div className="ol-card-kicker">朋友给了我房间码</div>
           <h2 className="ol-card-h">加入房间</h2>
           <label className="ol-code-input">
-            <input value={input} autoFocus inputMode="text" autoComplete="off" spellCheck={false} maxLength={5}
+            <input className="kos-input" value={input} autoFocus inputMode="text" autoComplete="off" spellCheck={false} maxLength={5}
               onChange={e=>setInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''))} onKeyDown={e=>{if(e.key==='Enter'&&ok)join(input);}}/>
             <div className="ol-code-boxes" aria-hidden>{[0,1,2,3,4].map(i=><span key={i} className={i===input.length?'cur':''}>{input[i]||''}</span>)}</div>
           </label>

@@ -36,7 +36,7 @@ function NewKidForm({onDone, onCancel}) {
   return (
     <form className="panel tone slidein col" style={{padding: 16}} onSubmit={submit}>
       <div className="kicker">新建孩子档案</div>
-      <input autoFocus value={nickname} onChange={e => setNickname(e.target.value)} placeholder="孩子的昵称（不用真名）" maxLength={24} style={inputStyle}/>
+      <input className="kos-input" autoFocus value={nickname} onChange={e => setNickname(e.target.value)} placeholder="孩子的昵称（不用真名）" maxLength={24} style={inputStyle}/>
       <div className="row">
         <span style={{fontWeight: 800}}>选形象</span>
         {AVATARS.map(c => (
@@ -46,7 +46,7 @@ function NewKidForm({onDone, onCancel}) {
           </button>
         ))}
       </div>
-      <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder="4 位 PIN（可选）" style={{...inputStyle, width: 180}}/>
+      <input className="kos-input" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder="4 位 PIN（可选）" style={{...inputStyle, width: 180}}/>
       {err && <div style={{color: 'var(--red)', fontWeight: 800}}>{err}</div>}
       <div className="row">
         <button className="btn primary small" disabled={busy}>{busy ? '创建中…' : '创建'}</button>
@@ -67,7 +67,7 @@ function PinPrompt({kid, onOk, onCancel}) {
       <div className="modal panel pop col" style={{maxWidth: 360, alignItems: 'center'}} onClick={e => e.stopPropagation()}>
         <Avatar color={kid.avatar} name={kid.nickname} size={64}/>
         <div className="panel-title" style={{fontSize: 22}}>{kid.nickname}，输入 PIN</div>
-        <input autoFocus value={pin} onChange={e => check(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" type="password"
+        <input className="kos-input" autoFocus value={pin} onChange={e => check(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" type="password"
           className={bad ? 'shake' : ''} style={{...inputStyle, width: 140, fontSize: 28, textAlign: 'center', letterSpacing: '.4em'}}/>
         {bad && <div style={{color: 'var(--red)', fontWeight: 800}}>PIN 不对，再试一次</div>}
         <button className="btn small ghost" onClick={onCancel}>取消</button>
@@ -100,7 +100,7 @@ function ParentPanel({session}) {
     <div className="panel mt2 col" style={{padding: '14px 18px', textAlign: 'left'}}>
       <div className="row between wrap">
         <span className="chip">家长 · {session.user?.email}</span>
-        <button className="btn small ghost" onClick={async () => { deactivateKid(); await signOut(); }}>退出登录</button>
+        <button className="btn small ghost" onClick={async () => { await deactivateKid(); await signOut(); }}>退出登录</button>
       </div>
       {err && <div style={{color: 'var(--red)', fontWeight: 800}}>{err}</div>}
       <div className="kicker">谁来玩？</div>

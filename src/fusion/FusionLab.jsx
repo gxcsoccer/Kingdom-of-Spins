@@ -10,6 +10,8 @@ import {TIPS} from '../physics/model.js';
 import {beyTitle, beySub} from '../ui/beyName.js';
 import {beyStats} from '../game/stats.js';
 import './fusion.css';
+import {lazy, Suspense} from 'react';
+const BeyShowcase3D = lazy(()=>import('../scene/BeyShowcase.jsx'));
 import HeroCards from './HeroCards.jsx';
 
 const WISHES = ['转得超级久 🌀', '把对手撞飞 💥', '稳如泰山，撞不动 🛡️', '又快又猛 ⚡'];
@@ -245,7 +247,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
               </div>
               <div className="col">
                 <label className="kicker">想对博士说点什么？（可以不填）</label>
-                <input className="sketch-wish" value={sk.wish} onChange={e=>setSk(s=>({...s, wish:e.target.value}))} placeholder="比如：它是一条会喷火的龙！" maxLength={60}/>
+                <input className="sketch-wish kos-input" value={sk.wish} onChange={e=>setSk(s=>({...s, wish:e.target.value}))} placeholder="比如：它是一条会喷火的龙！" maxLength={60}/>
                 {collection.length>0 && <>
                   <label className="kicker mt">用谁的 Ratchet 和 Bit？</label>
                   <div className="row wrap" style={{gap:8}}>{collection.slice(0,8).map((b,i)=>(
@@ -338,7 +340,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
             {!busy && <div className="row wrap opts inspire" style={{padding:'0 14px'}}><span className="inspire-l">灵感：</span>{INSPIRE.map(([k,t])=><button key={k} type="button" className="btn small" onClick={()=>setInput(v=>v.includes(t)?v:(v?`${v}，${t}`:t))}>{k}</button>)}</div>}
             <form className="chat-input" onSubmit={e=>{e.preventDefault();send(input);}}>
               {ttsSupported && <button type="button" className="btn small" title={voiceOn?'博士说话：开':'博士说话：关'} onClick={toggleVoice}>{voiceOn?'🔊':'🔇'}</button>}
-              <input value={input} onChange={e=>setInput(e.target.value)} placeholder={mic.listening?'我在听…松开就发送':candidates.length?'还想改？比如“换成金色”“刃再尖一点”，或者问博士问题…':'说说颜色、形状、图案：黑红配色、龙爪一样的刃、闪电花纹……'} maxLength={120} disabled={busy}/>
+              <input className="kos-input" value={input} onChange={e=>setInput(e.target.value)} placeholder={mic.listening?'我在听…松开就发送':candidates.length?'还想改？比如“换成金色”“刃再尖一点”，或者问博士问题…':'说说颜色、形状、图案：黑红配色、龙爪一样的刃、闪电花纹……'} maxLength={120} disabled={busy}/>
               {mic.supported && <button type="button" className={`btn mic ${mic.listening?'on':''}`} disabled={busy} title="按住说话"
                 onPointerDown={e=>{e.preventDefault();e.currentTarget.setPointerCapture?.(e.pointerId);mic.start();}} onPointerUp={mic.stop} onPointerCancel={mic.stop} onContextMenu={e=>e.preventDefault()}>🎤</button>}
               <button className="btn primary" disabled={busy||!input.trim()}>发送</button>
@@ -360,8 +362,8 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
         <section className="slidein predict">
           <div className="panel predict-hero">
             <div className="burst"/>
-            {renderBey ? renderBey(chosen, 220) : <BeyArt bey={chosen} size={220} spin/>}
-            <div>
+            <div className="predict-3d">{renderBey ? renderBey(chosen, 220) : <Suspense fallback={<BeyArt bey={chosen} size={220}/>}><BeyShowcase3D bey={chosen} rpm={3200} tilt={.45} zoom={1.15} background={false} standalone/></Suspense>}</div>
+            <div className="predict-info">
               <div className="kicker">NEW BLADE</div>
               <div className="h-display h-red" style={{fontSize:'clamp(36px,6vw,64px)'}}>{chosen.zh||chosen.name}</div>{chosen.zh&&<div style={{fontWeight:900,fontSize:18,color:'#555',marginTop:-4}}>{chosen.name}</div>}
               <div className="row" style={{gap:8,marginTop:8}}><TypeBadge type={chosen.type}/><span className="chip">⚙ {chosen.ratchet?.prongs}-{chosen.ratchet?.height}</span><span className="chip">🔻 {TIPS[chosen.bit]?.label}</span></div>
@@ -372,12 +374,12 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
             <div className="bubble grow">科学家都会先预测！你觉得 <b>{chosen.zh||chosen.name}</b> 对战 <b>{rival?.name||'对手'}</b> 会怎样？猜错也没关系，打完我们一起对答案。</div>
           </div>
           <div className="row wrap center mt" style={{gap:10}}>
-            {PREDICTIONS.map(p=><button key={p} className={`btn ${prediction===p?'ink':''}`} onClick={()=>setPrediction(p)}>{p}</button>)}
+            {PREDICTIONS.map((p,i)=><button key={p} className={`predict-opt ${prediction===p?'on':''}`} style={{'--i':i}} onClick={()=>setPrediction(p)}>{p}</button>)}
           </div>
           <div className="row center mt"><KnowledgeCard card={getCard('sm-predict')} compact/></div>
           <div className="row center mt2" style={{gap:12}}>
-            <button className="btn" onClick={()=>setStep('chat')}>◀ 换一个</button>
-            <button className="btn primary big" disabled={!prediction} onClick={save}>保存新陀螺 ✦</button>
+            <button className="predict-back" onClick={()=>setStep('chat')}>◀ 换一个</button>
+            <button className="predict-save" disabled={!prediction} onClick={save}>保存新陀螺 ✦</button>
           </div>
         </section>
       )}

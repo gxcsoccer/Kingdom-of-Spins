@@ -17,7 +17,7 @@ function ParentGate({onPass, onCancel}) {
     <div className="col" style={{alignItems: 'center', gap: 12}}>
       <div className="kicker">家长验证</div>
       <div className="h-display" style={{fontSize: 34}}>{q.a} × {q.b} = ?</div>
-      <input autoFocus inputMode="numeric" value={v} onChange={e => { setV(e.target.value.replace(/\D/g, '')); setBad(false); }}
+      <input className="kos-input" autoFocus inputMode="numeric" value={v} onChange={e => { setV(e.target.value.replace(/\D/g, '')); setBad(false); }}
         onKeyDown={e => e.key === 'Enter' && (Number(v) === q.a * q.b ? onPass() : setBad(true))}
         className={bad ? 'shake' : ''} style={{...input, width: 120, fontSize: 26, textAlign: 'center'}}/>
       {bad && <div style={{color: 'var(--red)', fontWeight: 800}}>不对哦，请家长来回答</div>}
@@ -40,9 +40,9 @@ function KidRow({kid, onChanged}) {
   }
   async function resetProgress() {
     if (!confirm(`确定把「${kid.nickname}」的游戏进度清零吗？陀螺、金币、知识卡都会重置。`)) return;
+    if (useGame.getState().activeKid?.id === kid.id) await deactivateKid({discardPending: true});
     const {error} = await writeSave(kid.id, freshSave());
-    if (useGame.getState().activeKid?.id === kid.id) deactivateKid();
-    setMsg(error ? '重置失败：' + error.message : '进度已重置'); setSave(freshSave());
+    setMsg(error ? '重置失败：' + error.message : '进度已重置'); if (!error) setSave(freshSave());
   }
   // 演示用：一键写入“玩到一半”的进度（走正常的云存档；当前正在玩的档案也同步到本地）。
   async function importDemo() {
@@ -56,9 +56,9 @@ function KidRow({kid, onChanged}) {
   }
   async function remove() {
     if (!confirm(`确定删除「${kid.nickname}」的档案和云存档吗？此操作不能撤销。`)) return;
+    if (useGame.getState().activeKid?.id === kid.id) await deactivateKid({discardPending: true});
     const {error} = await deleteKid(kid.id);
     if (error) return setMsg('删除失败：' + error.message);
-    if (useGame.getState().activeKid?.id === kid.id) deactivateKid();
     onChanged();
   }
   const beat = (save?.defeated || []).map(id => BLADERS.find(b => b.id === id)?.name).filter(Boolean);
@@ -67,7 +67,7 @@ function KidRow({kid, onChanged}) {
       <div className="col" style={{gap: 10}}>
         <div className="row" style={{gap: 10, flexWrap: 'nowrap'}}>
           <img src={`/art/avatars/${/^[1-4]$/.test(avatar) ? avatar : '1'}.png`} alt="" width={64} height={64} style={{borderRadius: '50%', border: 'var(--border)'}}/>
-          <input value={nickname} maxLength={24} onChange={e => setNickname(e.target.value)} style={{...input, flex: 1, minWidth: 0}} aria-label="昵称"/>
+          <input className="kos-input" value={nickname} maxLength={24} onChange={e => setNickname(e.target.value)} style={{...input, flex: 1, minWidth: 0}} aria-label="昵称"/>
         </div>
         <div className="row" style={{gap: 8, flexWrap: 'nowrap'}}>
           <span style={{fontWeight: 800, whiteSpace: 'nowrap'}}>头像</span>
@@ -76,7 +76,7 @@ function KidRow({kid, onChanged}) {
         </div>
         <div className="row" style={{gap: 8}}>
           <span style={{fontWeight: 800, whiteSpace: 'nowrap'}}>PIN</span>
-          <input value={pin} inputMode="numeric" placeholder="不设置" onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} style={{...input, width: 110}} aria-label="PIN"/>
+          <input className="kos-input" value={pin} inputMode="numeric" placeholder="不设置" onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} style={{...input, width: 110}} aria-label="PIN"/>
           <span className="muted" style={{fontSize: 12}}>孩子进入档案时需要输入</span>
         </div>
         <div className="row" style={{gap: 8}}>

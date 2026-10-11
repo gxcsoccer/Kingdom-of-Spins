@@ -111,7 +111,7 @@
 .cb-next-inline{margin-top:12px;align-self:flex-start;animation:fbPulse 1.2s ease-in-out infinite}
 .cb-guess .cb-next-inline{flex-basis:100%;max-width:max-content}
 @keyframes fbPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-.rp-arrow.next:not(:disabled){animation:fbPulse 1.2s ease-in-out infinite}
+.cb-nav .rp-arrow.next:not(:disabled){animation:fbPulse 1.2s ease-in-out infinite}
 
 /* Hotspots v2: dot stays on the object; the label sits on whichever side is free (layoutSpots). */
 .fb-hot{width:34px;height:34px;display:block;pointer-events:auto}
