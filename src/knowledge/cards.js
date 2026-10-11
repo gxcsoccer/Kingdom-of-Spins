@@ -1,7 +1,7 @@
 // Knowledge base. layer: 'official' = real Beyblade X facts; 'physics' = general science;
 // 'design' = this game's original settings / idealized simulator. Keep bodies short (≤80 chars).
 // trigger: when the game should surface the card (fusion param, battle event, bit, etc.).
-export const LAYER_LABEL = {official:'官方事实', physics:'物理知识', design:'游戏设定'};
+export const LAYER_LABEL = {official:'官方事实', physics:'物理知识', design:'游戏设定', geo:'真实世界的地理'};
 
 export const CARDS = [
   // ── Beyblade X structure (official) ──
@@ -98,6 +98,40 @@ export const CARDS = [
     body:'翼片少，刃边有大缺口，撞上时像拳头一样集中发力；翼片多，外形更圆，撞击更像擦过去。'},
   {id:'ph-tilt-fall', layer:'physics', title:'转速低了就会倒', tags:['倾角','转速','停转'], trigger:'battle.spin',
     body:'转速越来越低，角动量不够抵抗重力，陀螺就越晃越歪，最后倒下——这就是 Spin 停转。'},
+  // ── Real-world geography (layer 'geo'; kid-level but factually correct). region: where the explorer uses it ──
+  {id:'geo-tides', layer:'geo', region:'harbor', title:'潮汐和月亮', tags:['潮汐','月球','海'], trigger:'explore.harbor',
+    body:'月球的引力拉着海水，地球转一圈，大多数海边一天会涨潮两次、落潮两次。落潮时才能看到礁石和潮池。'},
+  {id:'geo-compass', layer:'geo', region:'harbor', title:'指南针指向哪里', tags:['方向','指南针','北'], trigger:'explore.harbor',
+    body:'指南针的磁针被地球磁场拉着，一头总是大致指向北。面朝北时，右手边是东，左手边是西，背后是南。'},
+  {id:'geo-sun-direction', layer:'geo', region:'harbor', title:'太阳认方向', tags:['方向','太阳','东'], trigger:'explore.harbor',
+    body:'太阳从东边升起、西边落下。在中国（北半球）中午时，太阳在南边的天空，影子指向北。'},
+  {id:'geo-map-scale', layer:'geo', region:'harbor', title:'比例尺和图例', tags:['地图','比例尺','图例'], trigger:'explore.harbor',
+    body:'比例尺告诉你地图上 1 厘米代表真实的多远；图例告诉你每个符号是什么。地图上一般上北下南、左西右东。'},
+  {id:'geo-coast', layer:'geo', region:'harbor', title:'海岸的样子', tags:['海岸','沙滩','海湾','礁石'], trigger:'explore.harbor',
+    body:'海浪把岩石慢慢磨碎成沙，在平静的海湾里堆成沙滩；坚硬的岩石留下来，变成礁石和海边的悬崖。'},
+  {id:'geo-lighthouse', layer:'geo', region:'harbor', title:'灯塔为船指路', tags:['灯塔','航海'], trigger:'explore.harbor',
+    body:'灯塔建在礁石和海角上，夜里按固定节奏闪光。每座灯塔闪法不同，船员数一数就知道自己在哪、该躲开哪里。'},
+  {id:'geo-altitude-cold', layer:'geo', region:'thunder', title:'越高越冷', tags:['海拔','温度','山'], trigger:'explore.thunder',
+    body:'在对流层里，海拔每升高 100 米，气温平均大约降低 0.6°C。所以高山顶上就算夏天也可能有积雪。'},
+  {id:'geo-thunderstorm', layer:'geo', region:'thunder', title:'雷暴是怎么来的', tags:['雷','闪电','云'], trigger:'explore.thunder',
+    body:'热而湿的空气快速上升，冷却后凝结成高高的积雨云。云里的冰粒和水滴互相碰撞带上电，放电就是闪电和雷声。'},
+  {id:'geo-thunder-distance', layer:'geo', region:'thunder', title:'数秒算雷有多远', tags:['雷','声音','光'], trigger:'explore.thunder',
+    body:'光几乎瞬间到达，声音每秒只走约 340 米。看到闪电后数到 3 秒听到雷声，雷电大约在 1 公里外。'},
+  {id:'geo-snowline', layer:'geo', region:'thunder', title:'雪线和冰川', tags:['雪线','冰川','冰'], trigger:'explore.thunder',
+    body:'雪线以上，积雪一年四季都化不完。雪越积越厚被压成冰，在重力作用下慢慢往山下流，这就是冰川。'},
+  {id:'geo-contour', layer:'geo', region:'thunder', title:'等高线地图', tags:['等高线','地图','山'], trigger:'explore.thunder',
+    body:'等高线把同样高度的地方连成线。线挤得越密，山坡越陡；线越稀，坡越缓。一圈圈闭合的线中间通常是山顶。'},
+  {id:'geo-rain-shadow', layer:'geo', region:'thunder', title:'迎风坡和背风坡', tags:['降雨','风','山'], trigger:'explore.thunder',
+    body:'湿润的风吹到山前被迫爬升，冷却后下雨，迎风坡雨多树多；翻过山的风变干了，背风坡就干燥少雨。'},
+  {id:'geo-volcano', layer:'geo', region:'volcano', title:'火山怎么形成', tags:['火山','岩浆'], trigger:'explore.volcano',
+    body:'地下深处的岩石熔化成岩浆，岩浆比周围的岩石轻，会往上挤。它从地壳的裂缝冲出地面，就形成了火山。'},
+  {id:'geo-plates', layer:'geo', region:'volcano', title:'地球的板块', tags:['板块','地震','火山'], trigger:'explore.volcano',
+    body:'地球表面像碎成几大块的蛋壳，叫板块。板块每年只移动几厘米，它们相撞或分开的地方最容易有火山和地震。'},
+  {id:'geo-hot-spring', layer:'geo', region:'volcano', title:'温泉为什么是热的', tags:['温泉','地热'], trigger:'explore.volcano',
+    body:'雨水渗进地下，被深处炽热的岩石加热，再沿着裂缝冒出地面，就成了温泉。这种来自地下的热叫地热。'},
+  {id:'geo-magma-lava', layer:'geo', region:'volcano', title:'岩浆和熔岩', tags:['岩浆','熔岩','火山'], trigger:'explore.volcano',
+    body:'在地下时叫岩浆，喷出地面后就叫熔岩。熔岩冷却变硬，会变成黑色的火山岩，比如玄武岩。'},
+
   // ── Game design (original settings / idealized model) ──
   {id:'gd-fusion-blade-only', layer:'design', title:'融合只换 Blade', tags:['融合'], trigger:'fusion.start',
     body:'在陀螺王国里，融合只会创造新的 Blade；Ratchet 和 Bit 保持原样，从你选的那只陀螺继承。'},
@@ -126,7 +160,7 @@ const KEYWORDS = {
   'mt-plastic':['塑料','轻'], 'mt-density':['密度'], 'bx-xdash':['dash','冲刺','齿轮','齿轨','极限'],
   'bx-finish-points':['得分','分','xtreme','出界','爆裂','停转'], 'bx-ratchet-numbers':['3-60','ratchet','棘轮','高度'],
   'bx-three-parts':['blade','ratchet','bit','部件','组装'], 'bx-types':['攻击','防御','持久','平衡','类型'],
-  'bx-cx-parts':['cx','锁芯','拆'], 'sm-one-variable':['变量','对照','改'], 'sm-control':['变量','对照','公平','控制'], 'sm-sample':['重复','多次','样本','运气'], 'sm-sensitive':['敏感','运气','不一样','混沌'], 'ph-energy-convert':['能量','撞','转速','掉'], 'ph-launch-rpm':['发射','转速','rpm'], 'ph-wing-contact':['翼','翼片','wings'], 'ph-tilt-fall':['倒','停转','歪'], 'sm-predict':['预测','猜'],
+  'bx-cx-parts':['cx','锁芯','拆'], 'sm-one-variable':['变量','对照','改'], 'sm-control':['变量','对照','公平','控制'], 'sm-sample':['重复','多次','样本','运气'], 'sm-sensitive':['敏感','运气','不一样','混沌'], 'ph-energy-convert':['能量','撞','转速','掉'], 'ph-launch-rpm':['发射','转速','rpm'], 'ph-wing-contact':['翼','翼片','wings'], 'ph-tilt-fall':['倒','停转','歪'], 'geo-tides':['潮','月亮','海水'], 'geo-compass':['指南针','方向','北','东','西','南'], 'geo-altitude-cold':['海拔','山顶','冷','温度'], 'geo-thunderstorm':['雷','闪电','云'], 'geo-volcano':['火山','岩浆'], 'geo-contour':['等高线'], 'geo-lighthouse':['灯塔'], 'sm-predict':['预测','猜'],
   'gd-fusion-blade-only':['融合'], 'gd-ideal-model':['真实','模型','真的'],
 };
 export function relevantCards(text='', n=6) {

@@ -4,14 +4,19 @@
 // 3) Workers AI gpt-oss-120b → 4) deterministic template (in each route). Each step falls back on error.
 import Anthropic from '@anthropic-ai/sdk';
 // Every route returns a deterministic template fallback when the model fails or times out.
-import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE} from '../src/ai/fallback.js';
+import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE, bankGate, GATE_BANK} from '../src/ai/fallback.js';
 import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
+import {regionById} from '../src/game/regions.js';
+import {prototypeOf} from '../src/game/prototypes.js';
+import {SCENES, sceneByKey} from '../src/game/scenes.js';
+import {BEYS} from '../src/game/beys.js';
+import {BLADERS} from '../src/game/story.js';
 
 export const MODEL = globalThis.process?.env?.AI_MODEL || '@cf/openai/gpt-oss-120b';
 // Per-route budgets: Claude gets CLAUDE_MS, the Workers AI fallback gets TIMEOUT_MS after that.
-const TIMEOUT_MS = {flip:10000, fusion:20000, commentary:12000, ask:10000, moments:12000, experiment:12000, sketch:25000};
-const CLAUDE_MS = {flip:20000, fusion:22000, sketch:28000, moments:18000, experiment:12000, commentary:12000, ask:10000};
+const TIMEOUT_MS = {explore:10000, flip:10000, fusion:20000, commentary:12000, ask:10000, moments:12000, experiment:12000, sketch:25000};
+const CLAUDE_MS = {explore:14000, flip:20000, fusion:22000, sketch:28000, moments:18000, experiment:12000, commentary:12000, ask:10000};
 // Model split: quality/vision routes use the smart model, live-feedback routes use the fast one.
 // moments is on the smart model: Haiku's quizzes/analogies were physically wrong in tests (Sonnet ~13 s, correct).
 const SMART_KINDS = new Set(['fusion','sketch','moments','flip']);
@@ -426,11 +431,141 @@ async function flipImage(body, env) {
   const prompt = String(body.prompt||'').slice(0,800);
   if (!prompt) return json({error:'empty prompt'}, 400);
   if (!env?.AI) return json({error:'no image model'}, 503);
+  const full = `${prompt}. ${FLIP_STYLE}`, errors = [];
+  // Primary: FLUX.2 klein 9B (2–5 s, multipart input, 4:3 frame). Fallback: flux-1-schnell with a short timeout.
   try {
-    const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-1-schnell', {prompt:`${prompt}. ${FLIP_STYLE}`, steps:4}), 20000);
-    if (!r?.image) throw new Error('no image');
-    return json({image:`data:image/jpeg;base64,${r.image}`});
-  } catch (e) { return json({error:String(e.message||e).slice(0,200)}, 502); }
+    const form = new FormData(); form.append('prompt', full); form.append('width', '1024'); form.append('height', '768');
+    const fr = new Response(form);
+    const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-2-klein-9b', {multipart:{body:fr.body, contentType:fr.headers.get('content-type')}}), 20000);
+    const img = r?.image || r?.result?.image;
+    if (img) return json({image:`data:image/jpeg;base64,${img}`, model:'flux-2-klein-9b'});
+    errors.push('klein: no image');
+  } catch (e) { errors.push('klein: '+String(e.message||e).slice(0,120)); }
+  try {
+    const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-1-schnell', {prompt:full, steps:4}), 12000);
+    if (r?.image) return json({image:`data:image/jpeg;base64,${r.image}`, model:'flux-1-schnell'});
+    errors.push('schnell: no image');
+  } catch (e) { errors.push('schnell: '+String(e.message||e).slice(0,120)); }
+  return json({error:errors.join('; ')}, 502);
+}
+
+// ── 探索：AI Game Master ──
+const PACE_FORCE = 5;   // steps without a find/meet before the server forces one
+const shuffle = a => { const b = [...a]; for (let i=b.length-1;i>0;i--) { const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]] = [b[j],b[i]]; } return b; };
+const bladerById = id => BLADERS.find(b=>b.id===id);
+function exploreManifest(region, state) {
+  const found = new Set(state.found||[]), met = new Set(state.met||[]);
+  return {beysLeft: region.beys.filter(id=>!found.has(id)), bladersLeft: region.bladers.filter(id=>!met.has(id))};
+}
+// Server-side guardrails on whatever the GM produced.
+function validateEvents(raw, region, state, {mustAward, enter, noGate=false}) {
+  const {beysLeft, bladersLeft} = exploreManifest(region, state);
+  const out = []; let awarded = null;
+  for (const e of Array.isArray(raw) ? raw.slice(0,5) : []) {
+    if (!e || typeof e!=='object') continue;
+    if (e.type==='clue' && e.text) out.push({type:'clue', text:clean2(e.text,70)});
+    else if (e.type==='find_bey' && !awarded && !enter && beysLeft.includes(e.beyId)) { awarded = {type:'find_bey', beyId:e.beyId, text:clean2(e.text||'',60)}; out.push(awarded); }
+    else if (e.type==='meet_blader' && !awarded && !enter && bladersLeft.includes(e.bladerId)) { const b = bladerById(e.bladerId); awarded = {type:'meet_blader', bladerId:e.bladerId, line:clean2(e.line||b?.line||'来一场吧！',50)}; out.push(awarded); }
+    else if (e.type==='gate' && !enter && !noGate && !out.some(x=>x.type==='gate') && GATE_BANK[e.cardId]) out.push(bankGate(e.cardId, `${e.cardId}-${(+state.steps||0)+1}`, clean2(e.lead||'',40)));
+    else if (e.type==='geo_fact' && getCard(e.cardId)?.layer==='geo' && !out.some(x=>x.type==='geo_fact')) out.push({type:'geo_fact', cardId:e.cardId});
+  }
+  // Pacing guardrail: force the next collectible if the GM keeps stalling.
+  if (mustAward && !awarded && (beysLeft.length || bladersLeft.length)) {
+    if (beysLeft.length && (!bladersLeft.length || Math.random()<.5)) { awarded = {type:'find_bey', beyId:beysLeft[0], text:'草丛里有什么在闪闪发光……', forced:true}; }
+    else { const b = bladerById(bladersLeft[0]); awarded = {type:'meet_blader', bladerId:bladersLeft[0], line:b?.line||'来一场吧！', forced:true}; }
+    out.push(awarded);
+  }
+  const leftAfter = beysLeft.length + bladersLeft.length - (awarded ? 1 : 0);
+  if (leftAfter===0 && awarded) out.push({type:'complete'});
+  return {events: out, awarded};
+}
+const clean2 = (v, n) => String(v||'').replace(/[（(]?\b(?:bx|ph|mt|sm|gd|geo)-[a-z0-9-]+\b[)）]?/g,'').trim().slice(0, n);
+// Build a page on a pre-generated scene: hotspots come from the scene's predefined spots (the GM only picks/renames).
+function scenePage(region, raw={}, visited=[]) {
+  const list = SCENES[region.id] || [];
+  let scene = sceneByKey(region.id, raw.sceneKey);
+  if (!scene && list.length) scene = list.find(x=>!visited.includes(x.key)) || list[Math.floor(Math.random()*list.length)];
+  const spots = scene?.spots || [{x:.25,y:.6,label:'那边'},{x:.55,y:.45,label:'中间'},{x:.8,y:.65,label:'这边'}];
+  const picked = (Array.isArray(raw.hotspots)?raw.hotspots:[]).map(h=>{ const i = Number.isInteger(+h?.spot) ? +h.spot : spots.findIndex(p=>p.label===h?.label); return spots[i] ? {...spots[i], label:clean2(h.label||spots[i].label,6), hint:String(h.hint||'').slice(0,120), spot:i} : null; }).filter(Boolean);
+  const seen = new Set(picked.map(h=>h.spot));
+  for (let i=0;i<spots.length && picked.length<Math.min(4,spots.length);i++) if (!seen.has(i)) picked.push({...spots[i], hint:'', spot:i});
+  const page = sanitizePage({title:raw.title||scene?.title, panels:(raw.panels||[]).map((p,i)=>({...p, x:[.04,.56,.04,.56][i], y:[.04,.04,.8,.8][i]})), imagePrompt:`${scene?.desc||region.scenery}, setting: ${region.scenery.split(':')[0]}`, hotspots:picked, cardId:raw.cardId}, (CARDS.find(c=>c.layer==='geo'&&c.region===region.id)||{}).id);
+  page.hotspots = page.hotspots.map((h,i)=>({...h, spot: picked[i]?.spot ?? i}));
+  page.sceneKey = scene?.key || null;
+  return page;
+}
+function exploreFallbackPage(region, title, text, visited=[]) {
+  return scenePage(region, {title, panels:[{text, kind:'caption'}]}, visited);
+}
+async function exploreStep(body, env) {
+  const region = regionById(body.regionId);
+  if (!region) return json({error:'unknown region'}, 400);
+  if (region.comingSoon) return json({comingSoon:true, page: exploreFallbackPage(region, region.name, `${region.name}还在建造中，即将开放！`), events:[], narration:'这片区域还在准备中哦。'});
+  const st = body.state || {}, action = body.action || {type:'enter'};
+  const enter = action.type==='enter';
+  const {beysLeft, bladersLeft} = exploreManifest(region, st);
+  const since = +st.sinceLast || 0;
+  const mustAward = !enter && since >= PACE_FORCE;
+  const pleaseAward = !enter && since >= PACE_FORCE - 1;
+  const names = {
+    beys: beysLeft.map(id=>`${id}（${BEYS[id]?.name}，${BEYS[id]?.zh}，${STYLE_ZH[BEYS[id]?.blade?.style]||''}）`).join('、') || '（已全部找到）',
+    bladers: bladersLeft.map(id=>{ const b = bladerById(id); return `${id}（${b?.name}，口头禅“${b?.line}”）`; }).join('、') || '（已全部遇见）',
+  };
+  const geo = CARDS.filter(c=>c.layer==='geo' && c.region===region.id);
+  const proto = prototypeOf(region.id);
+  const phys = ['ph-friction-area','ph-inertia','ph-momentum','ph-gyro-stability','sm-control'].map(getCard);
+  // Correct answers are checked here, not by the model.
+  let actionText = '';
+  if (enter) {
+    const spots = region.scenery.split(/,|:/).map(x=>x.trim()).filter(x=>x.length>4);
+    actionText = `孩子刚进入${region.name}（第 ${(+st.runs||0)+1} 次探险）。这次开局的随机设定：从「${spots[Math.floor(Math.random()*spots.length)]}」附近开始；这次线索的大致顺序：${shuffle([...beysLeft, ...bladersLeft]).join(' → ')}。第一页只介绍场景和第一个线索，不要给奖励，也不要出关卡。`;
+  } else if (action.type==='tap') {
+    const h = (action.page?.hotspots||[])[+action.spot] || {};
+    actionText = `孩子在「${action.page?.title||''}」这一页点了「${h.label||action.label||'画面'}」${h.hint?'（'+h.hint+'）':''}。让故事往那里发展（可以换到相关的场景）。`;
+  } else if (action.type==='answer') {
+    const g = st.pendingGate || {};
+    const ok = String(action.quizId)===String(g.quizId) && +action.choice===+g.answer;
+    actionText = ok ? `孩子答对了关卡题「${g.q||''}」！热烈表扬，并打开新的区域或线索。` : `孩子答错了关卡题「${g.q||''}」。温柔地解释正确答案（${g.explain||''}），然后让道路依然打开，继续冒险。`;
+  } else if (action.type==='choice') {
+    actionText = `孩子做了选择：${String(action.label||action.id||'').slice(0,40)}。${action.id==='later' ? '孩子决定稍后再挑战这位对手，对手说会在附近等着，故事继续。' : ''}`;
+  }
+  const user = `地区：${region.name}（${region.landform}）。场景元素（英文，用于画面）：${region.scenery}
+这个地区要融入的真实地理话题：${region.geoTopics.join('；')}
+${proto ? `这个地区的真实世界原型：${proto.name}（${proto.place}）。可以把原型的特点编进场景和关卡（例如涨潮淹没沙路、要等落潮才能过去），但提到真实地点时只能使用下面这些事实，不要编造其他数字或说法：
+${proto.facts.map(f=>'- '+f).join('\n')}
+游戏里的地区名字保持虚构（${region.name}），可以说“就像现实中的${proto.name}”。` : ''}
+还没找到的陀螺（只能用这些 id）：${names.beys}
+还没遇见的陀螺手（只能用这些 id）：${names.bladers}
+已找到：${(st.found||[]).join('、')||'无'}；已遇见：${(st.met||[]).join('、')||'无'}；已走 ${+st.steps||0} 步，距上次收获 ${since} 步。
+你之前的记忆（gmMemory）：${String(st.gm||'').slice(0,600) || '（新的冒险）'}
+最近的页面：${(Array.isArray(st.trail)?st.trail.slice(-6):[]).join(' → ') || '（无）'}
+场景库（每页必须选一个 sceneKey；括号里是画面中可点的东西，hotspots 用它们的序号 spot，可以改名 label）：
+${(SCENES[region.id]||[]).map(x=>`${x.key}：${x.title}——${x.desc.slice(0,70)}（${x.spots.map((p,i)=>i+'='+p.label).join('，')}）`).join('\n')}
+最近用过的场景：${(Array.isArray(st.scenes)?st.scenes.slice(-4):[]).join('、')||'无'}（尽量换新场景，除非故事需要留在原地）
+本步：${actionText}
+${mustAward||pleaseAward ? `【节奏要求】已经 ${since} 步没有收获了：这一步必须让孩子找到一只陀螺（find_bey）或遇见一位陀螺手（meet_blader），并且画面要表现出来。` : '大约每 3~4 步安排一次收获（find_bey 或 meet_blader），中间用线索、地理关卡和地理小知识推进。'}
+地理知识卡（gate 和 geo_fact 只能用这些 id，答案必须来自卡片内容）：
+${cardLines(geo)}
+物理知识卡（也可用于 gate）：
+${cardLines(phys)}
+规则：涉及真实世界的危险（雷电、涨潮、火山、冰川）时，要顺带说出正确的安全做法（比如打雷时远离山顶和孤立的高处、躲进安全的建筑）；每一步最多一个 find_bey 或 meet_blader；gate（关卡）每 4~6 步出现一次${(+st.sinceGate||0)<3||action.type==='answer'?'（这一步不要出关卡）':''}：只需给出 cardId（从上面的知识卡里选和场景相关的）和一句 lead（场景引子），题目由系统按卡片出；geo_fact 顺手讲一个和画面有关的真实地理知识。页面文字中文、短句、热血冒险漫画风，给 10 岁孩子看；panels 2~3 个，每个≤40字。
+只输出 JSON，格式示例：{"page":{"sceneKey":"tidepool","title":"≤10字","panels":[{"text":"…","kind":"caption"},{"text":"…","kind":"bubble"}],"hotspots":[{"spot":0,"label":"发光的海星","hint":"为什么它在发光？"},{"spot":2,"label":"贝壳","hint":"贝壳下面有东西"}],"cardId":"geo-tides"},"events":[{"type":"clue","text":"…"},{"type":"gate","cardId":"geo-tides","lead":"潮水涨上来了！"},{"type":"geo_fact","cardId":"geo-coast"},{"type":"find_bey","beyId":"fish","text":"…"},{"type":"meet_blader","bladerId":"ran","line":"…"}],"gmMemory":"≤300字：去过哪里、埋下的线索、打算把剩下的东西藏在哪","narration":"博士的一句话≤30字"}
+（示例里的事件只是格式，大多数步骤只要 1~2 个事件。）`;
+  try {
+    const out = await llm(env, {system:FLIP_SYSTEM.replace('一本可以点来点去的漫画科学绘本','一场可以点来点去的漫画冒险（你是 Game Master，同时是融合博士）'), user,
+      maxTokens:700, kind:'explore'});
+    const page = scenePage(region, out.page||{}, st.scenes||[]);
+    // Gates are spaced out: never right after answering one, and at least 3 steps apart.
+    const noGate = action.type==='answer' || (+st.sinceGate||0) < 3;
+    const {events, awarded} = validateEvents(out.events, region, st, {mustAward, enter, noGate});
+    return json({page, events, awarded:Boolean(awarded), gmMemory:String(out.gmMemory||st.gm||'').slice(0,600), narration:clip(String(out.narration||''),40), via:out.__via, aiNote:out.__note||undefined});
+  } catch (e) {
+    // Template step: keep the adventure moving and still honour pacing.
+    const page = exploreFallbackPage(region, enter ? region.name : '继续前进', enter ? `欢迎来到${region.name}！到处看看，找找藏起来的陀螺吧。` : '博士的通讯有点卡……我们先往前走走看！', st.scenes||[]);
+    const {events} = validateEvents([], region, st, {mustAward: !enter && since >= 2, enter});
+    if (enter && geo[0]) events.push({type:'geo_fact', cardId: geo[Math.floor(Math.random()*geo.length)].id});
+    return json({page, events, gmMemory:String(st.gm||''), narration:'往前走走看！', fallback:true, error:String(e.message||e).slice(0,200)});
+  }
 }
 
 async function ask(body, env) {
@@ -486,6 +621,7 @@ export async function handle(request, env) {
   if (path.endsWith('/flip/start')) return flipStart(body, env);
   if (path.endsWith('/flip/tap')) return flipTap(body, env);
   if (path.endsWith('/flip/image')) return flipImage(body, env);
+  if (path.endsWith('/explore/step')) return exploreStep(body, env);
   return json({error:'not found'}, 404);
 }
 export {CARDS};

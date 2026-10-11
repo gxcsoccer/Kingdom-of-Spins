@@ -21,7 +21,7 @@ export async function flipTap({page, imageDataUrl, x, y, trail}) {
   catch { return {page:templateFlipTap(page, x, y), tapped:''}; }
 }
 const imageCache = new Map();   // prompt → Promise<dataUrl|null>
-const fetchImage = prompt => post('/api/ai/flip/image', {prompt}, 30000).then(o=>{ if (!o.image) throw new Error('no image'); return o.image; });
+const fetchImage = prompt => post('/api/ai/flip/image', {prompt}, 42000).then(o=>{ if (!o.image) throw new Error('no image'); return o.image; });
 export function flipImage(prompt) {
   if (!prompt) return Promise.resolve(null);
   if (!imageCache.has(prompt)) imageCache.set(prompt, fetchImage(prompt).catch(()=>fetchImage(prompt)).catch(()=>{ imageCache.delete(prompt); return null; }));   // one retry

@@ -108,3 +108,6 @@
 .sketch-wish{border:var(--border);padding:12px;font:inherit;font-weight:700;background:#fff;outline:none;width:100%}
 .kcard-book{margin-top:8px;border:2px solid var(--ink);background:var(--yellow);font-weight:900;font-size:12px;padding:3px 10px;box-shadow:2px 2px 0 var(--ink)}
 .kcard-book:active{transform:translate(2px,2px);box-shadow:none}
+.badge.geo{background:#ff9f43;color:#111}
+.kcard.geo{border-left-color:#ff9f43}
+.kchip.geo{background:#ffe8d1}

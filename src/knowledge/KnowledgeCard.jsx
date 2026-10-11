@@ -3,7 +3,7 @@ import {LAYER_LABEL, getCard} from './cards.js';
 import {openFlipbook} from '../flipbook/store.js';
 import '../fusion/fusion.css';
 
-const LAYER_ICON = {official:'🏆', physics:'🔬', design:'🎮'};
+const LAYER_ICON = {official:'🏆', physics:'🔬', design:'🎮', geo:'🌍'};
 
 export function LayerBadge({layer}) {
   return <span className={`badge ${layer}`}>{LAYER_ICON[layer]} {LAYER_LABEL[layer]||layer}</span>;

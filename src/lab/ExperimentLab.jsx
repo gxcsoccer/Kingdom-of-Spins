@@ -1,11 +1,11 @@
-import {useState,useMemo} from 'react';
+import {useState,useMemo,useEffect,useRef} from 'react';
 import {TRIALS,EXP_MAX_TIME,runExperiment} from '../game/experiment.js';
 import * as ai from '../ai/client.js';
 import {getCard} from '../knowledge/cards.js';
 import {KnowledgeChip} from '../knowledge/KnowledgeCard.jsx';
 import {DoctorFace} from '../ui/MapScreen.jsx';
 import {FINISH_ZH} from '../game/story.js';
-import Workbench from './Workbench.jsx';
+import Workbench,{QuestionPicker,DoctorRule,QUESTIONS,VAR_LABEL} from './Workbench.jsx';
 import DualReplay from './DualReplay.jsx';
 import './lab.css';
 
@@ -24,14 +24,17 @@ function localReview({variable,prediction,stats,verdict}){
 }
 
 export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,onUnlock}){
+  const [varKey,setVarKey]=useState(null); // null = step ① (ask)
   const [change,setChange]=useState(null);
   const [pred,setPred]=useState(null);
   const [phase,setPhase]=useState('setup'); // setup | running | done
   const [progress,setProgress]=useState(0);
   const [res,setRes]=useState(null);
   const [review,setReview]=useState(null);
+  const ruleShown=useRef(false);
   const key=change?.key, value=change?.to;
-  const variable=change?{key,label:change.label,from:change.fromLabel,to:change.toLabel}:{key:null,label:'（还没选）',from:'—',to:'—'};
+  const variable=change?{key,label:change.label,from:change.fromLabel,to:change.toLabel}:{key:varKey,label:varKey?VAR_LABEL[varKey]:'（还没选）',from:'—',to:'—'};
+  useEffect(()=>{if(phase==='setup'&&!varKey&&!ruleShown.current){ruleShown.current=true;onUnlock?.(['sm-control']);}},[phase,varKey]);// eslint-disable-line
 
   const run=async()=>{
     if(!change)return;
@@ -48,87 +51,87 @@ export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,
     if(ok)onReward?.(20);
     if(rv.cardId)onUnlock?.([rv.cardId]);
   };
+  const stepN=phase!=='setup'?3:varKey?2:1;
+  const chips=<div className="lab-chips">
+    <span className="lab-chip c1">🔀 改变：{change?<b>{variable.label} {variable.from} → {variable.to}</b>:varKey?<b>{VAR_LABEL[varKey]}（还没改）</b>:'选一个问题'}</span>
+    <span className="lab-chip c2">🔒 不变：对手 {names[1]} · 发射 · 其他零件</span>
+    <span className="lab-chip c3">📏 测量：赢几次 · 第 3 秒转速</span>
+  </div>;
 
   return (
-    <div className="lab">
-      <div className="lab-head"><span className="h-display h-yellow" style={{fontSize:28}}>🔬 科学实验室</span><span className="lab-sub">只改一个变量 · 做 {TRIALS} 次对照 · 看证据</span></div>
-      {phase==='setup'&&<div className="lab-grid">
-        <div className="panel lab-step lab-bench">
-          <div className="lab-n">1</div><div className="prep-h">动手改装：只改一个地方</div>
-          <Workbench base={mine} onChange={(v,c)=>setChange(c)}/>
-          <table className="lab-ctrl mt"><tbody>
-            <tr><th>🔀 改变（自变量）</th><td>{change?<><b>{variable.label}</b>：{variable.from} → {variable.to}</>:<span className="muted">在工作台上改一个零件</span>}</td></tr>
-            <tr><th>🔒 保持不变（控制变量）</th><td>对手 {names[1]}、发射角度和速度、其他零件、物理模型</td></tr>
-            <tr><th>📏 测量什么</th><td>赢了几次、第 3 秒还剩多少转速</td></tr>
-          </tbody></table>
-        </div>
-        <div className="panel lab-step">
-          <div className="lab-n">2</div><div className="prep-h">先预测：改了以后会怎样？</div>
-          <div className="col" style={{gap:8}}>{PRED.map(p=><button key={p.id} className={`btn small ${pred===p.id?'primary':''}`} style={{justifyContent:'flex-start'}} onClick={()=>setPred(p.id)}>{p.label}</button>)}</div>
-          <div className="muted" style={{fontSize:12,marginTop:8}}>科学家总是先写下猜想，再用实验检验。猜对有 🪙 +20。</div>
-          <button className="btn primary big mt" onClick={run} disabled={!change}>{change?'开始实验 ▶':'先在工作台上改一个零件'}</button>
-        </div>
+    <div className="lab lab-fit">
+      <div className="lab-head">
+        <span className="h-display h-yellow lab-title">🔬 科学实验室</span>
+        <span className="lab-steps">{['你想知道什么？','动手改一改','预测 · 看结果'].map((t,i)=><i key={i} className={i+1===stepN?'on':i+1<stepN?'done':''}>{['①','②','③'][i]} {t}</i>)}</span>
+        {phase!=='done'&&chips}
+      </div>
+      {phase==='setup'&&!varKey&&<div className="lab-body lab-ask">
+        <div className="lab-ask-main"><div className="lab-h">① 你想知道什么？<small>点一个问题，我们就用实验来回答它</small></div><QuestionPicker onPick={k=>{setVarKey(k);setChange(null);setPred(null);}}/></div>
+        <DoctorRule Face={<DoctorFace mood="excited" size={70}/>}/>
       </div>}
-      {phase==='running'&&<div className="panel lab-running">
-        <DoctorFace mood="thinking" size={72}/>
+      {phase==='setup'&&varKey&&<div className="lab-body lab-tweak">
+        <Workbench key={varKey} base={mine} varKey={varKey} onChange={(v,c)=>setChange(c)}/>
+        <aside className="lab-side">
+          <div className="lab-q">「{QUESTIONS.find(q=>q.key===varKey)?.q}」</div>
+          <div className="lab-h sm">③ 先预测：改了以后会怎样？</div>
+          <div className="lab-preds">{PRED.map(p=><button key={p.id} className={`lab-pred-btn ${pred===p.id?'on':''}`} onClick={()=>setPred(p.id)}>{p.label}</button>)}</div>
+          <div className="lab-tip">先写下猜想，再用实验检验 · 猜对 🪙 +20</div>
+          <button className="lab-run" onClick={run} disabled={!change}>{change?'开始实验 ▶':'先动手改一改'}</button>
+          <button className="lab-back" onClick={()=>{setVarKey(null);setChange(null);}}>↩ 换个问题</button>
+        </aside>
+      </div>}
+      {phase==='running'&&<div className="lab-body lab-running">
+        <DoctorFace mood="thinking" size={90}/>
         <div className="grow">
-          <div className="prep-h">实验中… 同时跑 {TRIALS} 场原版 + {TRIALS} 场改装版</div>
+          <div className="lab-h">实验中… 同时跑 {TRIALS} 场原版 + {TRIALS} 场改装版</div>
           <div className="lab-bar"><i style={{width:`${Math.round(progress*100)}%`}}/></div>
-          <div className="muted" style={{fontSize:12}}>每一对比赛的发射条件完全一样，只有「{variable.label}」不同（每场最多 {EXP_MAX_TIME} 秒）</div>
+          <div className="lab-tip">每一对比赛的发射条件完全一样，只有「{variable.label}」不同（每场最多 {EXP_MAX_TIME} 秒）</div>
         </div>
       </div>}
-      {phase==='done'&&res&&<Results res={res} review={review} variable={variable} names={names} pred={pred} mine={mine} opp={opp} onAgain={()=>{setPhase('setup');setPred(null);setChange(null);}}/>}
+      {phase==='done'&&res&&<Results res={res} review={review} variable={variable} names={names} pred={pred} mine={mine} opp={opp} onAgain={()=>{setPhase('setup');setPred(null);setChange(null);setVarKey(null);}}/>}
     </div>
   );
 }
 
 function Results({res,review,variable,names,pred,mine,opp,onAgain}){
   const {stats,trials,verdict}=res;
-  const beysA=useMemo(()=>[mine,opp],[mine,opp]), beysB=useMemo(()=>[res.variantBey,opp],[res.variantBey,opp]);
-  const fullA=trials[0]?.A?.full, fullB=trials[0]?.B?.full;
+  const [tab,setTab]=useState('doctor');
   const card=review?.cardId&&getCard(review.cardId);
   const winner=verdict==='B更好'?'B':verdict==='A更好'?'A':null;
+  const beysA=useMemo(()=>[mine,opp],[mine,opp]), beysB=useMemo(()=>[res.variantBey,opp],[res.variantBey,opp]);
+  const fullA=trials[0]?.A?.full, fullB=trials[0]?.B?.full;
   return (
-    <div className="lab-results slidein">
-      <div className="lab-verdict"><span className="sfx" style={{fontSize:44}}>{verdict==='B更好'?'改装版胜出！':verdict==='A更好'?'原版更强！':'差不多！'}</span></div>
-      {fullA&&fullB&&<div className="lab-dual">
-        <div className="prep-h lab-dual-h">同一个发射，两种陀螺 <small>A：{variable.from} · B：{variable.to} · 第 1 次实验</small></div>
-        <DualReplay beysA={beysA} beysB={beysB} fullA={fullA} fullB={fullB}/>
-      </div>}
-      <div className="lab-grid">
-        <div className="panel lab-step">
-          <table className="lab-table">
-            <thead><tr><th></th><th className={winner==='A'?'win':''}>A 原版<br/><small>{variable.from}</small></th><th className={winner==='B'?'win':''}>B 改装<br/><small>{variable.to}</small></th></tr></thead>
-            <tbody>
-              <tr><th>赢了几次</th><td>{stats.A.wins} / {stats.A.trials}</td><td>{stats.B.wins} / {stats.B.trials}</td></tr>
-              <tr><th>第 3 秒转速</th><td>{stats.A.avgRpm3.toLocaleString()}</td><td>{stats.B.avgRpm3.toLocaleString()}</td></tr>
-              <tr><th>平均回合时长</th><td>{stats.A.avgTime} 秒</td><td>{stats.B.avgTime} 秒</td></tr>
-              <tr><th>平均碰撞次数</th><td>{stats.A.avgHits}</td><td>{stats.B.avgHits}</td></tr>
-            </tbody>
-          </table>
-          <div className="lab-trials mt">{trials.map((t,i)=><div key={i} className="lab-trial"><b>第 {i+1} 次</b>
-            <span className={t.A.result.winner===0?'w':'l'}>A {t.A.result.winner===0?'赢':'输'}·{FINISH_ZH[t.A.result.reason]}</span>
-            <span className={t.B.result.winner===0?'w':'l'}>B {t.B.result.winner===0?'赢':'输'}·{FINISH_ZH[t.B.result.reason]}</span></div>)}</div>
-          <OverlayChart trials={trials}/>
-        </div>
-        <div className="panel lab-step">
-          <div className="row" style={{gap:10,alignItems:'flex-start'}}><DoctorFace mood={review?'excited':'thinking'} size={60}/>
-            <div className="col grow" style={{gap:8}}>
-              {!review&&<div className="bubble">正在分析实验数据……</div>}
-              {review&&<>
-                <div className="lab-concl">{review.conclusion}</div>
-                <div><b>为什么？</b>{review.why}</div>
-                <div className="lab-repeat">🔁 {review.repeatLesson}</div>
-                {pred&&<div className="lab-pred">🎯 {review.predictionFeedback}</div>}
-                {card&&<KnowledgeChip card={card} defaultOpen/>}
-                <div className="muted" style={{fontSize:12}}>下一个实验点子：{review.nextIdea}</div>
-              </>}
-            </div>
-          </div>
-          <button className="btn yellow mt" onClick={onAgain}>再做一个实验</button>
-        </div>
+    <div className="lab-body lab-done">
+      <div className="lab-dual">
+        <div className="lab-dual-h">同一个发射，两种陀螺 <small>A：{variable.from} · B：{variable.to} · 第 1 次实验</small></div>
+        {fullA&&fullB?<DualReplay beysA={beysA} beysB={beysB} fullA={fullA} fullB={fullB}/>:<div className="dr-empty">没有回放数据</div>}
       </div>
-      <div className="model-note mt">实验结果来自理想化物理模型（未用真陀螺校准）。它能检验“在这个模型里”的因果关系，不代表真实比赛。</div>
+      <aside className="lab-side lab-res">
+        <div className={`lab-verdict v-${winner||'eq'}`}>{verdict==='B更好'?'改装版胜出！':verdict==='A更好'?'原版更强！':'差不多！'}</div>
+        <table className="lab-table sm">
+          <thead><tr><th></th><th className={winner==='A'?'win':''}>A 原版</th><th className={winner==='B'?'win':''}>B 改装</th></tr></thead>
+          <tbody>
+            <tr><th>赢几次</th><td>{stats.A.wins}/{stats.A.trials}</td><td>{stats.B.wins}/{stats.B.trials}</td></tr>
+            <tr><th>第 3 秒转速</th><td>{stats.A.avgRpm3.toLocaleString()}</td><td>{stats.B.avgRpm3.toLocaleString()}</td></tr>
+          </tbody>
+        </table>
+        <div className="lab-tabs">{[['doctor','博士结论'],['trials','3 次结果'],['chart','转速曲线']].map(([k,t])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{t}</button>)}</div>
+        <div className="lab-tabbody">
+          {tab==='doctor'&&(!review?<div className="lab-tip">正在分析实验数据……</div>:<div className="lab-doc">
+            <div className="lab-doc-row"><DoctorFace mood="excited" size={48}/><div className="lab-concl">{review.conclusion}</div></div>
+            <div><b>为什么？</b>{review.why}</div>
+            <div className="lab-repeat">🔁 {review.repeatLesson}</div>
+            {pred&&<div className="lab-pred">🎯 {review.predictionFeedback}</div>}
+            {card&&<KnowledgeChip card={card}/>}
+          </div>)}
+          {tab==='trials'&&<div className="lab-trials">{trials.map((t,i)=><div key={i} className="lab-trial"><b>第 {i+1} 次</b>
+            <span className={t.A.result.winner===0?'w':'l'}>A {t.A.result.winner===0?'赢':'输'}·{FINISH_ZH[t.A.result.reason]}</span>
+            <span className={t.B.result.winner===0?'w':'l'}>B {t.B.result.winner===0?'赢':'输'}·{FINISH_ZH[t.B.result.reason]}</span></div>)}
+            <div className="lab-tip">平均回合 A {stats.A.avgTime}s / B {stats.B.avgTime}s · 碰撞 A {stats.A.avgHits} / B {stats.B.avgHits}</div></div>}
+          {tab==='chart'&&<OverlayChart trials={trials}/>}
+        </div>
+        <div className="lab-res-foot"><button className="lab-run sm" onClick={onAgain}>再做一个实验</button><span className="lab-model">理想化模型结果，不代表真实比赛</span></div>
+      </aside>
     </div>
   );
 }

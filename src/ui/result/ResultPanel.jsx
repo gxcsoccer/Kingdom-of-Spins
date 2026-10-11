@@ -107,7 +107,10 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
   );
 }
 
+const fromExplore=()=>useGame.getState().params?.from==='explore';
+function backToExplore(){const p=useGame.getState().params||{};useGame.getState().go('explore',{regionId:p.regionId});}
 function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRecruit,recruited,blader,onRecruit,onNext}){
+  const fromExp=fromExplore();
   const shown=useCountUp(coins,true,1300);
   const reason=decisive.result.reason;
   return (
@@ -130,6 +133,7 @@ function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRec
           <div><div className="sfx" style={{fontSize:30,color:'var(--yellow)'}}>{recruited?'入队！':'招募！'}</div><div style={{fontWeight:800}}>{recruited?`${blader.name} 加入了你的队伍`:`${blader.name} 想加入你的队伍！`}</div>{!recruited&&<button className="btn small yellow" style={{marginTop:6}}>点我招募</button>}</div>
         </div>}
         <button className="btn primary big rp-cta" onClick={onNext}>看复盘 ▶</button>
+        {fromExp&&<button className="btn yellow big" onClick={backToExplore}>🧭 回到探索 ▶</button>}
       </div>
     </div>
   );
@@ -223,7 +227,8 @@ function NextPage({won,ai,go,myBey}){
         <div className="bubble rp-next-bubble">{ai?.takeaway||(won?`漂亮！你的 ${myBey.name} 赢下了这一场。想想是哪个设计帮了大忙？`:`没关系！输了正好做实验：只改一个零件，再比一次看看。`)}</div>
       </div>
       <div className="rp-next-btns">
-        <button className="rp-bigbtn map" onClick={()=>go('map')}><span>🗺️</span>回到地图</button>
+        {fromExplore()?<button className="rp-bigbtn map" onClick={backToExplore}><span>🧭</span>回到探索</button>
+          :<button className="rp-bigbtn map" onClick={()=>go('map')}><span>🗺️</span>回到地图</button>}
         <button className="rp-bigbtn again" onClick={()=>go('battle',{...useGame.getState().params})}><span>⚔️</span>再战一次</button>
         <button className="rp-bigbtn fuse" onClick={()=>go('fusion',{back:'map'})}><span>⚡</span>去融合工坊改造</button>
       </div>

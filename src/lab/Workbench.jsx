@@ -243,92 +243,103 @@ function WingToggle({ bey, value, onSet, locked, onLockedTry }) {
   );
 }
 
+export const QUESTIONS = [
+  { key: 'bit', icon: '🌀', q: '换个轴尖，会转得更久吗？', hint: '尖轴、圆轴、平轴、冲刺轴' },
+  { key: 'ring', icon: '⚖️', q: '重量放外圈，会更稳吗？', hint: '拖动金属配重块' },
+  { key: 'height', icon: '📏', q: 'Ratchet 高一点会怎样？', hint: '拉动高度拉杆' },
+  { key: 'wings', icon: '🪽', q: '翼片多一点会更猛吗？', hint: '2 片、3 片还是 4 片' },
+];
+export { VAR_LABEL };
+
+/** Step ① — big comic question cards. */
+export function QuestionPicker({ onPick }) {
+  return (
+    <div className="wb-qs">
+      {QUESTIONS.map((x, i) => (
+        <button key={x.key} className="wb-q" style={{ '--i': i }} onClick={() => { kacha(1 + i * .1); onPick(x.key); }}>
+          <span className="wb-q-icon">{x.icon}</span>
+          <span className="wb-q-text">{x.q}</span>
+          <span className="wb-q-hint">{x.hint} ▶</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The doctor explains the one-variable rule once, kindly, with a tiny 2-panel comic. */
+export function DoctorRule({ Face }) {
+  return (
+    <div className="wb-rule">
+      <div className="wb-rule-top">{Face}<div className="wb-rule-say">做实验的秘诀：<b>一次只改一个地方！</b>如果同时换了轴尖又换了配重，赢了也不知道是谁的功劳～</div></div>
+      <div className="wb-rule-comic">
+        <div className="wb-rule-panel bad"><span className="wb-rule-parts"><i>🌀</i>+<i>⚖️</i></span><span className="wb-rule-q">？？</span><small>改了两个 → 不知道是谁</small></div>
+        <div className="wb-rule-panel good"><span className="wb-rule-parts"><i>🌀</i></span><span className="wb-rule-q">原来是它！</span><small>只改一个 → 一清二楚</small></div>
+      </div>
+    </div>
+  );
+}
+
 /**
- * <Workbench base={bey} onChange={(variantBey, change|null) => ...} />
- * change = {key:'bit'|'ring'|'height'|'wings', from, to, label, fromLabel, toLabel}
+ * Step ② — ONE control for the chosen variable + live 3D preview + before/after chips.
+ * <Workbench base={bey} varKey="bit"|"ring"|"height"|"wings" onChange={(variantBey, change|null)=>…} />
+ * change = {key, from, to, label, fromLabel, toLabel}
  */
-export default function Workbench({ base, onChange }) {
-  const [change, setChange] = useState(null);
-  const [shake, setShake] = useState(0);
+export default function Workbench({ base, varKey, onChange }) {
+  const [to, setTo] = useState(null); // new value for varKey (null = unchanged)
+  const [blocks, setBlocks] = useState(null);
   const [snap, setSnap] = useState(0);
   const slotRef = useRef();
-  const variant = useMemo(() => (change ? applyVal(base, change.key, change.to) : base), [base, change]);
+  useEffect(() => { setTo(null); setBlocks(null); }, [varKey]);
+  const from = getVal(base, varKey);
+  const variant = useMemo(() => (to != null && to !== from ? applyVal(base, varKey, to) : base), [base, varKey, to, from]);
+  const change = to != null && to !== from ? { key: varKey, from, to, label: VAR_LABEL[varKey], fromLabel: fmtChange(varKey, from), toLabel: fmtChange(varKey, to) } : null;
+  useEffect(() => { onChange?.(variant, change); }, [variant]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const baseOuter = Math.round(Math.max(0, Math.min(6, ((base.blade.ring - 20) / 65) * 6)));
-  const outer = change?.key === 'ring' ? change.blocks : baseOuter;
-
-  useEffect(() => { onChange?.(variant, change); }, [variant, change]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const set = (key, to, extra = {}) => {
-    if (change && change.key !== key) { setShake(s => s + 1); return; }
-    const from = getVal(base, key);
-    if (to === from || (key === 'ring' && extra.blocks === baseOuter)) { setChange(null); return; }
-    setChange({ key, from, to, label: VAR_LABEL[key], fromLabel: fmtChange(key, from), toLabel: fmtChange(key, to), ...extra });
-  };
-  const lockedTry = () => setShake(s => s + 1);
-  const isLocked = key => !!change && change.key !== key;
-
+  const outer = blocks ?? baseOuter;
   const inertia = useMemo(() => {
     const I = b => makePart(specFromBey(b)).inertia[2];
-    const lo = I(applyVal(base, 'ring', 20)), hi = I(applyVal(base, 'ring', 85));
-    return { v: I(variant), base: I(base), lo, hi };
+    return { v: I(variant), base: I(base), lo: I(applyVal(base, 'ring', 20)), hi: I(applyVal(base, 'ring', 85)) };
   }, [base, variant]);
+  const no = () => {};
 
-  const setBit = k => { if (isLocked('bit')) return lockedTry(); kacha(); setSnap(s => s + 1); set('bit', k); };
+  const control = {
+    bit: <div className="wb-ctl wb-ctl-bit">
+      <div ref={slotRef} key={snap} className={`wb-slot ${snap ? 'snap' : ''}`}><BitIcon tip={variant.bit} big /><div><b>轴尖插槽</b><br /><small>把下面的轴尖<b>拖进来</b>（或直接点）</small></div></div>
+      <BitTray value={variant.bit} slotRef={slotRef} onSet={k => { kacha(); setSnap(x => x + 1); setTo(k); }} locked={false} onLockedTry={no} />
+    </div>,
+    ring: <div className="wb-ctl wb-ctl-ring">
+      <div className="wb-weights-row">
+        <WeightDisc bey={variant} outer={outer} locked={false} onLockedTry={no} onSet={k => { setBlocks(k); setTo(k === baseOuter ? base.blade.ring : ringFromBlocks(k)); }} />
+        <div className="wb-weights-side">
+          <InertiaGauge value={inertia.v} min={inertia.lo} max={inertia.hi} base={inertia.base} />
+          <div className="wb-ring">外圈 {outer}/6 块 · 配重 {variant.blade.ring}%</div>
+        </div>
+      </div>
+      <Skater open={outer >= 3} />
+    </div>,
+    height: <div className="wb-ctl wb-ctl-height">
+      <Lever value={variant.ratchet?.height ?? 60} onSet={v => setTo(v)} locked={false} onLockedTry={no} />
+      <div className="wb-height-tip"><b>Ratchet 越高</b>，陀螺的重心越高：更容易被撞到上半身、也更容易歪。<br /><b>越矮</b>重心越低，站得更稳。</div>
+    </div>,
+    wings: <div className="wb-ctl wb-ctl-wings">
+      <WingToggle bey={base} value={variant.blade.wings} onSet={n => { kacha(1.1); setTo(n); }} locked={false} onLockedTry={no} />
+      <div className="wb-height-tip">翼片越多，<b>撞到对手的机会</b>越多，但每一片更小；翼片少，每次撞击更集中。</div>
+    </div>,
+  }[varKey];
 
   return (
-    <div className="wb">
-      <div className="wb-top">
-        <div className="wb-title">🛠 改装工作台 <small>拖一拖、拉一拉，亲手改一个地方</small></div>
-        {change ? (
-          <div className="wb-status">
-            <span className="wb-changed">🔀 {change.label}：{change.fromLabel} → <b>{change.toLabel}</b></span>
-            <button className="wb-undo" onClick={() => setChange(null)}>↩ 撤销</button>
-          </div>
-        ) : <div className="wb-status muted">还没改 · 任选一个零件动手吧</div>}
-        {change && <div key={shake} className={`wb-stamp ${shake ? 'shake' : ''}`}>科学家一次只改一个！</div>}
-      </div>
-
-      <div className="wb-grid">
-        <section className={`wb-card wb-weights ${isLocked('ring') ? 'is-locked' : ''}`}>
-          <h4>① 配重块 <small>把金属块拖到外圈或中心</small></h4>
-          <div className="wb-weights-row">
-            <WeightDisc bey={variant} outer={outer} locked={isLocked('ring')} onLockedTry={lockedTry}
-              onSet={k => set('ring', k === baseOuter ? base.blade.ring : ringFromBlocks(k), { blocks: k })} />
-            <div className="wb-weights-side">
-              <InertiaGauge value={inertia.v} min={inertia.lo} max={inertia.hi} base={inertia.base} />
-              <div className="wb-ring">外圈 {outer}/6 块 · 配重 {variant.blade.ring}%</div>
-            </div>
-          </div>
-          <Skater open={outer >= 3} />
-        </section>
-
-        <section className="wb-card wb-center">
-          <h4>你的改装陀螺 <small>{variant.name}</small></h4>
-          <div className="wb-preview">
-            <BeyShowcase bey={variant} tilt={.18} zoom={1.25} background />
-          </div>
-          <div ref={slotRef} key={snap} className={`wb-slot ${snap ? 'snap' : ''} ${isLocked('bit') ? 'is-locked' : ''}`}>
-            <BitIcon tip={variant.bit} />
-            <div><b>轴尖插槽</b><br /><small>把下面的轴尖拖到这里 · 现在：{TIPS[variant.bit]?.label}</small></div>
-          </div>
-          <div className="wb-partline">Ratchet {variant.ratchet?.prongs || 3}-{variant.ratchet?.height || 60} · {variant.blade.wings} 片翼 · 外圈 {variant.blade.ring}%</div>
-        </section>
-
-        <section className={`wb-card wb-leverbox ${isLocked('height') ? 'is-locked' : ''}`}>
-          <h4>② 拉杆</h4>
-          <Lever value={variant.ratchet?.height ?? 60} onSet={v => set('height', v)} locked={isLocked('height')} onLockedTry={lockedTry} />
-        </section>
-
-        <section className={`wb-card wb-bits ${isLocked('bit') ? 'is-locked' : ''}`}>
-          <h4>③ 轴尖托盘 <small>按住拖到插槽（或直接点）</small></h4>
-          <BitTray value={variant.bit} onSet={setBit} slotRef={slotRef} locked={isLocked('bit')} onLockedTry={lockedTry} />
-        </section>
-
-        <section className={`wb-card wb-wingbox ${isLocked('wings') ? 'is-locked' : ''}`}>
-          <h4>④ 翼片数</h4>
-          <WingToggle bey={base} value={variant.blade.wings} onSet={n => { kacha(1.1); set('wings', n); }} locked={isLocked('wings')} onLockedTry={lockedTry} />
-        </section>
-      </div>
+    <div className="wb wb-one">
+      <section className="wb-card wb-control"><h4>{QUESTIONS.find(x => x.key === varKey)?.icon} 动手改一改：{VAR_LABEL[varKey]}</h4>{control}</section>
+      <section className="wb-card wb-center">
+        <div className="wb-preview"><BeyShowcase bey={variant} tilt={.3} zoom={1.2} background standalone /></div>
+        <div className="wb-ba">
+          <span className="wb-ba-chip a"><small>原版</small>{fmtChange(varKey, from)}</span>
+          <b>→</b>
+          <span className={`wb-ba-chip b ${change ? 'on' : ''}`}><small>改装</small>{change ? change.toLabel : '还没改'}</span>
+          {change && <button className="wb-undo" onClick={() => { setTo(null); setBlocks(null); }}>↩</button>}
+        </div>
+      </section>
     </div>
   );
 }

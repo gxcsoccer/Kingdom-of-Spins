@@ -100,7 +100,7 @@ export default function Flipbook({start, onClose, onUnlock}) {
             </div>
             <div className={`fb-art ${cur.image?'ready':''}`} onClick={onImageTap}>
               {cur.image ? <img src={cur.image} alt="" draggable={false}/>
-                : cur.image===false ? <div className="fb-shimmer still"><button className="btn yellow" onClick={redraw}>🎨 画面没出来，再画一次</button></div>
+                : cur.image===false ? <div className="fb-sketch"><span>{cur.page.title}</span><button className="btn small" onClick={redraw}>🎨 再画一次</button></div>
                 : <div className="fb-shimmer"><span>博士正在画画…</span></div>}
               {cur.page.panels.map((p,i)=>(
                 <div key={i} className={`fb-panel ${p.kind}`} style={{left:`${p.x*100}%`, top:`${p.y*100}%`, animationDelay:`${.15+i*.25}s`}}>{p.text}</div>
