@@ -12,6 +12,7 @@ import {Portrait,Modal,TypeBadge} from './common.jsx';
 import {DoctorFace} from './MapScreen.jsx';
 import LaunchGauge from './LaunchGauge.jsx';
 import './battle.css';
+import * as sfx from '../game/sfx.js';
 
 import {STYLES,cpuLaunch,playerLaunch} from '../game/launch.js';
 export {STYLES,cpuLaunch,playerLaunch};
@@ -39,7 +40,8 @@ export default function BattleScreen(){
   const [paused,setPaused]=useState(false);
   const roundRef=useRef(0);
 
-  useEffect(()=>()=>player?.dispose(),[player]);
+  useEffect(()=>()=>{player?.dispose();sfx.spinHum(false);},[player]);
+  const [muted,setMutedState]=useState(sfx.isMuted());
 
   const shoot=(power)=>{
     const round=++roundRef.current;
@@ -47,7 +49,9 @@ export default function BattleScreen(){
     const p=createBattle({beys:[myBey,opp.bey],launches});
     p.meta={round,launches,beyName:myBey.name,experiment:!!experiment};
     setPlayer(p);setPhase('countdown');setCount(3);setPaused(false);setSpeed(1);
-    let c=3;const iv=setInterval(()=>{c--;setCount(c);if(c<0){clearInterval(iv);p.start();setPhase('fight');}},650);
+    p.onEvent(e=>{if(e.type==='collision')sfx.clang(e.intensity);if(e.type==='dash')sfx.whoosh();if(e.type==='finish'){sfx.spinHum(false);sfx.fanfare(e.winner===0);}});
+    sfx.beep();sfx.say('3');
+    let c=3;const iv=setInterval(()=>{c--;setCount(c);if(c>0){sfx.beep();sfx.say(String(c));}if(c===0){sfx.beep(true);sfx.say('Go shoot!');sfx.whoosh();}if(c<0){clearInterval(iv);p.start();sfx.spinHum(true);setPhase('fight');}},650);
   };
 
   // Detect end of playback.
@@ -75,6 +79,7 @@ export default function BattleScreen(){
         {phase==='fight'&&<div className="fight-controls">
           <button className="btn small" onClick={()=>{player.setPaused(!paused);setPaused(!paused);}}>{paused?'▶ 继续':'⏸ 暂停'}</button>
           {[1,2,4].map(s=><button key={s} className={`btn small ${speed===s?'yellow':''}`} onClick={()=>{player.setSpeed(s);setSpeed(s);}}>{s}×</button>)}
+          <button className="btn small" onClick={()=>{sfx.setMuted(!muted);setMutedState(!muted);}}>{muted?'🔇':'🔊'}</button>
           <span className="model-note" style={{color:'#bbb'}}>模型结果 · MuJoCo 4 kHz</span>
         </div>}
         {onPrep&&<PrepPanel {...{save,myBey,setBeyUid,style,setStyle,prediction,setPrediction,shoot,opp,experiment,first:phase==='prep'&&!rounds.length,lastRound:rounds.at(-1),myName}}/>}
@@ -87,7 +92,7 @@ export default function BattleScreen(){
 
 function Hud({player,names,beys,score,target,color,round}){
   const [st,setSt]=useState(null);
-  useEffect(()=>{if(!player)return;let raf;const f=()=>{setSt(player.getState(player.clock));raf=requestAnimationFrame(f);};f();return()=>cancelAnimationFrame(raf);},[player]);
+  useEffect(()=>{if(!player)return;let raf;const f=()=>{const cur=player.getState(player.clock);setSt(cur);if(cur&&!player.paused)sfx.spinRpm(cur.bodies[0]?.rpm,cur.bodies[1]?.rpm);raf=requestAnimationFrame(f);};f();return()=>cancelAnimationFrame(raf);},[player]);
   const side=(i)=>{const b=st?.bodies?.[i],rpm=Math.max(0,Math.abs(b?.rpm||0));return (
     <div className={`hud-side ${i?'right':''}`} style={{background:i?color:beys[0].colors?.primary}}>
       <div className="row between"><span className="hud-name">{names[i]} · {beys[i].name}</span><span className="hud-pts">{score[i]} PT</span></div>
