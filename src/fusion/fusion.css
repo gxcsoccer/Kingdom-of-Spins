@@ -302,3 +302,31 @@ button.codex-tile:hover{transform:translate(-2px,-2px)}
 .fusion .chat-log{min-height:0;overscroll-behavior:contain}
 .fusion .chat-panel>.opts,.fusion .chat-input{flex:none}
 .fusion .cand-zone{min-height:0}
+
+/* ===== UI sweep: codex tiles with art ===== */
+.codex-page-grid{grid-auto-rows:150px}
+.codex-tile{border:4px solid var(--ink);border-left-width:12px;box-shadow:5px 5px 0 var(--ink);transform:skew(-2deg);background:radial-gradient(rgba(17,17,17,.06) 1px,transparent 1.4px) 0 0/6px 6px,#fffdf6;transition:transform .12s}
+.codex-tile:not(.locked):hover{transform:skew(-2deg) translateY(-4px)}
+.codex-tile-t{font-family:var(--display);font-size:17px;font-weight:900;position:relative;z-index:1}
+.codex-tile-b{position:relative;z-index:1;font-size:12.5px;line-height:1.45}
+.codex-tile:has(.codex-tile-art){padding-right:42%}
+.codex-tile-art{position:absolute;top:0;right:0;bottom:0;width:40%;background-size:cover;background-position:center;border-left:3px solid var(--ink);filter:saturate(1.05)}
+.codex-tile-art::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,253,246,.5),transparent 35%)}
+.codex-tile.locked{background:repeating-linear-gradient(-45deg,#ece8de 0 10px,#e3dfd4 10px 20px);border-style:dashed;box-shadow:3px 3px 0 #999;transform:none}
+.codex-tile.locked .codex-tile-t{color:#888;font-size:22px}
+.codex-tile.locked .codex-tile-icon{font-size:30px;opacity:.5}
+
+/* ===== UI sweep: fusion pick tiles as manga cards ===== */
+.fusion .pick{border:4px solid var(--ink);box-shadow:6px 6px 0 var(--ink);transform:skew(-3deg);background:radial-gradient(circle at 50% 38%,#fff 0 30%,#eef3ff 70%),#fff;transition:transform .12s;padding-top:14px}
+.fusion .pick:hover{transform:skew(-3deg) translateY(-5px)}
+.fusion .pick.on{background:radial-gradient(circle at 50% 38%,#fff 0 30%,#fff3a6 75%),#ffd400;box-shadow:7px 7px 0 var(--red),7px 7px 0 3px var(--ink);transform:skew(-3deg) translateY(-6px)}
+.fusion .pick .panel-title{font-family:var(--display)}
+
+/* ===== UI sweep: fusion chat — no empty right half; input styled ===== */
+.fusion .chat-layout:not(:has(.cand-zone))::after{content:'';display:block;min-height:0;border:5px solid var(--ink);box-shadow:8px 8px 0 var(--ink);
+  background:url(/art/doctor/thinking.png) 94% 100%/auto 66% no-repeat,radial-gradient(circle at 70% 55%,#fff 0 18%,transparent 52%),repeating-conic-gradient(from 0deg at 70% 55%,rgba(255,212,0,.5) 0 4deg,transparent 4deg 12deg),#2b2f45}
+.fusion .chat-layout:not(:has(.cand-zone)){position:relative}
+.fusion .chat-layout:not(:has(.cand-zone))::before{content:'说出你的愿望，\A博士就把它变成陀螺！';white-space:pre;position:absolute;z-index:2;left:calc(min(420px,38%) + 56px);top:9%;font-family:var(--display);font-weight:900;font-size:clamp(24px,2.8vw,36px);line-height:1.25;color:#ffd400;-webkit-text-stroke:5px #111;paint-order:stroke fill;text-shadow:5px 5px 0 #ff2d4a;transform:rotate(-3deg);pointer-events:none}
+.fusion .chat-panel{border:5px solid var(--ink);box-shadow:8px 8px 0 var(--ink)}
+.fusion .chat-input input{border:3px solid var(--ink);font-size:16px;padding:10px 12px;background:#fff;box-shadow:inset 3px 3px 0 rgba(0,0,0,.08)}
+.fusion .chat-input input:focus{outline:none;box-shadow:inset 3px 3px 0 rgba(0,0,0,.08),0 0 0 3px var(--yellow)}

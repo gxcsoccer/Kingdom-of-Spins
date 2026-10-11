@@ -71,7 +71,7 @@ function KidRow({kid, onChanged}) {
         </div>
         <div className="row" style={{gap: 8, flexWrap: 'nowrap'}}>
           <span style={{fontWeight: 800, whiteSpace: 'nowrap'}}>头像</span>
-          {AVATARS.map(a => <button key={a} onClick={() => setAvatar(a)} aria-label={`头像 ${a}`} style={{padding: 0, border: 'none', background: 'none', borderRadius: '50%', outline: avatar === a ? '3px solid var(--red)' : 'none', outlineOffset: 2}}>
+          {AVATARS.map(a => <button key={a} onClick={() => setAvatar(a)} aria-label={`头像 ${a}`} className={`av-pick ${avatar === a ? 'on' : ''}`}>
             <img src={`/art/avatars/${a}.png`} alt="" width={40} height={40} style={{borderRadius: '50%', border: '2px solid #111', display: 'block'}}/></button>)}
         </div>
         <div className="row" style={{gap: 8}}>

@@ -78,3 +78,16 @@
 @keyframes bx-coin{0%{transform:translate(0,0);opacity:0}15%{opacity:1}100%{transform:translate(calc(40vw - var(--i)*6px),-60vh) scale(.6);opacity:0}}
 @media (max-width:900px){.bx-page{height:auto;overflow:visible}.bx-main{grid-template-columns:1fr}.bx-stage{min-height:520px}}
 @media (prefers-reduced-motion:reduce){.bx-page *{animation:none!important}}
+
+/* ===== UI sweep: shop info as manga panels ===== */
+.bx-side .panel{border:4px solid #111;box-shadow:5px 5px 0 #111;transform:skew(-2deg);background:radial-gradient(rgba(17,17,17,.06) 1px,transparent 1.4px) 0 0/6px 6px,#fffdf6}
+.bx-side h3{display:inline-block;align-self:flex-start;background:#111;color:#fff;padding:2px 12px;transform:skew(-8deg);font-size:16px;margin-bottom:8px}
+.bx-odds h3{background:#ff2d4a}
+.bx-odd{font-size:14px}
+.bx-odd img{width:34px;height:34px;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.3))}
+.bx-odd-bar{height:12px;border:2px solid #111;background:#fff;transform:skew(-10deg)}
+.bx-odd b{font-family:"Arial Black",sans-serif;font-size:15px}
+.bx-rules ul{list-style:none;padding:0;font-size:14px}
+.bx-rules li{padding-left:22px;position:relative}
+.bx-rules li::before{content:'✔';position:absolute;left:0;color:#0c8f74;font-weight:900}
+.bx-math{background:#111!important;color:#fff;border-color:#111!important;box-shadow:5px 5px 0 #ffd400!important;font-size:14px}

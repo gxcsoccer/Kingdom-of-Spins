@@ -34,6 +34,8 @@ function lockedHint(c){
   return t+'多打几场比赛、试试融合';
 }
 /** 知识图鉴 — paged card binder. unlocked: card ids; newIds: ids flagged NEW. */
+// Knowledge cards that have a delivered illustration in /art/cards.
+const CARD_ART=new Set(['gd-ring-slider','geo-altitude-cold','geo-snowline','geo-tides','mt-metal','ph-angular-momentum','ph-figure-skater','ph-flat','ph-friction-area','ph-gyro-stability','ph-impulse','ph-inertia','ph-mass-tradeoff','ph-momentum','ph-needle','ph-precession','ph-tilt-fall']);
 export default function Codex({unlocked=[], newIds=[], onClose}) {
   // 默认打开“拿到最多卡”的那一类，第一眼看到的是自己的发现，而不是一排问号。
   const [tab, setTab] = useState(()=>{const g=new Set(unlocked);let best='official',n=-1;for(const l of ['official','physics','geo','design']){const k=CARDS.filter(c=>c.layer===l&&g.has(c.id)).length;if(k>n){n=k;best=l;}}return best;});
@@ -77,6 +79,7 @@ export default function Codex({unlocked=[], newIds=[], onClose}) {
           : shown.map(c=>got.has(c.id) ? (
             <button key={c.id} className={`codex-tile ${c.layer}`} onClick={()=>setOpen(c)}>
               {newIds.includes(c.id) && <span className="kcard-new">NEW!</span>}
+              {CARD_ART.has(c.id) && <span className="codex-tile-art" style={{backgroundImage:`url(/art/cards/${c.id}.jpg)`}}/>}
               <div className="codex-tile-t">{c.title}</div>
               <div className="codex-tile-b">{c.body}</div>
             </button>

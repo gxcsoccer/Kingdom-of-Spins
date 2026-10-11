@@ -4,6 +4,8 @@ import {isConfigured, providerEnabled, getSession, onAuthChange, signInWithGoogl
 import {activateKid, deactivateKid, restoreLastKid} from '../game/sync.js';
 import ParentManager from './ParentManager.jsx';
 
+// 标题页大立绘：鼠标移到某个档案 / 新建时选中的形象上，旁边显示大图（没有预览时显示正在玩的档案）。
+export const previewAvatar = (avatar, name) => useGame.setState({avatarPreview: avatar ? {avatar: String(avatar), name} : null});
 const AVATARS = ['1', '2', '3', '4']; // /art/avatars/<n>.png; older profiles may hold a hex colour
 const inputStyle = {border: 'var(--border)', padding: '8px 12px', font: 'inherit', fontWeight: 800};
 let restoreTried = false;
@@ -36,11 +38,11 @@ function NewKidForm({onDone, onCancel}) {
       <div className="kicker">新建孩子档案</div>
       <input autoFocus value={nickname} onChange={e => setNickname(e.target.value)} placeholder="孩子的昵称（不用真名）" maxLength={24} style={inputStyle}/>
       <div className="row">
-        <span style={{fontWeight: 800}}>头像颜色</span>
+        <span style={{fontWeight: 800}}>选形象</span>
         {AVATARS.map(c => (
-          <button type="button" key={c} onClick={() => setAvatar(c)} aria-label={c}
-            style={{padding: 0, border: 'none', background: 'none', outline: avatar === c ? '3px solid var(--ink)' : 'none', outlineOffset: 3, borderRadius: '50%'}}>
-            <Avatar color={c} name={nickname} size={36}/>
+          <button type="button" key={c} onClick={() => { setAvatar(c); previewAvatar(c, nickname || '新玩家'); }} onMouseEnter={() => previewAvatar(c, nickname || '新玩家')} aria-label={c}
+            className={`av-pick ${avatar === c ? 'on' : ''}`}>
+            <Avatar color={c} name={nickname} size={40}/>
           </button>
         ))}
       </div>
@@ -108,6 +110,7 @@ function ParentPanel({session}) {
           const active = activeKid?.id === kid.id;
           return (
             <div key={kid.id} className={'panel' + (active ? ' tone' : '')} style={{padding: 12, minWidth: 150, cursor: 'pointer', outline: active ? '4px solid var(--red)' : 'none'}}
+              onMouseEnter={() => previewAvatar(kid.avatar, kid.nickname)} onMouseLeave={() => previewAvatar(null)}
               onClick={() => (active ? null : kid.pin ? setPinFor(kid) : choose(kid))}>
               <div className="row" style={{gap: 10}}>
                 <Avatar color={kid.avatar} name={kid.nickname}/>
@@ -151,9 +154,9 @@ export default function AccountPanel() {
   if (googleReady === null || session === undefined) return <div className="panel mt2" style={{padding: '14px 20px', fontWeight: 800}}>正在检查登录状态…</div>;
   if (googleReady === false) return <div className="panel mt2" style={{padding: '14px 20px', fontWeight: 800, color: 'var(--red)'}}>登录服务暂时不可用，请稍后刷新。</div>;
   return (
-    <div className="panel mt2 col" style={{padding: '18px 22px', alignItems: 'center', textAlign: 'center'}}>
-      <div className="kicker">家长先登录</div>
-      <button className="btn yellow big" onClick={() => signInWithGoogle()}>用 Google 登录</button>
+    <div className="panel mt2 col login-panel" style={{padding: '18px 22px', alignItems: 'center', textAlign: 'center'}}>
+      <div className="login-h">家长先登录</div>
+      <button className="btn primary big login-go" onClick={() => signInWithGoogle()}><span className="login-g">G</span>用 Google 登录</button>
       <span className="muted" style={{fontSize: 13, maxWidth: 360}}>登录后给孩子建一个档案（只需昵称，不用真名），进度会自动保存在云端。</span>
     </div>
   );
