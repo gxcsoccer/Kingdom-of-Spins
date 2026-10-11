@@ -7,7 +7,7 @@ import {BeySvg,PartLine} from './BeyArt.jsx';
 import './collection.css';
 const BeyShowcase=lazy(()=>import('../scene/BeyShowcase.jsx'));
 
-const ORIGIN={starter:{t:'初始',c:'#2f7bff'},blindbox:{t:'盲盒',c:'#ff2d4a'},fusion:{t:'融合',c:'#8a3cff'},explore:{t:'探索',c:'#14c9a5'},found:{t:'奖励',c:'#f2b632'}};
+const ORIGIN={starter:{t:'初始',c:'#2f7bff'},blindbox:{t:'盲盒',c:'#ff2d4a'},fusion:{t:'融合',c:'#8a3cff'},explore:{t:'探索',c:'#14c9a5'},lab:{t:'改装',c:'#ff7a1a'},found:{t:'奖励',c:'#f2b632'}};
 const PER_PAGE=8;
 const baseId=b=>{if(b.parents)return b.id;const id=b.id||'';return id.includes('-')?id.split('-').pop():id;};
 
@@ -28,6 +28,7 @@ function Card({b,eq,onOpen,i}){
       <span className="cw-name">{beyTitle(b)}{beySub(b)&&<small className="cw-sub">{beySub(b)}</small>}</span>
       <span className="cw-row"><TypeBadge type={b.type||b.blade?.style}/><span className="cw-parts">{b.ratchet?.prongs||3}-{b.ratchet?.height||60} · {b.bit}</span></span>
       {b.parents&&<span className="cw-fuse">{b.parents.map(p=>BEYS[p]?.name||p).join(' + ')}</span>}
+      {b.mods?.length>0&&<span className="cw-fuse cw-mod">🔧 {b.mods[0].text}</span>}
     </button>
   );
 }
@@ -75,6 +76,7 @@ export default function CollectionScreen(){
             <h2>{beyTitle(open)} <small>{beySub(open)}</small></h2>
             <div className="cw-row"><TypeBadge type={open.type||open.blade?.style}/><PartLine bey={open}/></div>
             {open.lore&&<p className="cw-lore">{open.lore}</p>}
+            {open.mods?.length>0&&<p className="cw-lore">🔧 实验室改装：<b>{open.mods.map(m=>m.text).join('；')}</b></p>}
             {open.parents&&<p className="cw-lore">由 <b>{open.parents.map(p=>BEYS[p]?.name||p).join(' + ')}</b> 融合 · 只换了 Blade</p>}
             {open.why&&<p className="cw-why">融合博士：{open.why}</p>}
             <StatBars bey={open}/>

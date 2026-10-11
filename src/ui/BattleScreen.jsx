@@ -13,6 +13,7 @@ import {Portrait,Modal,TypeBadge} from './common.jsx';
 import {DoctorFace} from './MapScreen.jsx';
 import LaunchSequence from './LaunchSequence.jsx';
 import PauseMenu from './PauseMenu.jsx';
+import {teamRoster,mateLaunch} from '../game/team.js';
 import ResultPanel from './result/ResultPanel.jsx';
 import * as aiClient from '../ai/client.js';
 import './battle.css';
@@ -29,6 +30,19 @@ export default function BattleScreen(){
   const myName=save.profile?.nickname||'你';
 
   const [beyUid,setBeyUid]=useState(params.beyUid||save.collection[0]?.uid);
+  // 谁上场: null = the kid; else a recruited teammate's blader id (single-player battles only).
+  const team=useMemo(()=>teamRoster(save),[save.team,save.collection]);// eslint-disable-line
+  const [pilot,setPilot]=useState(null);
+  const ownUid=useRef(beyUid);
+  const pickPilot=id=>{
+    const m=team.find(t=>t.id===id);
+    if(!pilot)ownUid.current=beyUid;
+    setPilot(m?m.id:null);
+    if(m?.beyUid&&save.collection.some(b=>b.uid===m.beyUid))setBeyUid(m.beyUid);
+    else if(!m)setBeyUid(ownUid.current);
+    sfx.beep(true);
+  };
+  const mate=pilot?team.find(t=>t.id===pilot):null;
   const myBey=save.collection.find(b=>b.uid===beyUid)||save.collection[0];
   const [prediction,setPrediction]=useState(null);
   const [phase,setPhase]=useState('prep'); // prep | countdown | fight | roundEnd | result
@@ -50,9 +64,10 @@ export default function BattleScreen(){
   const shoot=(launch)=>{
     const round=++roundRef.current;
     const mine={rpm:launch.rpm,speed:launch.speed,aim:launch.aim,tilt:launch.tilt,angle:Math.PI+((round*37)%11-5)*.04};
+    if(launch.synergy)mine.synergy=true;
     const launches=experiment?.launches||[mine,cpuLaunch(opp.launch,`${opp.name}-${save.battles}-${round}`)];
     const p=createBattle({beys:[myBey,opp.bey],launches});
-    p.meta={round,launches,beyName:beyTitle(myBey),experiment:!!experiment};
+    p.meta={round,launches,beyName:beyTitle(myBey),bey:myBey,pilot:mate?{id:mate.id,name:mate.name}:null,experiment:!!experiment};
     p.onEvent(e=>{if(e.type==='collision')sfx.clang(e.intensity);if(e.type==='dash')sfx.whoosh();if(e.type==='finish'){sfx.spinHum(false);sfx.fanfare(e.winner===0);}});
     setPlayer(p);setPaused(false);setSpeed(1);p.start();sfx.spinHum(true);setPhase('fight');
   };
@@ -88,7 +103,7 @@ export default function BattleScreen(){
 
   return (
     <div className="page dark battle-page">
-      <Hud player={player} names={[myName,opp.name]} beys={[myBey,opp.bey]} score={score} target={target} color={opp.color} round={shownRound}/>
+      <Hud player={player} names={[mate?mate.name:myName,opp.name]} beys={[myBey,opp.bey]} score={score} target={target} color={opp.color} round={shownRound}/>
       <div className="battle-stage">
         {/* One BattleScene stays mounted from the start (idle player until the first launch) so the WebGL canvas is warm and the cut-in hands straight into the battle. */}
         {phase!=='result'&&<PauseMenu onPause={setPausedAll} onExit={exitBattle}/>}
@@ -101,6 +116,7 @@ export default function BattleScreen(){
         </div>}
         {onPrep&&<LaunchSequence key={roundRef.current} me={{name:myName,avatar:/^[1-4]$/.test(String(save.profile?.avatar))?String(save.profile.avatar):null}} opp={opp} beys={save.collection} beyUid={myBey.uid} setBeyUid={setBeyUid}
           first={phase==='prep'&&!rounds.length} lastRound={rounds.at(-1)} onPredict={setPrediction} onLaunch={shoot}
+          team={team} pilot={pilot} onPilot={pickPilot} makeMateLaunch={m=>mateLaunch(m.blader,myBey,`${m.id}-${save.battles}-${roundRef.current+1}`)}
           lastLabel={rounds.length?`上一回合：${FINISH_LABEL[rounds.at(-1).result.reason]} · ${rounds.at(-1).result.winner?opp.name:myName} 赢下这局　局分 ${score[0]} : ${score[1]}`:''}/>}
       </div>
       {phase==='result'&&<ResultPanel {...{won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins,

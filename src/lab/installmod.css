@@ -1,0 +1,23 @@
+/* 装上改装：same manga button family as the conclusion board (.lx-big) */
+.im-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.im-install{font-size:17px;padding:8px 16px;animation:imPulse 1.6s ease-in-out 1s infinite}
+@keyframes imPulse{50%{transform:translate(-1px,-2px);box-shadow:5px 5px 0 #111}}
+.im-note{font-weight:800;font-size:13px;color:#333;flex:1;min-width:140px}
+.im-done{font-weight:900;font-size:15px;background:#b8f5df;border:3px solid #111;padding:6px 10px;box-shadow:3px 3px 0 #111}
+.im-tip{font-weight:900;font-size:15px;background:#fff1c2;border:3px dashed #111;padding:6px 12px}
+.im-ov{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:rgba(10,10,14,.78);animation:imFade .25s ease both}
+@keyframes imFade{from{opacity:0}to{opacity:1}}
+.im-card{position:relative;width:min(560px,92vw);display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 20px;background:repeating-conic-gradient(from 0deg at 50% 38%,rgba(255,212,0,.22) 0 5deg,transparent 5deg 14deg),#fffbe6;border:5px solid #111;box-shadow:10px 10px 0 #111;overflow:hidden;animation:imPop .45s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes imPop{from{transform:scale(.6) rotate(-4deg);opacity:0}to{transform:none;opacity:1}}
+.im-flash{position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,#fff 0,rgba(255,255,255,0) 60%);animation:imFlash .7s ease-out both;pointer-events:none}
+@keyframes imFlash{from{opacity:1}to{opacity:0}}
+.im-stamp{position:relative;font-family:var(--display);font-weight:900;font-size:clamp(34px,5vw,52px);color:#ff2d4a;border:5px solid #ff2d4a;border-radius:12px;padding:0 16px;background:#fff;transform:rotate(-6deg);box-shadow:4px 4px 0 #111;animation:imStamp .5s .15s cubic-bezier(.2,1.8,.4,1) both}
+@keyframes imStamp{from{transform:scale(2.6) rotate(-14deg);opacity:0}to{transform:rotate(-6deg);opacity:1}}
+.im-3d{position:relative;width:240px;height:200px;display:grid;place-items:center}
+.im-3d *{background:transparent!important}
+.im-name{position:relative;font-family:var(--display);font-weight:900;font-size:28px;text-align:center;line-height:1.1}
+.im-name small{display:block;font-size:13px;opacity:.65;font-family:var(--body)}
+.im-mod{position:relative;font-weight:900;font-size:16px;background:#111;color:#ffd400;padding:6px 14px;transform:skewX(-6deg)}
+.im-warn{position:relative;font-weight:800;font-size:13px;color:#8a3cff}
+.im-acts{position:relative;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.im-hint{position:relative;font-size:12px;font-weight:800;color:#666}

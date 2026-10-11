@@ -6,6 +6,7 @@ import {DoctorFace} from './MapScreen.jsx';
 import {voiceSupported,listen} from '../game/voice.js';
 import * as sfx from '../game/sfx.js';
 import LaunchStage3D from '../scene/LaunchStage3D.jsx';
+import {SKILLS,SYNERGY,synergyOf} from '../game/team.js';
 import './launch.css';
 const BeyShowcase=lazy(()=>import('../scene/BeyShowcase.jsx'));
 
@@ -199,8 +200,76 @@ function CutIn({bey,avatar}){
   );
 }
 
+// ---------- team: 谁上场？ (you + recruited teammates)
+function TeamPicker({me,team,pilot,onPick}){
+  const cur=team.find(t=>t.id===pilot);
+  return (
+    <div className="tp">
+      <div className="tp-h">谁上场？</div>
+      <div className="tp-row">
+        <button className={`tp-face me ${!pilot?'on':''}`} onClick={()=>onPick(null)} aria-label="你上场">
+          <span className="tp-ring"/>{me.avatar?<img src={`/art/avatars/${me.avatar}.png`} alt=""/>:<b>{(me.name||'你').slice(0,1)}</b>}<em>你</em>
+        </button>
+        {team.map(t=>{const sk=SKILLS[t.skill];return (
+          <button key={t.id} className={`tp-face ${pilot===t.id?'on':''}`} style={{'--c':t.color}} onClick={()=>onPick(t.id)} aria-label={`${t.name}上场`}>
+            <span className="tp-ring"/><img src={`/art/bladers/${t.id}.png`} alt=""/><em>{t.name}</em>
+            <i className="tp-skill" title={sk.name}>{sk.icon}</i>
+            {synergyOf(t.blader,t.bey)&&<i className="tp-syn">默契</i>}
+          </button>);})}
+      </div>
+      <div className="tp-tip">{cur?<><b>{SKILLS[cur.skill].icon} {SKILLS[cur.skill].name}</b>：{SKILLS[cur.skill].short}</>:<>自己拉发射器，亲手发射！</>}</div>
+    </div>
+  );
+}
+
+// Teammate's turn: big portrait + specialty explained with physics; one tap → anime cut-in → auto launch.
+function MateLaunch({mate,myBey,oppBey,onLaunch,makeLaunch,me,team,pilot,onPick,beys,onSwitch}){
+  const stateRef=useRef({pull:null,power:0,dir:null,over:false,aura:'#ffd400',launched:null,shake:0});
+  const [cut,setCut]=useState(false);
+  const sk=SKILLS[mate.skill], syn=synergyOf(mate.blader,myBey);
+  useEffect(()=>{sfx.whoosh();},[mate.id]);
+  const go=()=>{
+    if(cut)return;
+    const L=makeLaunch();
+    setCut(true);sfx.whoosh();sfx.clang(.8);sfx.say(`${mate.name}，${sk.name}！`,'zh-CN',1.15);
+    setTimeout(()=>{stateRef.current.launched={t0:performance.now(),dir:{x:1,y:0},from:[-.09,0]};stateRef.current.shake=.06;sfx.clang(1);},1500);
+    setTimeout(()=>onLaunch(L),2300);
+  };
+  return (
+    <div className="ls-launch mate" style={{'--c':mate.color}}>
+      <LaunchStage3D myBey={myBey} oppBey={oppBey} stateRef={stateRef} disabled onPull={()=>{}} onRelease={()=>{}}/>
+      <div className="mt-lines"/>
+      <div className="mt-hero" key={mate.id}>
+        <img className="mt-hero-img" src={`/art/bladers/${mate.id}.png`} alt=""/>
+        <div className="mt-hero-name">{mate.name}</div>
+      </div>
+      <div className="mt-card" key={'c'+mate.id}>
+        <div className="mt-card-k">队员上场 · 专长</div>
+        <div className="mt-card-skill">{sk.icon} {sk.name}</div>
+        <p className="mt-card-why">{sk.why}</p>
+        <div className="mt-card-bey">使用 <b>{beyTitle(myBey)}</b></div>
+        {syn&&<div className="mt-syn"><b>默契 +{Math.round((SYNERGY-1)*100)}%</b>：他用惯了这种陀螺（发射转速 +5%）</div>}
+        <button className="mt-go" onClick={go} disabled={cut}>▶ 让 {mate.name} 发射！</button>
+      </div>
+      {!cut&&<TeamPicker me={me} team={team} pilot={pilot} onPick={onPick}/>}
+      {!cut&&beys.length>1&&<button className="ls-switch mt-switch" onClick={onSwitch}>🔁 换陀螺（{beyTitle(myBey)}）</button>}
+      {cut&&<div className="ls-cutin mt-cutin" style={{'--c':mate.color}}>
+        <div className="ls-cutin-bg"/>
+        <div className="ls-cutin-band thin a"/>
+        <div className="ls-cutin-band main">
+          <div className="ls-cutin-lines"/>
+          <div className="mt-cut-face"><img src={`/art/bladers/${mate.id}.png`} alt=""/></div>
+          <div className="mt-cut-text"><small>{mate.name}：</small>{sk.name}！{syn&&<em>默契 +5%</em>}</div>
+        </div>
+        <div className="ls-cutin-band thin b"/>
+        <div className="ls-cutin-flash"/>
+      </div>}
+    </div>
+  );
+}
+
 /** Full pre-round flow. first round: VS splash (+prediction) → pick bey → slingshot. Later rounds: straight to slingshot (with a bey switch). */
-export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastRound,onPredict,onLaunch,lastLabel}){
+export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastRound,onPredict,onLaunch,lastLabel,team=[],pilot=null,onPilot,makeMateLaunch}){
   const [step,setStep]=useState(first?'vs':'launch');
   const myBey=beys.find(b=>b.uid===beyUid)||beys[0];
   return (
@@ -208,10 +277,13 @@ export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastR
       {lastRound&&step==='launch'&&<div className="ls-last">{lastLabel}</div>}
       {step==='vs'&&<VsSplash me={me} opp={opp} myBey={myBey} onPick={p=>{onPredict(p);setStep(beys.length>1?'pick':'launch');}}/>}
       {step==='pick'&&<BeyPicker beys={beys} value={myBey.uid} onChange={setBeyUid} onDone={()=>setStep('launch')}/>}
-      {step==='launch'&&<>
-        <Slingshot key={myBey.uid} myBey={myBey} oppBey={opp.bey} onLaunch={onLaunch} avatar={me.avatar}/>
-        {beys.length>1&&<button className="ls-switch" onClick={()=>setStep('pick')}>🔁 换陀螺（{beyTitle(myBey)}）</button>}
-      </>}
+      {step==='launch'&&(()=>{const mate=pilot&&team.find(t=>t.id===pilot);
+        if(mate)return <MateLaunch key={'m'+mate.id+myBey.uid} mate={mate} myBey={myBey} oppBey={opp.bey} onLaunch={onLaunch} makeLaunch={()=>makeMateLaunch(mate)} me={me} team={team} pilot={pilot} onPick={onPilot} beys={beys} onSwitch={()=>setStep('pick')}/>;
+        return <>
+          <Slingshot key={myBey.uid} myBey={myBey} oppBey={opp.bey} onLaunch={onLaunch} avatar={me.avatar}/>
+          {team.length>0&&<TeamPicker me={me} team={team} pilot={pilot} onPick={onPilot}/>}
+          {beys.length>1&&<button className="ls-switch" onClick={()=>setStep('pick')}>🔁 换陀螺（{beyTitle(myBey)}）</button>}
+        </>;})()}
     </div>
   );
 }

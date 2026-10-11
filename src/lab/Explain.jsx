@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useState} from 'react';
+import InstallMod from './InstallMod.jsx';
 import {specFromBey,makePart,TIPS} from '../physics/model.js';
 import {DoctorFace} from '../ui/MapScreen.jsx';
 import {getCard} from '../knowledge/cards.js';
@@ -156,6 +157,7 @@ export default function Explain({change,mine,variant,res,review,onMore,onAgain,o
   if(!tour)return (
     <div className="lx lx-sum">
       <div className={`lx-board v-${V.cls}`}><b>{V.t}</b><span className="lx-board-i">{V.icon}</span></div>
+      <InstallMod change={change} mine={mine} verdict={verdict}/>
       <div className="lx-nums">
         <div className="lx-num"><small>赢的次数</small><span>A <b>{stats.A.wins}/{stats.A.trials}</b></span><i className={arrow(stats.A.wins,stats.B.wins)}>→</i><span>B <b>{stats.B.wins}/{stats.B.trials}</b></span></div>
         <div className="lx-num"><small>第 3 秒转速</small><span>A <b>{stats.A.avgRpm3.toLocaleString()}</b></span><i className={arrow(stats.A.avgRpm3*1.05,stats.B.avgRpm3)}>→</i><span>B <b>{stats.B.avgRpm3.toLocaleString()}</b></span></div>

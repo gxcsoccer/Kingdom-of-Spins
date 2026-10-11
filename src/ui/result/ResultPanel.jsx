@@ -14,7 +14,7 @@ import ExperimentLab from '../../lab/ExperimentLab.jsx';
 import ReplaySlot from '../ReplaySlot.jsx';
 import GuidedReview from './GuidedReview.jsx';
 import RpmChart from '../RpmChart.jsx';
-import BeyArt from '../BeyArt.jsx';
+import BeyArt,{BeySvg} from '../BeyArt.jsx';
 import {Portrait,Modal} from '../common.jsx';
 import {DoctorFace} from '../MapScreen.jsx';
 import * as sfx from '../../game/sfx.js';
@@ -63,7 +63,8 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
   const [ri,setRi]=useState(rounds.length-1);
   const focus=rounds[ri]||decisive;
   const ai=aiBy[ri]??null;
-  const names=[beyTitle(myBey),beyTitle(opp.bey)];
+  const roundBey=focus.bey||myBey;   // the bey actually used in the focused round (a teammate may have played it)
+  const names=[beyTitle(roundBey),beyTitle(opp.bey)];
   const moments=useMemo(()=>findMoments(focus.samples,focus.events,focus.result),[focus]);
   const pred=PREDICT.find(p=>p.id===prediction);
   const predOk=pred&&(won?pred.match?.(decisive.result.reason):pred.id==='lose');
@@ -99,7 +100,7 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
     <div className="rp" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
       <div className="rp-top">
         <div className="rp-chips">{PAGES.map((p,i)=><button key={p.id} className={`rp-chip ${i===page?'on':''}`} onClick={()=>goPage(i)}><span>{i+1}</span>{p.label}</button>)}</div>
-        {(page===1||page===2)&&rounds.length>1&&<RoundPicker rounds={rounds} ri={ri} setRi={setRi} myName={myName} oppName={opp.name}/>}
+        {page!==3&&rounds.length>1&&<RoundPicker rounds={rounds} ri={ri} setRi={setRi} myName={myName} oppName={opp.name}/>}
         <div className="rp-score">{myName} <b>{score[0]} : {score[1]}</b> {opp.name}</div>
         <button className="rp-continue" onClick={()=>{window.speechSynthesis?.cancel();fromExplore()?backToExplore():go('map');}}>{fromExplore()?'🧭 继续探险 ▶':'🗺️ 继续冒险 ▶'}</button>
       </div>
@@ -107,9 +108,9 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
         <div key={page} className={`rp-page ${dir>0?'turn-fwd':'turn-back'}`}>
           {page===0&&<ResultPage {...{won,score,decisive,myBey,opp,coins,first,pred,predOk,canRecruit,recruited,blader}} onRecruit={()=>setRecruitOpen(true)} onNext={()=>goPage(1)}/>}
           {page===1&&<>
-            <ReviewPage key={ri} {...{myBey,opp,moments,names,ai,unlockCards,addCoins}} decisive={focus} onNext={()=>goPage(2)}/>
+            <ReviewPage key={ri} {...{opp,moments,names,ai,unlockCards,addCoins}} myBey={roundBey} decisive={focus} onNext={()=>goPage(2)}/>
           </>}
-          {page===2&&<div className="rp-scroll"><ExperimentLab mine={myBey} opp={opp.bey} launches={focus.launches} names={names} suggest={suggestVariable(myBey,won)} onReward={n=>addCoins(n)} onUnlock={unlockCards}/></div>}
+          {page===2&&<div className="rp-scroll"><ExperimentLab key={'lab'+ri} mine={roundBey} opp={opp.bey} launches={focus.launches} names={names} suggest={suggestVariable(roundBey,won)} onReward={n=>addCoins(n)} onUnlock={unlockCards}/></div>}
           {page===3&&<NextPage {...{won,ai,go,myBey}}/>}
         </div>
       </div>
@@ -129,14 +130,20 @@ function RoundPicker({rounds,ri,setRi,myName,oppName}){
   const cur=rounds[ri];
   return <div className="rp-rounds" role="tablist" aria-label="选择要复盘的回合">
     <span className="rp-rounds-t">看第几局</span>
-    {rounds.map((r,i)=>{const w=r.result.winner===0;return <button key={i} role="tab" aria-selected={i===ri} title={`第 ${i+1} 局 · ${w?myName:oppName} 赢 · ${FINISH_ZH[r.result.reason]}`}
-      className={`rp-round ${i===ri?'on':''} ${w?'win':'lose'}`} onClick={()=>setRi(i)}>{i+1}<i>{FINISH_ICON[r.result.reason]||''}</i>{i===rounds.length-1&&<em>★</em>}</button>;})}
-    <span className="rp-rounds-cap">{cur.result.winner===0?myName:oppName} 赢 · {FINISH_ZH[cur.result.reason]}{ri===rounds.length-1?' · 决胜局':''}</span>
+    {rounds.map((r,i)=>{const w=r.result.winner===0;return <button key={i} role="tab" aria-selected={i===ri} title={`第 ${i+1} 局 · ${r.pilot?.name||myName} · ${r.beyName||''} · ${w?'赢':'输'} · ${FINISH_ZH[r.result.reason]}`}
+      className={`rp-round ${i===ri?'on':''} ${w?'win':'lose'} ${r.pilot?'mate':''}`} onClick={()=>setRi(i)}>{r.pilot&&<img className="rp-round-face" src={`/art/bladers/${r.pilot.id}.png`} alt=""/>}{i+1}<i>{FINISH_ICON[r.result.reason]||''}</i>{i===rounds.length-1&&<em>★</em>}</button>;})}
+    <span className="rp-rounds-cap"><b>{cur.pilot?.name||myName} · {cur.beyName}</b> {cur.result.winner===0?'赢':'输'} · {FINISH_ZH[cur.result.reason]}{ri===rounds.length-1?' · 决胜局':''}</span>
   </div>;
 }
 
 const fromExplore=()=>useGame.getState().params?.from==='explore';
 function backToExplore(){const p=useGame.getState().params||{};useGame.getState().go('explore',{regionId:p.regionId||p.region});}
+// The result page sits above the shared showcase canvas (and pops in with a scale animation that breaks a
+// standalone canvas' sizing), so designed beys use their look-aware 2D art here.
+function ResultBeyArt({bey,spin}){
+  if(!(bey?.look||bey?.parents||bey?.fusedBy))return <BeyArt bey={bey} size={150} spin={spin}/>;
+  return <BeySvg bey={bey} size={150} spin={spin}/>;
+}
 function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRecruit,recruited,blader,onRecruit,onNext}){
   const fromExp=fromExplore();
   const shown=useCountUp(coins,true,1300);
@@ -147,9 +154,9 @@ function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRec
       <div className="rp-splash">
         <div className={`rp-sfx ${won?'win':'lose'}`}>{won?'VICTORY!':'DEFEAT…'}</div>
         <div className="rp-vs">
-          <div className={`rp-bey ${won?'champ':''}`}><BeyArt bey={myBey} size={150} spin={won}/><b>{beyTitle(myBey)}</b></div>
+          <div className={`rp-bey ${won?'champ':''}`}><ResultBeyArt bey={myBey} spin={won}/><b>{beyTitle(myBey)}</b></div>
           <div className="rp-bigscore">{score[0]}<span>:</span>{score[1]}</div>
-          <div className={`rp-bey ${won?'':'champ'}`}><BeyArt bey={opp.bey} size={150} spin={!won}/><b>{beyTitle(opp.bey)}</b></div>
+          <div className={`rp-bey ${won?'':'champ'}`}><ResultBeyArt bey={opp.bey} spin={!won}/><b>{beyTitle(opp.bey)}</b></div>
         </div>
         <div className="rp-finish"><span>决胜</span>{FINISH_LABEL[reason]} · {FINISH_ZH[reason]} · {decisive.result.time.toFixed(1)} 秒</div>
       </div>
