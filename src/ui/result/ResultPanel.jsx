@@ -102,7 +102,7 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
         <div className="rp-chips">{PAGES.map((p,i)=><button key={p.id} className={`rp-chip ${i===page?'on':''}`} onClick={()=>goPage(i)}><span>{i+1}</span>{p.label}</button>)}</div>
         {page!==3&&rounds.length>1&&<RoundPicker rounds={rounds} ri={ri} setRi={setRi} myName={myName} oppName={opp.name}/>}
         <div className="rp-score">{myName} <b>{score[0]} : {score[1]}</b> {opp.name}</div>
-        <button className="rp-continue" onClick={()=>{window.speechSynthesis?.cancel();fromExplore()?backToExplore():go('map');}}>{fromExplore()?'🧭 继续探险 ▶':'🗺️ 继续冒险 ▶'}</button>
+        <button className="rp-continue" onClick={()=>{window.speechSynthesis?.cancel();fromExplore()?backToExplore():fromVersus()?go('versus'):go('map');}}>{fromExplore()?'🧭 继续探险 ▶':fromVersus()?'⚔️ 回到对战模式 ▶':'🗺️ 继续冒险 ▶'}</button>
       </div>
       <div className="rp-stage">
         <div key={page} className={`rp-page ${dir>0?'turn-fwd':'turn-back'}`}>
@@ -137,6 +137,7 @@ function RoundPicker({rounds,ri,setRi,myName,oppName}){
 }
 
 const fromExplore=()=>useGame.getState().params?.from==='explore';
+const fromVersus=()=>useGame.getState().params?.from==='versus';
 function backToExplore(){const p=useGame.getState().params||{};useGame.getState().go('explore',{regionId:p.regionId||p.region});}
 // The result page sits above the shared showcase canvas (and pops in with a scale animation that breaks a
 // standalone canvas' sizing), so designed beys use their look-aware 2D art here.
@@ -286,6 +287,7 @@ function NextPage({won,ai,go,myBey}){
       </div>
       <div className="rp-next-btns">
         {fromExplore()?<button className="rp-bigbtn map" onClick={backToExplore}><span>🧭</span>回到探索</button>
+          :fromVersus()?<button className="rp-bigbtn map" onClick={()=>go('versus')}><span>⚔️</span>回到对战模式</button>
           :<button className="rp-bigbtn map" onClick={()=>go('map')}><span>🗺️</span>回到地图</button>}
         <button className="rp-bigbtn again" onClick={()=>go('battle',{...useGame.getState().params})}><span>⚔️</span>再战一次</button>
         <button className="rp-bigbtn fuse" onClick={()=>go('fusion',{back:'map'})}><span>⚡</span>去融合工坊改造</button>
