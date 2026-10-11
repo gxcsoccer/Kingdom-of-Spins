@@ -14,6 +14,7 @@ import ExperimentLab from '../../lab/ExperimentLab.jsx';
 import ReplaySlot from '../ReplaySlot.jsx';
 import GuidedReview from './GuidedReview.jsx';
 import RpmChart from '../RpmChart.jsx';
+import {clearSavedResult,RESULT_KEY} from '../BattleScreen.jsx';
 import BeyArt from '../BeyArt.jsx';
 import LookSvg from './LookSvg.jsx';
 import {Portrait,Modal} from '../common.jsx';
@@ -53,7 +54,7 @@ function useBoxHeight(){
   return [ref,h];
 }
 
-export default function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins}){
+export default function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins,restored}){
   const [aiBy,setAiBy]=useState({});       // AI review per round index
   const [recruitOpen,setRecruitOpen]=useState(false);
   const [recruited,setRecruited]=useState(false);
@@ -70,12 +71,14 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
   const pred=PREDICT.find(p=>p.id===prediction);
   const predOk=pred&&(won?pred.match?.(decisive.result.reason):pred.id==='lose');
   const tier=blader?.tier;
-  const [first]=useState(()=>!!blader&&!save.defeated.includes(blader.id));
+  const [first]=useState(()=>!!blader&&!save.defeated.includes(blader.id)&&!restored);
   const coins=won?(REWARD[tier]||[80,40])[first?0:1]+(predOk?20:0):20;
   const done=useRef(false);
   const [canRecruit]=useState(()=>won&&tier==='pro'&&!save.team.some(t=>t.bladerId===blader.id));
+  useEffect(()=>{const key=RESULT_KEY();return()=>clearSavedResult(key);},[]);   // 站内离开结算页就清掉；刷新不会触发卸载
   useEffect(()=>{
     if(done.current)return;done.current=true;
+    if(restored)return;   // 刷新后恢复的结算页：比赛和奖励已经记过了
     recordMatch({bladerId:won?blader?.id:null,won,coins,prediction:pred?{id:pred.id,correct:!!predOk,opp:opp.name}:null});
     sfx.say?.(won?'Victory!':'Defeat…','en-US',1);
   },[]);// eslint-disable-line

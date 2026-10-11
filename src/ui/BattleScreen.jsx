@@ -22,6 +22,8 @@ import * as sfx from '../game/sfx.js';
 import {STYLES,cpuLaunch,playerLaunch} from '../game/launch.js';
 export {STYLES,cpuLaunch,playerLaunch};
 
+export const RESULT_KEY=()=>`kos-result:${location.pathname}${location.search}`;
+export const clearSavedResult=(key=RESULT_KEY())=>{try{sessionStorage.removeItem(key);}catch{}};
 export default function BattleScreen(){
   const {save,params,go,recordMatch,unlockCards,recruit,addCoins}=useGame();
   const blader=params.bladerId?bladerById(params.bladerId):null;
@@ -30,7 +32,9 @@ export default function BattleScreen(){
   const target=save.demo?2:(params.rounds||WIN_ROUNDS);   // rounds to win (5 局 3 胜)
   const myName=save.profile?.nickname||'你';
 
-  const [beyUid,setBeyUid]=useState(params.beyUid||save.collection[0]?.uid);
+  // 结算页刷新保护：整场打完后把结果存进 sessionStorage，刷新同一个地址时直接回到结算页（奖励不会重复发放）。
+  const [restored]=useState(()=>{try{const r=JSON.parse(sessionStorage.getItem(RESULT_KEY())||'null');return r&&Date.now()-r.at<3600_000?r:null;}catch{return null;}});
+  const [beyUid,setBeyUid]=useState(restored?.beyUid||params.beyUid||save.collection[0]?.uid);
   // 谁上场: null = the kid; else a recruited teammate's blader id (single-player battles only).
   const team=useMemo(()=>teamRoster(save),[save.team,save.collection]);// eslint-disable-line
   const [pilot,setPilot]=useState(null);
@@ -45,11 +49,11 @@ export default function BattleScreen(){
   };
   const mate=pilot?team.find(t=>t.id===pilot):null;
   const myBey=save.collection.find(b=>b.uid===beyUid)||save.collection[0];
-  const [prediction,setPrediction]=useState(null);
-  const [phase,setPhase]=useState('prep'); // prep | countdown | fight | roundEnd | result
+  const [prediction,setPrediction]=useState(restored?.prediction??null);
+  const [phase,setPhase]=useState(restored?'result':'prep'); // prep | countdown | fight | roundEnd | result
   const [player,setPlayer]=useState(null);
-  const [score,setScore]=useState([0,0]);
-  const [rounds,setRounds]=useState([]);
+  const [score,setScore]=useState(restored?.score||[0,0]);
+  const [rounds,setRounds]=useState(restored?.rounds||[]);
   const [experiment,setExperiment]=useState(null); // {launches, prev}
   const [speed,setSpeed]=useState(1);
   const [paused,setPaused]=useState(false);
@@ -87,6 +91,10 @@ export default function BattleScreen(){
     raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf);
   },[phase,player]);// eslint-disable-line
 
+  useEffect(()=>{if(phase!=='result')return;
+    try{sessionStorage.setItem(RESULT_KEY(),JSON.stringify({at:Date.now(),score,rounds,prediction,beyUid}));}
+    catch{try{sessionStorage.setItem(RESULT_KEY(),JSON.stringify({at:Date.now(),score,prediction,beyUid,rounds:rounds.map(r=>({...r,samples:(r.samples||[]).filter((_,i)=>i%4===0)}))}));}catch{}}
+  },[phase]);// eslint-disable-line
   const won=score[0]>=target;
   const onPrep=phase==='prep'||phase==='roundEnd';
   // HUD round: during prep/round-end we're about to play the NEXT round.
@@ -119,7 +127,7 @@ export default function BattleScreen(){
           team={team} pilot={pilot} onPilot={pickPilot} makeMateLaunch={m=>mateLaunch(m.blader,myBey,`${m.id}-${save.battles}-${roundRef.current+1}`)}
           lastLabel={rounds.length?`上一回合：${FINISH_LABEL[rounds.at(-1).result.reason]} · ${rounds.at(-1).result.winner?opp.name:myName} 赢下这局　局分 ${score[0]} : ${score[1]}`:''}/>}
       </div>
-      {phase==='result'&&<ResultPanel {...{won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins,
+      {phase==='result'&&<ResultPanel restored={!!restored} {...{won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins,
         }}/>}
     </div>
   );
