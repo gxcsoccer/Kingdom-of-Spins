@@ -326,3 +326,10 @@
 .ex-voice.on{background:#ffd400!important}
 .ex-dots{display:flex;gap:4px}.ex-dots i{width:10px;height:10px;border-radius:50%;border:2px solid #111;cursor:pointer}.ex-dots i.on{background:#111}.ex-dots i.past{background:#999}
 .lab-done{grid-template-columns:minmax(0,1fr) 360px}
+
+/* tally: numbers never overlap their labels */
+.lt-tally{gap:2px;padding:6px 4px}
+.lt-side{line-height:1.05}
+.lt-side b{font-size:clamp(34px,7vh,58px);line-height:1;margin:2px 0}
+.lt-side small,.lt-side em{line-height:1.2}
+.lt-vs{font-size:clamp(16px,3vh,22px);line-height:1;margin:2px 0}

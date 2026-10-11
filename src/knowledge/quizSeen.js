@@ -1,6 +1,6 @@
 // Per-kid record of asked questions (save.quizSeen, most recent last) shared by every feature.
 import {useGame} from '../game/store.js';
-import {pickFromBank, shuffled, sameAsSeen, aiQuizId, similarBankIds} from './quizbank.js';
+import {pickFromBank, shuffled, sameAsSeen, aiQuizId, similarBankIds, CONCEPT_ANALOGY} from './quizbank.js';
 export const getSeen = () => useGame.getState().save?.quizSeen || [];
 export function markSeen(...ids) {
   const add = ids.flat().filter(Boolean); if (!add.length) return;
@@ -8,7 +8,7 @@ export function markSeen(...ids) {
   useGame.getState().update(s=>{ s.quizSeen = [...(s.quizSeen||[]).filter(x=>!add.includes(x)), ...add].slice(-400); });
 }
 // An unseen bank question for a concept (shuffled), or null if the concept has no bank.
-export function pickQuiz(cardId) { const q = pickFromBank(cardId, getSeen()); return q ? shuffled(q) : null; }
+export function pickQuiz(cardId) { const q = pickFromBank(cardId, getSeen()); return q ? {...shuffled(q), analogy: q.analogy || CONCEPT_ANALOGY[cardId] || ''} : null; }
 // Keep an AI-written quiz unless it repeats something this kid already saw; then swap in an unseen bank question.
 export function freshQuiz(aiQuiz, cardId) {
   const seen = getSeen();

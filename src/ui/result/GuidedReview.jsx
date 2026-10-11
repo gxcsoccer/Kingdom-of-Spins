@@ -4,6 +4,8 @@ import {DoctorFace} from '../MapScreen.jsx';
 import {getCard} from '../../knowledge/cards.js';
 import {openFlipbook} from '../../flipbook/store.js';
 import * as sfx from '../../game/sfx.js';
+import {momentCard} from '../../ai/fallback.js';
+import {freshQuiz, markSeen} from '../../knowledge/quizSeen.js';
 
 // Guided "博士讲解模式": the doctor narrates the replay, drives slow-mo highlights, asks quizzes and waits
 // for the kid's answer. Pure presentation over data already in ResultPanel (moments + AI commentary).
@@ -91,32 +93,43 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
       const a=aiM(m.id),title=a?.title||titleOf(m);
       setCur(m);setQuiz(null);
       if(!await say(`第${NUM[m.n-1]}个关键时刻：${String(title).replace(/[！!。.]+$/,"")}！`,'excited',id))return;
-      // slow-mo highlight with the DJ line as a big caption
       await waitViewer(id);if(!alive(id))return;
-      viewer.current?.playMoment?.(m.id);
-      if(a?.dj){setCaption(a.dj);if(!sfx.isMuted())sfx.say(speakable(a.dj),'zh-CN',1.2);}
-      if(!await sleep(HIGHLIGHT_WALL_MS,id))return;
-      setCaption(null);viewer.current?.pause?.();
-      if(!await say(a?.explain||fallbackOf(m),'normal',id))return;
-      if(a?.quiz){
-        setQuiz({m,quiz:a.quiz});
-        // answers count immediately, even while the doctor is still asking
-        let ansNow=null;const ansP=waitAnswer(id).then(v=>{ansNow=v;return v;});
-        const asked=say(`考考你：${a.quiz.q}`,'thinking',id);
-        await Promise.race([asked,ansP]);
-        if(ansNow!=null){st.current.skip=true;await asked;}
-        const ans=ansNow!=null?ansNow:await ansP;if(ans==null||!alive(id))return;
-        const right=ans===a.quiz.answer;
-        // instant feedback (before any speech): highlight, sfx, face, stamp, coins
-        setQuiz({m,quiz:a.quiz,answer:ans});
-        if(right){sfx.beep(true);sfx.clang(.25);addCoins?.(5);setCoinsWon(c=>c+5);}else sfx.beep();
-        setStamp({ok:right,key:Date.now()});
-        if(a.cardId){unlockCards?.([a.cardId]);setCards(c=>c.includes(a.cardId)?c:[...c,a.cardId]);}
-        const react=right?PRAISE[m.n%PRAISE.length]:CHEER[m.n%CHEER.length];
-        const full=`${react}${a.quiz.reveal||''}${a.quiz.analogy?`\n🌏 生活里也一样：${a.quiz.analogy}`:''}`;
-        if(!await say(full,right?'excited':'normal',id,{instant:true,next:true}))return;
-        setStamp(null);
-      }else if(a?.cardId){unlockCards?.([a.cardId]);setCards(c=>c.includes(a.cardId)?c:[...c,a.cardId]);}
+      // One quiz per moment that this kid hasn't been asked before (any feature).
+      const concept=m.kind==='finish'&&/over|xtreme/.test(m.data?.reason||'')?'ph-momentum':momentCard(m);
+      const q=a?.quiz?freshQuiz(a.quiz,concept):null;
+      const highlight=async()=>{
+        viewer.current?.playMoment?.(m.id);
+        if(a?.dj){setCaption(a.dj);if(!sfx.isMuted())sfx.say(speakable(a.dj),'zh-CN',1.2);}
+        const ok=await sleep(HIGHLIGHT_WALL_MS,id);setCaption(null);viewer.current?.pause?.();return ok;
+      };
+      if(!q){
+        // No quiz: slow-mo highlight, then the doctor explains.
+        if(!await highlight())return;
+        if(!await say(a?.explain||fallbackOf(m),'normal',id))return;
+        if(a?.cardId){unlockCards?.([a.cardId]);setCards(c=>c.includes(a.cardId)?c:[...c,a.cardId]);}
+        continue;
+      }
+      // 先猜再揭晓: freeze the replay just before the moment, ask with NO explanation, wait for the answer;
+      // only then play the slow-mo and explain (with the real-life analogy).
+      viewer.current?.seek?.(Math.max(0,m.time-.6));viewer.current?.pause?.();
+      markSeen(q.id,q.alsoIds||[]);
+      setQuiz({m,quiz:q});
+      let ansNow=null;const ansP=waitAnswer(id).then(v=>{ansNow=v;return v;});
+      const asked=say(`先别急着看——考考你：${q.q}`,'thinking',id);
+      await Promise.race([asked,ansP]);
+      if(ansNow!=null){st.current.skip=true;await asked;}
+      const ans=ansNow!=null?ansNow:await ansP;if(ans==null||!alive(id))return;
+      const right=ans===q.answer;
+      setQuiz({m,quiz:q,answer:ans});
+      if(right){sfx.beep(true);sfx.clang(.25);addCoins?.(5);setCoinsWon(c=>c+5);}else sfx.beep();
+      setStamp({ok:right,key:Date.now()});
+      if(!await say(right?'答对啦！我们来看慢动作，验证一下！':'我们来看慢动作，找找答案！','excited',id))return;
+      if(!await highlight())return;
+      const react=right?PRAISE[m.n%PRAISE.length]:CHEER[m.n%CHEER.length];
+      const full=`${react}${q.reveal||q.explain||''}${a?.explain?` ${a.explain}`:''}${q.analogy?`\n🌏 生活里也一样：${q.analogy}`:''}`;
+      if(a?.cardId){unlockCards?.([a.cardId]);setCards(c=>c.includes(a.cardId)?c:[...c,a.cardId]);}
+      if(!await say(full,right?'excited':'normal',id,{instant:true,next:true}))return;
+      setStamp(null);
     }
     setCur(null);setQuiz(null);
     const take=aiRef.current?.takeaway||'记住：一次只看一个原因，用实验来验证！';
@@ -146,7 +159,7 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
           <p className={line.text.length>70?'long':''}>{shown}<span className="gr-caret">{typed<line.text.length?'▍':''}</span></p>
           {quiz&&<div className="gr-quiz">
             {quiz.quiz.options.map((o,i)=>{const done=quiz.answer!=null;if(done&&i!==quiz.answer&&i!==quiz.quiz.answer)return null;return (
-              <button key={i} className={`gr-ans ${done?'small':''} ${done&&i===quiz.quiz.answer?'right':''} ${done&&i===quiz.answer&&i!==quiz.quiz.answer?'wrong':''}`} disabled={done} onClick={()=>answer(i)}><b>{done?(i===quiz.quiz.answer?'✓':'✗'):'AB'[i]}</b>{o}</button>);})}
+              <button key={i} className={`gr-ans ${done?'small':''} ${done&&i===quiz.quiz.answer?'right':''} ${done&&i===quiz.answer&&i!==quiz.quiz.answer?'wrong':''}`} disabled={done} onClick={()=>answer(i)}><b>{done?(i===quiz.quiz.answer?'✓':'✗'):'ABC'[i]}</b>{o}</button>);})}
             {waitingQuiz&&<div className="gr-wait">博士在等你回答～</div>}
           </div>}
           {nextBtn&&<button className="gr-next" onClick={next}>下一个 ▶</button>}

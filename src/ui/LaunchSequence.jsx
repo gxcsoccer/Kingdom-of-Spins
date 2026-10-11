@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState,lazy,Suspense} from 'react';
+import {beyTitle,beySub} from './beyName.js';
 import BeyArt from './BeyArt.jsx';
 import {TypeBadge} from './common.jsx';
 import {DoctorFace} from './MapScreen.jsx';
@@ -32,7 +33,7 @@ export function slingToLaunch(pull){
 const beyBase=b=>(b?.id||'').includes('-')?b.id.split('-').pop():b?.id;
 function BeyPic({bey,size}){
   const [ok,setOk]=useState(true);
-  return ok&&!bey?.parents?<img className="ls-beypic" src={`/art/beys/${beyBase(bey)}.png`} alt={bey.name} style={{width:size}} onError={()=>setOk(false)}/>:<BeyArt bey={bey} size={size}/>;
+  return ok&&!bey?.parents&&!bey?.look?<img className="ls-beypic" src={`/art/beys/${beyBase(bey)}.png`} alt={bey.name} style={{width:size}} onError={()=>setOk(false)}/>:<BeyArt bey={bey} size={size}/>;
 }
 
 // ---------- 1. VS splash: diagonal panels slam in, VS stamp, impact frame, taunt, prediction cards
@@ -54,13 +55,13 @@ function VsSplash({me,opp,myBey,onPick}){
           <div className="ls-figure"><img src={`/art/avatars/${me.avatar}.png`} alt=""/></div>
           <div className="ls-panel-bey"><BeyPic bey={myBey} size={190}/></div>
         </>:<div className="ls-figure bey"><BeyPic bey={myBey} size={340}/></div>}
-        <div className="ls-nameplate"><b>{me.name}</b><small>{myBey.name}</small></div>
+        <div className="ls-nameplate"><b>{me.name}</b><small>{beyTitle(myBey)}</small></div>
       </div>
       <div className="ls-panel ls-opp" style={{'--c':opp.color||'#f2b632'}}>
         <div className="ls-panel-bg"/>
         <div className="ls-figure big">{oppImg?<img src={oppImg} alt=""/>:<BeyPic bey={opp.bey} size={300}/>}</div>
         <div className="ls-panel-bey"><BeyPic bey={opp.bey} size={190}/></div>
-        <div className="ls-nameplate"><b>{opp.name}</b><small>{opp.bey.name}</small></div>
+        <div className="ls-nameplate"><b>{opp.name}</b><small>{beyTitle(opp.bey)}</small></div>
         {(said||skip)&&opp.blader&&<div className="ls-taunt">「{opp.blader.line}」</div>}
       </div>
       <div className="ls-vs-flash"/>
@@ -89,7 +90,7 @@ function BeyPicker({beys,value,onChange,onDone}){
         {beys.length>1&&<button className="ls-arrow" onClick={()=>go(-1)} aria-label="上一只">◀</button>}
         <div className="ls-pick-card" key={b.uid} style={{'--c':b.colors?.primary}}>
           <div className="ls-pick-3d"><Suspense fallback={<BeyPic bey={b} size={230}/>}><BeyShowcase bey={b} rpm={3600} tilt={.5} zoom={1.15} background={false} standalone/></Suspense></div>
-          <div className="ls-pick-name">{b.name}</div>
+          <div className="ls-pick-name">{beyTitle(b)}{beySub(b)&&<small style={{display:'block',fontSize:'.55em',opacity:.75}}>{beySub(b)}</small>}</div>
           <div className="ls-pick-meta"><TypeBadge type={b.type||b.blade?.style}/><span>{b.ratchet?.prongs||3}-{b.ratchet?.height||60} · {b.bit}</span></div>
         </div>
         {beys.length>1&&<button className="ls-arrow" onClick={()=>go(1)} aria-label="下一只">▶</button>}
@@ -209,7 +210,7 @@ export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastR
       {step==='pick'&&<BeyPicker beys={beys} value={myBey.uid} onChange={setBeyUid} onDone={()=>setStep('launch')}/>}
       {step==='launch'&&<>
         <Slingshot key={myBey.uid} myBey={myBey} oppBey={opp.bey} onLaunch={onLaunch} avatar={me.avatar}/>
-        {beys.length>1&&<button className="ls-switch" onClick={()=>setStep('pick')}>🔁 换陀螺（{myBey.name}）</button>}
+        {beys.length>1&&<button className="ls-switch" onClick={()=>setStep('pick')}>🔁 换陀螺（{beyTitle(myBey)}）</button>}
       </>}
     </div>
   );

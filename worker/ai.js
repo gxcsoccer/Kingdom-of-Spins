@@ -4,7 +4,7 @@
 // 3) Workers AI gpt-oss-120b → 4) deterministic template (in each route). Each step falls back on error.
 import Anthropic from '@anthropic-ai/sdk';
 // Every route returns a deterministic template fallback when the model fails or times out.
-import {wishLook, diversifyLooks, specialMoveFor, sanitizeLook, LOOK_ENUMS, sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, decisiveMetric, contradictsVerdict, textbookExpectation, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE, bankGate, GATE_BANK} from '../src/ai/fallback.js';
+import {kidName, wishLook, diversifyLooks, specialMoveFor, sanitizeLook, LOOK_ENUMS, sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, decisiveMetric, contradictsVerdict, textbookExpectation, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE, bankGate, GATE_BANK} from '../src/ai/fallback.js';
 import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 import {regionById} from '../src/game/regions.js';
@@ -183,7 +183,7 @@ ${askedBefore || !needsClarify(allWish, []) ? '孩子的想法已经够清楚了
 A（追问）：{"mode":"ask","reply":"一句回应","question":"一个简短问题","options":["选项1","选项2","选项3"]}
 B（候选）：{"mode":"candidates","reply":"一句兴奋的开场","candidates":[{"name":"英文融合名","zh":"中文昵称≤6字","style":"attack|defense|stamina|balance","wings":3,"reach":0.027,"ring":70,"mass":34,"colors":{"primary":"#RRGGBB","secondary":"#RRGGBB","accent":"#RRGGBB"},"look":{"shape":"claw","finish":"metal","emblem":"dragon","pattern":"flames"},"lookNote":"你说要像龙爪 → 爪形刃","specialMove":{"name":"≤8字","shout":"≤16字"},"lore":"一句设定≤30字","why":"为什么这样设计，讲出物理原因≤45字","tradeoff":"代价是什么≤30字","prediction":"对战中可能出现的表现≤30字","cards":["卡片id"]}]}
 外观 look 只决定样子，不改变物理（wings/reach 等仍按物理取舍定；孩子说“三片刀刃”这类话时 wings 要跟着改）。look 只能用这些值：shape ${LOOK_ENUMS.shape.join('|')}；finish ${LOOK_ENUMS.finish.join('|')}；emblem ${LOOK_ENUMS.emblem.join('|')}；pattern ${LOOK_ENUMS.pattern.join('|')}。colors 用 #RRGGBB，孩子说的颜色要用上（第一个说的颜色做 primary）。
-lookNote：一句中文，说明哪个设计来自孩子的哪句话（没说外观就说你为什么这样设计）。specialMove：结合 emblem 起一个超酷的必杀技名字和喊招。
+如果孩子给陀螺起了名字，zh 就用孩子起的名字。lookNote：一句中文，说明哪个设计来自孩子的哪句话（没说外观就说你为什么这样设计）。specialMove：结合 emblem 起一个超酷的必杀技名字和喊招。
 候选给 3 个，彼此取舍明显不同；第一个最贴合孩子愿望（外观全部照孩子说的）；另外两个也要保留孩子说的一部分，但 shape、emblem、配色至少两项要和其他候选不一样。`;
   try {
     const out = await runModel(env, [{role:'system', content:COACH}, {role:'user', content:user}]);
@@ -198,6 +198,7 @@ lookNote：一句中文，说明哪个设计来自孩子的哪句话（没说外
       // The first design must honour everything the kid described (code-enforced, not just prompted).
       if (i===0) { x.look = {...x.look, ...wl.look}; if (wl.colors[0]) x.colors = {...x.colors, primary:wl.colors[0], ...(wl.colors[1]?{secondary:wl.colors[1]}:{})}; if (wl.wings) x.blade = {...x.blade, wings:wl.wings}; }
       if (!x.specialMove) x.specialMove = specialMoveFor(x.look, x.type, i);
+      const nm = kidName(allWish); if (nm) x.zh = nm;   // the kid's own name always wins
       if (!x.lookNote && i===0 && wl.notes.length) x.lookNote = `你说了${wl.notes.slice(0,4).join('、')} → 都画进了外观`;
       return x;
     });
@@ -296,7 +297,7 @@ ${cardIds.map(id=>getCard(id)).filter(Boolean).map(c=>`- ${c.id} ${c.title}：${
 - title（≤10字，热血漫画风，如“龙翼猛撞！”）
 - explain（≤55字：发生了什么+为什么；最多引用 1~2 个数字，照抄上面的格式（如“1.9 m/s”“约 1,300 转”）并解释含义，不要罗列；因果判断说“在这个模型里”；物理原因只能来自知识卡和对比事实）
 - dj（≤24字，像动画里的陀螺比赛 DJ 一样喊出来，如“出现了！龙翼的逆风一击——！”）
-${wantQuiz ? `- quiz：一个“你猜？”问题，问这个时刻“为什么”会发生。q≤26字；options 恰好 2 个短选项（≤14字），一个对一个错，正确的随机放在第 0 或第 1 个；answer 是正确选项下标；reveal≤55字讲清正确原因（必须符合知识卡和对比事实）；analogy≤36字，用 10 岁孩子熟悉的生活例子打比方（花样滑冰收手臂、自行车骑快不倒、保龄球撞瓶、碰碰车、转硬币…）
+${wantQuiz ? `- quiz：一个“你猜？”问题，问这个时刻会发生什么或为什么。题干绝不能透露答案或结论（不要写“为什么重的陀螺更难被撞飞”，要问“撞完以后，谁更不容易被弹开？”）；两个选项都要像真的（不要“因为它颜色更酷”这种一看就错的）。q≤26字；options 恰好 2 个短选项（≤14字），一个对一个错，正确的随机放在第 0 或第 1 个；answer 是正确选项下标；reveal≤55字讲清正确原因（必须符合知识卡和对比事实）；analogy≤36字，用 10 岁孩子熟悉的生活例子打比方（花样滑冰收手臂、自行车骑快不倒、保龄球撞瓶、碰碰车、转硬币…）
 ` : ''}- cardId（从知识卡选）
 玩家的陀螺叫“你的 ${names[0]}”。不要编造上面没有的事件。takeaway 一句话（≤45字）：把结果和“你的 ${names[0]}”的设计选择（配重/轴尖/翼片/高度）联系起来。
 只输出 JSON：{"headline":"≤14字","moments":[{"id":"","title":"","explain":"","dj":"",${wantQuiz?'"quiz":{"q":"","options":["",""],"answer":0,"reveal":"","analogy":""},':''}"cardId":""}],"takeaway":""}`;
@@ -591,9 +592,9 @@ ${proto ? `真实原型：${proto.name}，提到真实地点只能用这些事�
 地理知识卡（geo_fact${noGate?'':' / gate'} 只能用这些 id）：
 ${cardLines(geo)}
 规则：中文，给 10 岁孩子，热血冒险漫画风；panel ≤36字；line ≤30字（对刚才那件事的一句话点评）；涉及真实危险要说安全做法。events 可选：geo_fact（和画面有关时）${noGate?'':'、gate（只给 cardId 和 lead）'}，最多 1 个。
-只输出 JSON：{"title":"≤10字","panel":"≤36字","line":"≤30字","narration":"博士的一句话≤24字","events":[],"gmMemory":"≤200字"}`;
+只输出 JSON：{"title":"≤10字","panel":"≤36字","line":"≤30字","narration":"博士的一句话≤24字","events":[],"gmMemory":"≤80字"}`;
   try {
-    const out = await llm(env, {system:'你是“融合博士”，寻宝漫画冒险的旁白。只为已经发生的事写有趣的文字，绝不决定找没找到东西。只输出 JSON。', user, maxTokens:350, kind:'explore'});
+    const out = await llm(env, {system:'你是“融合博士”，寻宝漫画冒险的旁白。只为已经发生的事写有趣的文字，绝不决定找没找到东西。只输出 JSON。', user, maxTokens:280, kind:'explore'});
     const events = [];
     for (const e of Array.isArray(out.events)?out.events.slice(0,2):[]) {
       if (e?.type==='geo_fact' && getCard(e.cardId)?.layer==='geo' && !events.length) events.push({type:'geo_fact', cardId:e.cardId});

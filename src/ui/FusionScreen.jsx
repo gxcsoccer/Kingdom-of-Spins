@@ -9,7 +9,9 @@ export default function FusionScreen(){
     <div className="page bg-lab">
       <FusionLab collection={save.collection} opponents={opponents}
         onUnlock={ids=>unlockCards(ids)}
-        onSave={bey=>{const added=addBey(bey,'fusion');unlockCards((bey.knowledge||[]).map(k=>k.id||k));go('collection',{highlight:added?.uid});}}
+        onSave={bey=>{const added=addBey(bey,'fusion');unlockCards((bey.knowledge||[]).map(k=>k.id||k));return added;}}
+        onPlay={(b,oppId)=>go('battle',{bladerId:oppId||undefined,beyUid:b.uid,from:'fusion'})}
+        onViewCollection={b=>go('collection',{highlight:b.uid})}
         onClose={()=>go(params.back||'map')}/>
     </div>
   );

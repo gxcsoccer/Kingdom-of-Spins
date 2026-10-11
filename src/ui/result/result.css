@@ -173,3 +173,7 @@
 .rp-round em{position:absolute;top:-9px;right:-7px;font-style:normal;font-size:12px;color:#ffd400;text-shadow:0 0 2px #000,1px 1px 0 #000}
 .rp-rounds-cap{color:#ddd;font-size:12px;font-weight:800;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:1100px){.rp-rounds-cap{display:none}}
+
+.rp-continue{flex:none;font:inherit;font-weight:900;font-size:15px;padding:7px 14px;border:3px solid #111;background:#ffd400;color:#111;box-shadow:3px 3px 0 #fff;transform:skew(-6deg);cursor:pointer;white-space:nowrap}
+.rp-continue:hover{background:#fff}
+@media (max-width:900px){.rp-score{font-size:12px}.rp-continue{font-size:13px;padding:5px 10px}}

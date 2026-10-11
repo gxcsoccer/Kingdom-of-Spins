@@ -7,6 +7,7 @@ import KnowledgeCard, {KnowledgeChip} from '../knowledge/KnowledgeCard.jsx';
 import {StatBars, TypeBadge} from '../ui/common.jsx';
 import BeyArt, {BeySvg} from '../ui/BeyArt.jsx';
 import {TIPS} from '../physics/model.js';
+import {beyTitle, beySub} from '../ui/beyName.js';
 import {beyStats} from '../game/stats.js';
 import './fusion.css';
 import HeroCards from './HeroCards.jsx';
@@ -91,7 +92,7 @@ function CandidateCard({bey, parents, onPick, renderBey}) {
  *        onClose(); renderBey?(bey, size) to override the 2D art (e.g. 3D showcase);
  *        onUnlock?(cardIds) when knowledge cards are revealed; opponents? [Bey] for the prediction step.
  */
-export default function FusionLab({collection=[], onSave, onClose, renderBey, onUnlock, opponents}) {
+export default function FusionLab({collection=[], onSave, onClose, renderBey, onUnlock, opponents, onPlay, onViewCollection}) {
   const [step, setStep] = useState('pick');
   const [picked, setPicked] = useState([]);
   const [keep, setKeep] = useState(0);
@@ -101,6 +102,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
   const [input, setInput] = useState('');
   const [chosen, setChosen] = useState(null);
   const [prediction, setPrediction] = useState('');
+  const [saved, setSaved] = useState(null);
   const [voiceOn, setVoiceOn] = useState(()=>{ try { return localStorage.getItem('kos.voice')!=='off'; } catch { return true; } });
   const [sk, setSk] = useState({img:null, wish:'', keep:0, busy:false, result:null, msg:''});   // 📷 sketch flow
   const fileRef = useRef(null);
@@ -168,9 +170,12 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
   }
   function save() {
     const bey = {...chosen, kidPrediction: prediction ? {text:prediction, vs: rival?.id||null, at: Date.now()} : null, createdAt: Date.now()};
+    // Save right away (same object the kid designed — look, colors, zh, specialMove) and stay on the success page.
+    const stored = onSave?.(bey);
+    setSaved(stored && typeof stored==='object' ? stored : bey);
     setStep('done');
-    setTimeout(()=>onSave?.(bey), 1400);
   }
+
 
   return (
     <div className="fusion page">
@@ -366,14 +371,24 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
         </section>
       )}
 
-      {step==='done' && chosen && (
+      {step==='done' && chosen && (()=>{
+        const b = saved || chosen;
+        // A sensible first opponent: the one the kid predicted against (if it's a blader), else the first normal one.
+        const opp = (opponents||[]).find(o=>o.id===b.kidPrediction?.vs) || (opponents||[])[0] || null;
+        return (
         <section className="done">
           <div className="burst"/>
-          <span className="sfx pop" style={{fontSize:'clamp(56px,10vw,120px)'}}>融合成功！</span>
-          {renderBey ? renderBey(chosen, 240) : <BeyArt bey={chosen} size={240} spin/>}
-          <div className="h-display h-outline" style={{fontSize:40}}>{chosen.name}</div>
-        </section>
-      )}
+          <span className="sfx pop" style={{fontSize:'clamp(48px,8vw,96px)'}}>融合成功！</span>
+          {renderBey ? renderBey(b, 220) : <BeyArt bey={b} size={220} spin/>}
+          <div className="h-display h-outline" style={{fontSize:40}}>{beyTitle(b)}</div>
+          {beySub(b) && <div className="muted" style={{fontWeight:900,marginTop:-10}}>{beySub(b)}</div>}
+          <div className="row center wrap" style={{gap:12,position:'relative'}}>
+            <button className="btn primary big" onClick={()=>onPlay ? onPlay(b, opp?.id||null) : onClose?.()}>⚔️ 带 {beyTitle(b)} 试一场！</button>
+            <button className="btn" onClick={()=>onViewCollection ? onViewCollection(b) : onClose?.()}>去收藏看看</button>
+          </div>
+          {opp && <div className="muted" style={{fontWeight:800,position:'relative'}}>对手：{opp.name}</div>}
+        </section>);
+      })()}
     </div>
   );
 }

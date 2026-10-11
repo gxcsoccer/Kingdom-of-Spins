@@ -182,3 +182,11 @@ export function similarBankIds(quiz, cardId) {
   const right = quiz?.options?.[quiz?.answer];
   return (QUIZ_BANK[cardId]||[]).filter(b => overlap(b.q, quiz?.q) > .45 || overlap(b.options[b.answer], right) > .5).map(b=>b.id);
 }
+// Real-life analogy per concept, shown with the reveal (kept for wrong answers too).
+export const CONCEPT_ANALOGY = {
+  'ph-momentum':'保龄球撞球瓶：重的球继续往前，瓶子飞走了。', 'ph-impulse':'保龄球撞球瓶：重的球继续往前，瓶子飞走了。',
+  'ph-energy-convert':'碰碰车撞完，两辆车都弹开、变慢了。', 'ph-tilt-fall':'自行车骑得快很稳，骑得太慢就开始左右晃。',
+  'bx-xdash':'轮子在地上一转，自行车就往前走。', 'ph-energy-loss':'桌上转硬币，越转越慢，最后“啪”地倒下。',
+  'ph-inertia':'花样滑冰张开手臂转得慢，收紧手臂转得快。', 'ph-friction-area':'冰鞋在冰上滑得远，运动鞋抓地停得快。',
+  'ph-gyro-stability':'自行车骑得快就不容易倒。',
+};

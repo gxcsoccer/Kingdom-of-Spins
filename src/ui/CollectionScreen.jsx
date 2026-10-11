@@ -1,4 +1,5 @@
 import {useEffect,useState,lazy,Suspense} from 'react';
+import {beyTitle,beySub} from './beyName.js';
 import {useGame,bladerById} from '../game/store.js';
 import {BEYS} from '../game/beys.js';
 import {TopBar,StatBars,TypeBadge} from './common.jsx';
@@ -12,6 +13,8 @@ const baseId=b=>{if(b.parents)return b.id;const id=b.id||'';return id.includes('
 
 function BeyPic({bey,size}){
   const [ok,setOk]=useState(true);
+  // Designed beys (fusion / sketch with a look) render the same look-aware 3D model as the design cards.
+  if(bey.look||bey.parents)return <div className="cw-pic svg cw-3d"><Suspense fallback={<BeySvg bey={bey} size={size}/>}><BeyShowcase bey={bey} rpm={2600} tilt={.45} zoom={1.25} background={false} standalone/></Suspense></div>;
   return ok?<img className="cw-pic" src={`/art/beys/${baseId(bey)}.png`} alt={bey.name} onError={()=>setOk(false)}/>:<div className="cw-pic svg"><BeySvg bey={bey} size={size}/></div>;
 }
 
@@ -22,7 +25,7 @@ function Card({b,eq,onOpen,i}){
       <span className="cw-origin" style={{background:o.c}}>{o.t}</span>
       {eq&&<span className="cw-eq"><img src={`/art/bladers/${eq.id}.png`} alt=""/>{eq.name} 在用</span>}
       <span className="cw-art"><BeyPic bey={b} size={150}/></span>
-      <span className="cw-name">{b.name}</span>
+      <span className="cw-name">{beyTitle(b)}{beySub(b)&&<small className="cw-sub">{beySub(b)}</small>}</span>
       <span className="cw-row"><TypeBadge type={b.type||b.blade?.style}/><span className="cw-parts">{b.ratchet?.prongs||3}-{b.ratchet?.height||60} · {b.bit}</span></span>
       {b.parents&&<span className="cw-fuse">{b.parents.map(p=>BEYS[p]?.name||p).join(' + ')}</span>}
     </button>
@@ -69,7 +72,7 @@ export default function CollectionScreen(){
           <div className="cw-modal-3d"><Suspense fallback={null}><BeyShowcase bey={open} rpm={3200} zoom={1.25} standalone/></Suspense></div>
           <div className="cw-modal-info">
             <span className="cw-origin big" style={{background:(ORIGIN[open.origin]||ORIGIN.found).c}}>{(ORIGIN[open.origin]||ORIGIN.found).t}</span>
-            <h2>{open.name} <small>{open.zh}</small></h2>
+            <h2>{beyTitle(open)} <small>{beySub(open)}</small></h2>
             <div className="cw-row"><TypeBadge type={open.type||open.blade?.style}/><PartLine bey={open}/></div>
             {open.lore&&<p className="cw-lore">{open.lore}</p>}
             {open.parents&&<p className="cw-lore">由 <b>{open.parents.map(p=>BEYS[p]?.name||p).join(' + ')}</b> 融合 · 只换了 Blade</p>}

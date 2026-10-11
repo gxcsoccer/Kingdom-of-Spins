@@ -10,6 +10,7 @@ import {TopBar,TypeBadge} from './common.jsx';
 import LaunchGauge from './LaunchGauge.jsx';
 import {STYLES,playerLaunch} from './BattleScreen.jsx';
 import './battle.css';
+import PauseMenu from './PauseMenu.jsx';
 
 const strip=b=>{const {uid,origin,...rest}=b;return rest;};
 
@@ -103,6 +104,8 @@ function OnlineRoom({myBey,onExit}){
         <div className="hud-mid" style={{gridRow:1,gridColumn:2}}><div>ROUND {room?.round||1}</div><div className="hud-target">{(room?.target||3)*2-1} 局 {room?.target||3} 胜</div></div>
       </div>
       <div className="battle-stage">
+        {/* Online: pause only freezes local playback (the room keeps going); exit sends the room's leave message. */}
+        <PauseMenu onPause={on=>player?.setPaused?.(on)} onExit={()=>{api.current?.leave();onExit();}}/>
         {player&&<BattleScene player={player} style={{position:'absolute',inset:0}}/>}
         {(!player||final)&&room?.status!=='done'&&<div className="prep">
           {final&&<div className="prep-last">上一回合：<b>{FINISH_LABEL[final.reason]}</b>（{FINISH_ZH[final.reason]}）· {room?.players?.[final.winner]?.nickname} +{final.points}{final.mismatch?' · 两边结果不一致，以房主为准':''}</div>}

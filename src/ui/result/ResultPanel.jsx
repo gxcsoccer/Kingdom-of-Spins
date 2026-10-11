@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {beyTitle} from '../beyName.js';
 import {useGame} from '../../game/store.js';
 import {FINISH_LABEL,FINISH_ZH} from '../../game/story.js';
 import {commentary} from '../../ai/client.js';
@@ -62,7 +63,7 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
   const [ri,setRi]=useState(rounds.length-1);
   const focus=rounds[ri]||decisive;
   const ai=aiBy[ri]??null;
-  const names=[myBey.name,opp.bey.name];
+  const names=[beyTitle(myBey),beyTitle(opp.bey)];
   const moments=useMemo(()=>findMoments(focus.samples,focus.events,focus.result),[focus]);
   const pred=PREDICT.find(p=>p.id===prediction);
   const predOk=pred&&(won?pred.match?.(decisive.result.reason):pred.id==='lose');
@@ -100,6 +101,7 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
         <div className="rp-chips">{PAGES.map((p,i)=><button key={p.id} className={`rp-chip ${i===page?'on':''}`} onClick={()=>goPage(i)}><span>{i+1}</span>{p.label}</button>)}</div>
         {(page===1||page===2)&&rounds.length>1&&<RoundPicker rounds={rounds} ri={ri} setRi={setRi} myName={myName} oppName={opp.name}/>}
         <div className="rp-score">{myName} <b>{score[0]} : {score[1]}</b> {opp.name}</div>
+        <button className="rp-continue" onClick={()=>{window.speechSynthesis?.cancel();fromExplore()?backToExplore():go('map');}}>{fromExplore()?'🧭 继续探险 ▶':'🗺️ 继续冒险 ▶'}</button>
       </div>
       <div className="rp-stage">
         <div key={page} className={`rp-page ${dir>0?'turn-fwd':'turn-back'}`}>
@@ -134,7 +136,7 @@ function RoundPicker({rounds,ri,setRi,myName,oppName}){
 }
 
 const fromExplore=()=>useGame.getState().params?.from==='explore';
-function backToExplore(){const p=useGame.getState().params||{};useGame.getState().go('explore',{regionId:p.regionId});}
+function backToExplore(){const p=useGame.getState().params||{};useGame.getState().go('explore',{regionId:p.regionId||p.region});}
 function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRecruit,recruited,blader,onRecruit,onNext}){
   const fromExp=fromExplore();
   const shown=useCountUp(coins,true,1300);
@@ -145,9 +147,9 @@ function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRec
       <div className="rp-splash">
         <div className={`rp-sfx ${won?'win':'lose'}`}>{won?'VICTORY!':'DEFEAT…'}</div>
         <div className="rp-vs">
-          <div className={`rp-bey ${won?'champ':''}`}><BeyArt bey={myBey} size={150} spin={won}/><b>{myBey.name}</b></div>
+          <div className={`rp-bey ${won?'champ':''}`}><BeyArt bey={myBey} size={150} spin={won}/><b>{beyTitle(myBey)}</b></div>
           <div className="rp-bigscore">{score[0]}<span>:</span>{score[1]}</div>
-          <div className={`rp-bey ${won?'':'champ'}`}><BeyArt bey={opp.bey} size={150} spin={!won}/><b>{opp.bey.name}</b></div>
+          <div className={`rp-bey ${won?'':'champ'}`}><BeyArt bey={opp.bey} size={150} spin={!won}/><b>{beyTitle(opp.bey)}</b></div>
         </div>
         <div className="rp-finish"><span>决胜</span>{FINISH_LABEL[reason]} · {FINISH_ZH[reason]} · {decisive.result.time.toFixed(1)} 秒</div>
       </div>
@@ -191,11 +193,19 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
   useEffect(()=>{if(quizOn&&sel&&quizMap[sel])markSeen(quizMap[sel].id,quizMap[sel].alsoIds||[]);},[quizOn,sel]);// eslint-disable-line
   const clear=()=>{timers.current.forEach(clearTimeout);timers.current=[];};
   useEffect(()=>()=>{clear();window.speechSynthesis?.cancel();},[]);
-  const play=useCallback((m,{withQuiz=true}={})=>{
-    clear();setSel(m.id);setQuizOn(false);
+  // 先猜再揭晓: with an unanswered quiz the replay freezes just BEFORE the moment, the quiz shows with no
+  // explanation; only after the kid answers does the slow-mo play and the explanation appear.
+  const reveal=(m)=>{
     viewer.current?.playMoment?.(m.id);
     const line=aiM(m.id)?.dj;if(line)timers.current.push(setTimeout(()=>sfx.say(line,'zh-CN',1.2),600));
-    if(withQuiz&&quizMap[m.id]&&answers[m.id]==null)timers.current.push(setTimeout(()=>setQuizOn(true),HIGHLIGHT_MS));
+  };
+  const play=useCallback((m,{withQuiz=true}={})=>{
+    clear();setSel(m.id);setQuizOn(false);
+    if(withQuiz&&quizMap[m.id]&&answers[m.id]==null){
+      viewer.current?.seek?.(Math.max(0,m.time-.6));viewer.current?.pause?.();
+      setQuizOn(true);return;
+    }
+    reveal(m);
   },[ai,answers,quizMap]);// eslint-disable-line
   const playAll=()=>{
     if(auto){clear();setAuto(false);return;}
@@ -204,7 +214,7 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
     timers.current.push(setTimeout(()=>setAuto(false),moments.length*7600));
   };
   const cur=moments.find(m=>m.id===sel);const curAi=cur&&aiM(cur.id);
-  const answer=(m,i)=>{const q=quizMap[m.id];setAnswers(x=>({...x,[m.id]:i}));if(i===q.answer){sfx.beep(true);addCoins(5);}else sfx.beep();const c=aiM(m.id)?.cardId;if(c)unlockCards([c]);};
+  const answer=(m,i)=>{const q=quizMap[m.id];setAnswers(x=>({...x,[m.id]:i}));if(i===q.answer){sfx.beep(true);addCoins(5);}else sfx.beep();const c=aiM(m.id)?.cardId;if(c)unlockCards([c]);clear();reveal(m);};
   return (
     <div className="rp-review">
       <div className="rp-review-head">
@@ -219,8 +229,9 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
           moments={moments.map(m=>({id:m.id,time:m.time,title:aiM(m.id)?.title||MOMENT_TITLE[m.kind]}))} onSeek={setCursor}/>}
         {cur&&<div key={sel} className="rp-balloon">
           <div className="rp-balloon-t">{NUM[cur.n-1]} {curAi?.title||MOMENT_TITLE[cur.kind]} <small>{cur.time.toFixed(1)} 秒</small></div>
-          {curAi?.dj&&<div className="rp-dj">🎙 {curAi.dj}</div>}
-          <p>{ai?(curAi?.explain||localMoment(cur,names)):'博士正在看这一段……'}</p>
+          {(()=>{const waiting=quizMap[cur.id]&&answers[cur.id]==null;   // no answer may leak before the kid guesses
+            return waiting?<p>🤔 先猜一猜！回放停在碰撞前，答完就播放慢动作，再告诉你为什么。</p>
+              :<>{curAi?.dj&&<div className="rp-dj">🎙 {curAi.dj}</div>}<p>{ai?(curAi?.explain||localMoment(cur,names)):'博士正在看这一段……'}</p></>;})()}
         </div>}
         {chart&&<div className="rp-chart"><RpmChart samples={decisive.samples} events={decisive.events} moments={moments} cursor={cursor} onSeek={t=>{setCursor(t);viewer.current?.seek?.(t);}} names={names} colors={[myBey.colors?.primary||'#2f7bff',opp.bey.colors?.primary||'#f2b632']}/></div>}
         {cur&&quizOn&&quizMap[cur.id]&&<QuizCard quiz={quizMap[cur.id]} answer={answers[cur.id]} onAnswer={i=>answer(cur,i)} onClose={()=>setQuizOn(false)} card={curAi.cardId&&getCard(curAi.cardId)}/>}
@@ -250,10 +261,10 @@ function QuizCard({quiz,answer,onAnswer,onClose,card}){
   return <div className="rp-quiz pop-in">
     <button className="rp-quiz-x" onClick={onClose} aria-label="关闭">✕</button>
     <div className="rp-quiz-q">🤔 你猜？{quiz.q}</div>
-    <div className="rp-quiz-opts">{quiz.options.map((o,i)=><button key={i} disabled={done} className={`rp-quiz-opt ${done&&i===quiz.answer?'right':''} ${done&&i===answer&&i!==quiz.answer?'wrong':''}`} onClick={()=>onAnswer(i)}><b>{'AB'[i]}</b>{o}</button>)}</div>
+    <div className="rp-quiz-opts">{quiz.options.map((o,i)=><button key={i} disabled={done} className={`rp-quiz-opt ${done&&i===quiz.answer?'right':''} ${done&&i===answer&&i!==quiz.answer?'wrong':''}`} onClick={()=>onAnswer(i)}><b>{'ABC'[i]}</b>{o}</button>)}</div>
     {done&&<div className="rp-quiz-reveal slidein">
-      <div>{answer===quiz.answer?'✅ 答对了！🪙 +5　':'❌ 差一点！　'}{quiz.reveal}</div>
-      <div className="rp-quiz-analogy">🌏 生活里：{quiz.analogy}</div>
+      <div>{answer===quiz.answer?'✅ 答对了！🪙 +5　':'❌ 差一点！　'}{quiz.reveal||quiz.explain}</div>
+      {quiz.analogy&&<div className="rp-quiz-analogy">🌏 生活里：{quiz.analogy}</div>}
       {card&&<div style={{marginTop:6}}><KnowledgeChip card={card}/></div>}
     </div>}
   </div>;

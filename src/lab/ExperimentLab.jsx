@@ -1,4 +1,4 @@
-import {useState,useMemo,useEffect,useRef} from 'react';
+import {useState,useMemo,useEffect,useRef,Component} from 'react';
 import {TRIALS,EXP_MAX_TIME,runExperiment} from '../game/experiment.js';
 import * as ai from '../ai/client.js';
 import {getCard} from '../knowledge/cards.js';
@@ -21,11 +21,25 @@ function localReview({variable,prediction,stats,verdict}){
     conclusion:`在这个模型里，改成「${variable.to}」后：赢了 ${B.wins}/${B.trials} 次（原来 ${A.wins}/${A.trials}），第 3 秒转速约 ${B.avgRpm3.toLocaleString()} 转（原来 ${A.avgRpm3.toLocaleString()}）。`,
     why:'只改了一个地方，其他条件都一样，所以差别就来自这个改动。',
     repeatLesson:B.wins===0||B.wins===B.trials?'3 次结果一致，说明不是运气。':'3 次结果不一样——碰撞很敏感，所以科学家要重复做实验。',
-    predictionFeedback:prediction?(ok?'你猜对了！🪙 +20':'没猜中，但你学到了新东西！'):'下次先预测一下吧！',
+    predictionFeedback:prediction?(ok?'你猜对了！':'没猜中——这正是实验的意义！'):'下次先预测一下吧！',
     nextIdea:'试试改另一个变量？',fallback:true};
 }
 
-export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,onUnlock}){
+// Local error boundary: a rendering problem in the lab must never take down the result chapter
+// (the app-level boundary would show a full-page panel / reload, which restarts the battle).
+class LabBoundary extends Component{
+  constructor(p){super(p);this.state={err:null,n:0};}
+  static getDerivedStateFromError(err){return {err};}
+  componentDidCatch(err){console.error('[lab]',err);}
+  render(){
+    if(!this.state.err)return <div key={this.state.n} style={{display:'contents'}}>{this.props.children}</div>;
+    return <div className="lab lab-fit"><div className="lab-body" style={{placeItems:'center'}}><div className="lab-side" style={{maxWidth:420,alignItems:'center',textAlign:'center'}}>
+      <b style={{fontSize:20}}>实验结果显示时出了点小问题</b><span className="lab-tip">比赛结果已经保存，不会丢失。</span>
+      <button className="lab-run sm" onClick={()=>this.setState(s=>({err:null,n:s.n+1}))}>重新打开实验室</button></div></div></div>;
+  }
+}
+export default function ExperimentLab(props){return <LabBoundary><ExperimentLabInner {...props}/></LabBoundary>;}
+function ExperimentLabInner({mine,opp,launches,names,suggest,onReward,onUnlock}){
   const [varKey,setVarKey]=useState(null); // null = step ① (ask)
   const [change,setChange]=useState(null);
   const [pred,setPred]=useState(null);
@@ -51,9 +65,10 @@ export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,
     let rv=null;
     try{rv=ai.experiment?await ai.experiment(payload):null;}catch{}
     rv={...localReview({variable,prediction:pred,stats:r.stats,verdict:r.verdict}),...(rv||{}),verdict:r.verdict};
+    rv={...rv,predictionFeedback:`${rv.predictionFeedback||''}　🔬 完成观察 🪙 +15`};
     setReview(rv);
-    const ok=pred&&((pred==='more'&&r.verdict==='B更好')||(pred==='less'&&r.verdict==='A更好')||(pred==='same'&&r.verdict==='差不多'));
-    if(ok)onReward?.(20);
+    // 完成观察就有奖励：鼓励认真做实验，而不是只奖励猜对。
+    onReward?.(15);
     if(rv.cardId)onUnlock?.([rv.cardId]);
   };
   const stepN=phase!=='setup'?3:varKey?2:1;
@@ -80,7 +95,7 @@ export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,
           <div className="lab-q">「{QUESTIONS.find(q=>q.key===varKey)?.q}」</div>
           <div className="lab-h sm">③ 先预测：改了以后会怎样？</div>
           <div className="lab-preds">{PRED.map(p=><button key={p.id} className={`lab-pred-btn ${pred===p.id?'on':''}`} onClick={()=>setPred(p.id)}>{p.label}</button>)}</div>
-          <div className="lab-tip">先写下猜想，再用实验检验 · 猜对 🪙 +20</div>
+          <div className="lab-tip">先写下猜想，再用实验检验 · 做完观察 🪙 +15</div>
           <button className="lab-run" onClick={()=>run()} disabled={!change}>{change?'开始实验 ▶':'先动手改一改'}</button>
           <button className="lab-back" onClick={()=>{setVarKey(null);setChange(null);}}>↩ 换个问题</button>
         </aside>

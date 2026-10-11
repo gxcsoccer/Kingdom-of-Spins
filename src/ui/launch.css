@@ -1,6 +1,6 @@
 /* Pre-battle launch sequence — anime cinematics: VS slam, 3D slingshot charge, cut-in. */
 .ls{position:absolute;inset:0;z-index:5;overflow:hidden;color:#fff;background:radial-gradient(ellipse at 50% 60%,#1d2030,#07070a 70%);font-family:"Hiragino Sans","PingFang SC",system-ui,sans-serif}
-.ls-last{position:absolute;top:12px;left:50%;transform:translateX(-50%) skew(-8deg);z-index:6;font-weight:900;background:#111;border:3px solid #fff;padding:6px 16px;white-space:nowrap;box-shadow:4px 4px 0 #ffd400}
+.ls-last{position:absolute;top:64px;left:50%;transform:translateX(-50%) skew(-8deg);z-index:6;font-weight:900;background:#111;border:3px solid #fff;padding:6px 16px;white-space:nowrap;box-shadow:4px 4px 0 #ffd400}
 
 /* ================= 1. VS splash ================= */
 .ls-vs{position:absolute;inset:0;cursor:pointer;animation:ls-shake .45s .55s linear}
@@ -160,3 +160,5 @@
 @media (prefers-reduced-motion:reduce){.ls *,.ls-cutin *{animation:none!important}}
 .ls-pick-3d{position:relative;width:min(280px,40vh);height:min(250px,36vh)}
 .ls-pick-3d .ks-showcase{position:absolute;inset:0;background:transparent;min-height:0}
+
+.ls-launch-head{right:200px}

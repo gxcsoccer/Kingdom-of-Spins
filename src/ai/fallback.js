@@ -52,6 +52,11 @@ const LOOK_WORDS = {
   emblem:[['凤凰','phoenix'],['龙','dragon'],['狼','wolf'],['鹰','eagle'],['鲨','shark'],['虎','tiger'],['闪电','lightning'],['雷','lightning'],['火','flame'],['星','star'],['浪','wave'],['海','wave'],['水','wave'],['山','mountain'],['字母','letter']],
   pattern:[['条纹','stripes'],['火焰纹','flames'],['火焰花纹','flames'],['闪电纹','bolts'],['闪电花纹','bolts'],['闪电','bolts'],['波点','dots'],['圆点','dots'],['点点','dots']],
 };
+// "叫雷龙小勇士" / "起名：雷龙小勇士" / "名字是…" → the kid's own Chinese nickname.
+export function kidName(text='') {
+  const m = /(?:起名(?:叫|为|是)?|名字(?:叫|是)?|就叫|叫它|叫做|叫)[：:\s「“"]*([\u4e00-\u9fa5A-Za-z0-9]{2,8})/.exec(String(text));
+  return m ? m[1].replace(/[的吧啊呀吗]$/,'') : '';
+}
 export function wishLook(text='') {
   let t = String(text); const out = {}, notes = [];
   // Order matters: finishes first, and a matched word is blanked so 「水晶」 doesn't also read as 「水」 (wave).
@@ -182,6 +187,7 @@ export function templateCandidates(parents=[], wish='', keepParent=0) {
     c.specialMove = specialMoveFor(c.look, style, i);
     return c;
   });
+  const nm = kidName(wish); if (nm) cands.forEach(c=>{ c.zh = nm; });
   return diversifyLooks(cands);
 }
 export function templateFusion({parents=[], wish='', history=[], keepParent=0}) {
@@ -359,7 +365,7 @@ export function predictionFeedbackText(prediction, verdict) {
   const said = {more:'改了会更好', less:'改了会更差', same:'差不多'}[prediction];
   const got = {B更好:'改了以后更好', A更好:'原来的更好', 差不多:'差不多'}[verdict];
   if (!said) return '下次先猜一猜，再看实验结果！';
-  return predictionOk(prediction, verdict) ? `你猜「${said}」，结果真的是${got}！🪙 +20` : `你猜「${said}」，结果是${got}——这正是实验的意义！`;
+  return predictionOk(prediction, verdict) ? `你猜「${said}」，结果真的是${got}！` : `你猜「${said}」，结果是${got}——这正是实验的意义！`;
 }
 // Does a sentence claim the opposite of the verdict?
 export function contradictsVerdict(text='', verdict) {
