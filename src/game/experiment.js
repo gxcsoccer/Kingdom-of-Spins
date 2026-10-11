@@ -32,21 +32,22 @@ export function makeVariant(bey,key,value){
 }
 // Paired design: trial k uses the SAME small launch jitter for A and B, so only the chosen variable differs.
 export function trialLaunches(base,k){
-  const j=[[0,0,0],[.06,120,-.04],[-.05,-90,.05]][k%3];
+  const j=[[0,0,0],[.06,120,-.04],[-.05,-90,.05],[.03,-60,.08],[-.07,80,-.07]][k%5];
   return base.map((l,i)=>({...l,angle:(l.angle??(i?0:Math.PI))+j[0]*(i?-1:1),rpm:(l.rpm||4800)+j[1],aim:Math.max(-1,Math.min(1,(l.aim??.5)+j[2]))}));
 }
 
-export async function runExperiment({mine,opp,launches,key,value,onProgress}){
-  const B=makeVariant(mine,key,value), total=TRIALS*2;let done=0;
+// onTrial({k, arm:'A'|'B', result, rpm3, samples, hits}) fires as each simulation finishes (live lab cards).
+export async function runExperiment({mine,opp,launches,key,value,onProgress,onTrial,trials:N=TRIALS}){
+  const B=makeVariant(mine,key,value), total=N*2;let done=0;
   const jobs=[];
-  for(let k=0;k<TRIALS;k++){
+  for(let k=0;k<N;k++){
     const L=trialLaunches(launches,k);
     const LB=VARIABLES[key].launch?[{...L[0],rpm:value},L[1]]:L;
-    jobs.push(sim({beys:[mine,opp],launches:L,maxTime:EXP_MAX_TIME,full:k===0}).then(r=>{onProgress?.(++done/total);return {k,arm:'A',r};}));
-    jobs.push(sim({beys:[B,opp],launches:LB,maxTime:EXP_MAX_TIME,full:k===0}).then(r=>{onProgress?.(++done/total);return {k,arm:'B',r};}));
+    jobs.push(sim({beys:[mine,opp],launches:L,maxTime:EXP_MAX_TIME,full:true}).then(r=>{onProgress?.(++done/total);onTrial?.({k,arm:'A',...r});return {k,arm:'A',r};}));
+    jobs.push(sim({beys:[B,opp],launches:LB,maxTime:EXP_MAX_TIME,full:true}).then(r=>{onProgress?.(++done/total);onTrial?.({k,arm:'B',...r});return {k,arm:'B',r};}));
   }
   const out=await Promise.all(jobs);
-  const trials=Array.from({length:TRIALS},(_,k)=>{const t={};for(const o of out.filter(o=>o.k===k))t[o.arm]=o.r;return t;});
+  const trials=Array.from({length:N},(_,k)=>{const t={};for(const o of out.filter(o=>o.k===k))t[o.arm]=o.r;return t;});
   const summarize=arm=>{const rs=trials.map(t=>t[arm]);const avg=f=>rs.reduce((s,r)=>s+f(r),0)/rs.length;
     return {wins:rs.filter(r=>r.result.winner===0).length,trials:rs.length,avgTime:+avg(r=>r.result.time).toFixed(2),avgRpm3:Math.round(avg(r=>r.rpm3[0])),avgHits:+avg(r=>r.hits).toFixed(1)};};
   const stats={A:summarize('A'),B:summarize('B')};

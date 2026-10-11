@@ -48,13 +48,38 @@ function Side({ label, tone, player, visible, rpmRef, kidName }) {
 /**
  * <DualReplay beysA={[mine, opp]} beysB={[variant, opp]} fullA={{samples, events}} fullB={{samples, events}} height? />
  */
-export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, labels = ['A 原版', 'B 改装'] }) {
+// First time the two runs clearly differ (kid's bey position > 2.5 cm apart or rpm > 12% apart).
+function divergence(a = [], b = []) {
+  const n = Math.min(a.length, b.length), r0 = Math.abs(a[0]?.bodies?.[0]?.rpm || 1);
+  for (let i = 0; i < n; i++) {
+    if (a[i].time < .3) continue; // ignore launch jitter
+    const pa = a[i].bodies[0], pb = b[i].bodies[0];
+    if (Math.hypot(pa.p[0] - pb.p[0], pa.p[1] - pb.p[1]) > .025 || Math.abs(Math.abs(pa.rpm) - Math.abs(pb.rpm)) > r0 * .12) return a[i].time;
+  }
+  return null;
+}
+
+export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, labels = ['A 原版', 'B 改装'], autoplay = false }) {
   const { pA, pB, clock } = useMemo(() => {
     const pA = createReplayPlayer({ beys: beysA, samples: fullA?.samples || [], events: fullA?.events || [] });
     const pB = createReplayPlayer({ beys: beysB, samples: fullB?.samples || [], events: fullB?.events || [] });
     return { pA, pB, clock: createSharedClock([pA, pB]) };
   }, [beysA, beysB, fullA, fullB]);
   const [ui, setUi] = useState({ paused: true, speed: 1 });
+  const [cap, setCap] = useState(null);
+  const tDiv = useMemo(() => divergence(fullA?.samples, fullB?.samples), [fullA, fullB]);
+  const tHit = useMemo(() => [fullA, fullB].map(f => (f?.events || []).find(e => e.type === 'collision')?.time).filter(Number.isFinite).sort((x, y) => x - y)[0], [fullA, fullB]);
+  const auto = useRef({ phase: 'off', shown: false });
+  // Autoplay: ¼× slow-mo around the first collision, then 1× to the end.
+  useEffect(() => {
+    if (!autoplay) return;
+    const t = setTimeout(() => {
+      auto.current = { phase: 'slow', shown: false };
+      const from = Number.isFinite(tHit) ? Math.max(0, tHit - .6) : 0;
+      clock.seek(from); clock.speed = Number.isFinite(tHit) ? .25 : 1; clock.play();
+    }, 500);
+    return () => clearTimeout(t);
+  }, [autoplay, clock, tHit]);
   const [visible, setVisible] = useState(true);
   const rootRef = useRef(), trackRef = useRef(), headRef = useRef(), timeRef = useRef();
   const rpmA = useRef({}), rpmB = useRef({}), drag = useRef(null);
@@ -65,6 +90,9 @@ export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, l
     let raf;
     const loop = () => {
       const t = clock.tick(); // drive the shared clock here, not only from canvas frames
+      const au = auto.current;
+      if (au.phase === 'slow' && Number.isFinite(tHit) && t > tHit + 1.2) { au.phase = 'normal'; clock.setSpeed(1); }
+      if (tDiv != null && !au.shown && au.phase !== 'off' && t >= tDiv) { au.shown = true; setCap({ key: Date.now() }); setTimeout(() => setCap(null), 2800); }
       if (headRef.current) headRef.current.style.left = `${(t / clock.end) * 100}%`;
       if (timeRef.current) timeRef.current.textContent = `${t.toFixed(1)}s / ${clock.end.toFixed(1)}s`;
       for (const [p, r] of [[pA, rpmA], [pB, rpmB]]) {
@@ -76,13 +104,12 @@ export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, l
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [clock, pA, pB, maxRpm]);
+  }, [clock, pA, pB, maxRpm, tHit, tDiv]);
   useEffect(() => {
     const el = rootRef.current; if (!el || typeof IntersectionObserver === 'undefined') return;
     const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { rootMargin: '120px' });
     io.observe(el); return () => io.disconnect();
   }, []);
-  useEffect(() => { if (!visible && !clock.paused) clock.pause(); }, [visible, clock]);
 
   const tAt = x => { const r = trackRef.current.getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / r.width)) * clock.end; };
   const onDown = e => { trackRef.current.setPointerCapture?.(e.pointerId); drag.current = { was: !clock.paused }; clock.pause(); clock.seek(tAt(e.clientX)); };
@@ -94,6 +121,7 @@ export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, l
   return (
     <div ref={rootRef} className="dr">
       <div className="dr-row" style={{ '--dr-h': `${height}px` }}>
+        {cap && <div key={cap.key} className="dr-diverge">从这里开始不一样了！</div>}
         <Side label={labels[0]} tone="a" player={pA} visible={visible} rpmRef={rpmA} kidName={beysA[0]?.name} />
         <Side label={labels[1]} tone="b" player={pB} visible={visible} rpmRef={rpmB} kidName={beysB[0]?.name} />
       </div>
@@ -101,7 +129,7 @@ export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, l
         <div className="ks-rv-buttons">
           <button className="ks-rv-btn" onClick={() => (clock.paused ? clock.play() : clock.pause())}>{ui.paused ? '▶ 同时播放' : '⏸ 暂停'}</button>
           <button className={`ks-rv-btn ${ui.speed < 1 ? 'on' : ''}`} onClick={() => clock.setSpeed(clock.speed < 1 ? 1 : .25)}>¼× 慢动作</button>
-          <button className="ks-rv-btn" onClick={() => { clock.seek(0); clock.speed = 1; clock.play(); }}>⟲ 重播</button>
+          <button className="ks-rv-btn" onClick={() => { auto.current = { phase: 'off', shown: false }; clock.seek(0); clock.speed = 1; clock.play(); }}>⟲ 重播</button>
           <span ref={timeRef} className="ks-rv-time">0.0s</span>
         </div>
         <div ref={trackRef} className="ks-rv-track dr-track" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
@@ -110,6 +138,7 @@ export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, l
           {[[finA, 'a', 'A 结束'], [finB, 'b', 'B 结束']].map(([f, k, txt]) => f && (
             <div key={k} className={`dr-fin ${k} ${f.time > clock.end * .9 ? 'end' : ''}`} style={{ left: `${(f.time / clock.end) * 100}%` }}>{txt}</div>
           ))}
+          {tDiv != null && <div className="dr-div-mark" style={{ left: `${(tDiv / clock.end) * 100}%` }} title="从这里开始不一样">⚡</div>}
           <div ref={headRef} className="ks-rv-head" />
         </div>
       </div>
