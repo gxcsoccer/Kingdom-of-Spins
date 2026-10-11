@@ -98,13 +98,13 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
     <div className="rp" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
       <div className="rp-top">
         <div className="rp-chips">{PAGES.map((p,i)=><button key={p.id} className={`rp-chip ${i===page?'on':''}`} onClick={()=>goPage(i)}><span>{i+1}</span>{p.label}</button>)}</div>
+        {(page===1||page===2)&&rounds.length>1&&<RoundPicker rounds={rounds} ri={ri} setRi={setRi} myName={myName} oppName={opp.name}/>}
         <div className="rp-score">{myName} <b>{score[0]} : {score[1]}</b> {opp.name}</div>
       </div>
       <div className="rp-stage">
         <div key={page} className={`rp-page ${dir>0?'turn-fwd':'turn-back'}`}>
           {page===0&&<ResultPage {...{won,score,decisive,myBey,opp,coins,first,pred,predOk,canRecruit,recruited,blader}} onRecruit={()=>setRecruitOpen(true)} onNext={()=>goPage(1)}/>}
           {page===1&&<>
-            {rounds.length>1&&<RoundPicker rounds={rounds} ri={ri} setRi={setRi} myName={myName} oppName={opp.name}/>}
             <ReviewPage key={ri} {...{myBey,opp,moments,names,ai,unlockCards,addCoins}} decisive={focus} onNext={()=>goPage(2)}/>
           </>}
           {page===2&&<div className="rp-scroll"><ExperimentLab mine={myBey} opp={opp.bey} launches={focus.launches} names={names} suggest={suggestVariable(myBey,won)} onReward={n=>addCoins(n)} onUnlock={unlockCards}/></div>}
@@ -121,13 +121,15 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
   );
 }
 
-// Round selector for the review: "第 N 局 · 谁 +分 · 怎么赢", decisive round marked.
+// Compact round selector in the top bar: one numbered chip per round (blue = you scored, red = opponent), ★ = decisive.
+const FINISH_ICON={xtreme:'💥',over:'💨',burst:'💢',spin:'🌀',judge:'⏱'};
 function RoundPicker({rounds,ri,setRi,myName,oppName}){
+  const cur=rounds[ri];
   return <div className="rp-rounds" role="tablist" aria-label="选择要复盘的回合">
-    <span className="rp-rounds-t">复盘哪一局？</span>
-    {rounds.map((r,i)=>{const w=r.result.winner===0;return <button key={i} role="tab" aria-selected={i===ri} className={`rp-round ${i===ri?'on':''} ${w?'win':'lose'}`} onClick={()=>setRi(i)}>
-      <b>第 {i+1} 局</b><small>{w?myName:oppName} +{r.result.points} · {FINISH_ZH[r.result.reason]}</small>{i===rounds.length-1&&<em>决胜</em>}
-    </button>;})}
+    <span className="rp-rounds-t">看第几局</span>
+    {rounds.map((r,i)=>{const w=r.result.winner===0;return <button key={i} role="tab" aria-selected={i===ri} title={`第 ${i+1} 局 · ${w?myName:oppName} +${r.result.points} · ${FINISH_ZH[r.result.reason]}`}
+      className={`rp-round ${i===ri?'on':''} ${w?'win':'lose'}`} onClick={()=>setRi(i)}>{i+1}<i>{FINISH_ICON[r.result.reason]||''}</i>{i===rounds.length-1&&<em>★</em>}</button>;})}
+    <span className="rp-rounds-cap">{cur.result.winner===0?myName:oppName} +{cur.result.points} · {FINISH_ZH[cur.result.reason]}{ri===rounds.length-1?' · 决胜局':''}</span>
   </div>;
 }
 

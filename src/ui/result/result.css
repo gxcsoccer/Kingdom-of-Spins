@@ -164,10 +164,12 @@
 .gr-ans.small b{width:22px;height:22px}
 .gr-stamp{left:62%;top:auto;bottom:22%}
 .gr-balloon p.long{font-size:clamp(14px,2vh,17px);line-height:1.5}
-.rp-rounds{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:8;display:flex;gap:6px;align-items:center;background:#111;border:3px solid #fff;padding:4px 8px;box-shadow:4px 4px 0 #000;max-width:calc(100% - 24px);overflow-x:auto}
+.rp-rounds{display:flex;gap:6px;align-items:center;margin-left:auto;margin-right:18px}
 .rp-rounds-t{color:#ffd400;font-weight:900;font-size:13px;white-space:nowrap}
-.rp-round{display:flex;flex-direction:column;align-items:flex-start;gap:0;border:2px solid #fff;background:#222;color:#fff;padding:3px 8px;font:inherit;position:relative;white-space:nowrap;cursor:pointer}
-.rp-round b{font-size:13px}.rp-round small{font-size:11px;opacity:.85}
+.rp-round{position:relative;width:38px;height:34px;display:flex;align-items:center;justify-content:center;gap:1px;border:3px solid #fff;background:#1d1e26;color:#fff;font:inherit;font-family:var(--display);font-weight:900;font-size:16px;cursor:pointer;box-shadow:2px 2px 0 #000}
+.rp-round i{font-style:normal;font-size:11px}
 .rp-round.win{border-color:#2f7bff}.rp-round.lose{border-color:#ff2d4a}
-.rp-round.on{background:#ffd400;color:#111;border-color:#111}
-.rp-round em{position:absolute;top:-8px;right:-6px;background:#ff2d4a;color:#fff;font-style:normal;font-size:10px;font-weight:900;padding:0 4px;border:2px solid #111}
+.rp-round.on{background:#ffd400;color:#111;border-color:#111;transform:translateY(-2px)}
+.rp-round em{position:absolute;top:-9px;right:-7px;font-style:normal;font-size:12px;color:#ffd400;text-shadow:0 0 2px #000,1px 1px 0 #000}
+.rp-rounds-cap{color:#ddd;font-size:12px;font-weight:800;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1100px){.rp-rounds-cap{display:none}}
