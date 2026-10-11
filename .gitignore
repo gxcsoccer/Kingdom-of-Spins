@@ -8,3 +8,4 @@ supabase/.secrets
 .env*.local
 art-delivery/
 art-gen/
+dist-accept/

@@ -36,6 +36,8 @@ function TypeLine({text}){
   useEffect(()=>{setN(0);if(!text)return;const t=setInterval(()=>setN(k=>{if(k>=text.length){clearInterval(t);return k;}return k+1;}),35);return()=>clearInterval(t);},[text]);
   return <>{text.slice(0,n)}<span className="ex-caret">{n<text.length?'▍':''}</span></>;
 }
+// One filmstrip entry per scene visit: consecutive pages in the same scene merge.
+const visits=entries=>{const out=[];entries.forEach((e,i)=>{const k=e.page.sceneKey||e.page.id;const last=out[out.length-1];if(last&&last.key===k){last.last=i;last.count++;last.titles.push(e.page.title);}else out.push({key:k,first:i,last:i,count:1,titles:[e.page.title]});});return out;};
 const nearestSpot=(page,x,y)=>{let best=0,d=9;page.hotspots.forEach((h,i)=>{const e=Math.hypot(h.x-x,h.y-y);if(e<d){d=e;best=i;}});return best;};
 
 /** 区域探索：AI Game Master 即兴生成的漫画冒险。params: {regionId} */
@@ -68,7 +70,7 @@ export default function ExploreScreen(){
     const g=(e.gm&&typeof e.gm==='object')?e.gm:{};
     const found=new Set(e.found),met=new Set(e.met);
     if(project)for(const v of lastEvents.current){if(v.type==='find_bey')found.add(v.beyId);if(v.type==='meet_blader')met.add(v.bladerId);}
-    return {found:[...found],met:[...met],steps:e.steps,runs:e.runs,sinceLast:g.sinceLast||0,gm:g.memory||'',trail:(g.trail||[]).map(t=>t.page.title),scene:g.scene,hidePlan:g.hidePlan||null,sinceGate:g.sinceGate??9,scenes:(g.trail||[]).map(t=>t.page.sceneKey).filter(Boolean),pendingGate:g.pendingGate||null};
+    return {found:[...found],met:[...met],steps:e.steps,runs:e.runs,sinceLast:g.sinceLast||0,gm:g.memory||'',trail:(g.trail||[]).map(t=>t.page.title),scene:g.scene,hidePlan:g.hidePlan||null,sinceGate:g.sinceGate??9,runAwards:g.runAwards||0,clues:(g.clues||[]).slice(0,6),scenes:(g.trail||[]).map(t=>t.page.sceneKey).filter(Boolean),pendingGate:g.pendingGate||null};
   },[region.id]);
   useEffect(()=>{if(voice&&cur)speak([narration,pageText(cur.page)].filter(Boolean).join('。'));},[voice,cur?.page.id]);// eslint-disable-line
 
@@ -91,7 +93,7 @@ export default function ExploreScreen(){
       const trail=[...(action.type==='enter'?[]:(gg.trail||[])),{page:r.page,tapped:r.tapped||(action.type==='inspect'?action.label||'':'')}].slice(-MAX_TRAIL);
       x.gm={...gg,memory:r.gmMemory||gg.memory||'',scene:r.scene||gg.scene,hidePlan:r.hidePlan||gg.hidePlan,trail,idx:trail.length-1,sinceLast:r.awarded?0:(action.type==='enter'?0:(gg.sinceLast||0)+1),
         pendingGate:gate?{quizId:gate.quizId,lead:gate.lead,q:gate.q,answer:gate.answer,explain:gate.explain,options:gate.options,cardId:gate.cardId}:(action.type==='answer'?null:gg.pendingGate||null),
-        sinceGate:gate?0:(gg.sinceGate??9)+1,narration:r.narration||'',clues:[...newClues,...(action.type==='enter'?[]:(gg.clues||[]))].slice(0,6)};
+        sinceGate:gate?0:(gg.sinceGate??9)+1,runAwards:(action.type==='enter'?0:(gg.runAwards||0))+(r.awarded?1:0),narration:r.narration||'',clues:[...newClues,...(action.type==='enter'?[]:(gg.clues||[]))].slice(0,6)};
       if(action.type!=='enter')x.steps=(x.steps||0)+1;
     });
     setEntries(es=>[...(action.type==='enter'?[]:es.slice(0,at)),{page:r.page,tapped:r.tapped||(action.type==='inspect'?action.label||'':''),image:null}].slice(-MAX_TRAIL));
@@ -160,17 +162,19 @@ export default function ExploreScreen(){
             <div className={`fb-art ex-art ${shake?'shake':''}`} onClick={onImageTap}>
               <SceneImage regionId={region.id} page={view}/>
               {view.panels.map((p,i)=><div key={i} className={`fb-panel ${p.kind}`} style={{left:`${p.x*100}%`,top:`${p.y*100}%`,animationDelay:`${.15+i*.25}s`}}>{p.text}</div>)}
-              {idx===entries.length-1&&view.hotspots.map((h,i)=><div key={i} className="fb-hot" style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.4+i*.18}s`}}><i/><span>{h.label}</span></div>)}
+              {idx===entries.length-1&&view.hotspots.map((h,i)=><div key={i} title={h.hint||h.label} className="fb-hot" style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.4+i*.18}s`}}><i/><span>{h.label}</span></div>)}
               {tap&&<div className="fb-tap" style={{left:`${tap.x*100}%`,top:`${tap.y*100}%`}}/>}
               {busy&&<div className="fb-wait"><div className="fb-doodle small"/><b>{moving?'博士在写这里的故事…':'冒险继续中…'}</b></div>}
-              {idx===entries.length-1&&(view.exits||[]).length>0&&<div className="ex-exits" onClick={e=>e.stopPropagation()}>{view.exits.map(x=><button key={x.key} className="ex-exit" disabled={busy} onClick={()=>onMove(x.key)}>→ {x.title}</button>)}</div>}
             </div>
+            {idx===entries.length-1&&(view.exits||[]).length>0&&<div className="ex-exits"><span className="ex-exits-l">走去：</span>{view.exits.map(x=><button key={x.key} className="ex-exit" disabled={busy} onClick={()=>onMove(x.key)}>→ {x.title}</button>)}</div>}
           </div>;})()}
         </div>
-        <div className="fb-strip ex-strip">{entries.map((e,i)=>(
-          <button key={e.page.id+i} className={`fb-thumb ${i===idx?'on':''}`} onClick={()=>{if(!busy)setIdx(i);}}>
-            {e.page.sceneKey?<img src={sceneUrl(region.id,e.page.sceneKey)} alt="" onError={ev=>{ev.currentTarget.style.visibility='hidden';}}/>:<span className="fb-thumb-ph"/>}<span className="fb-thumb-t">{i+1}. {e.page.title}</span>
-          </button>))}</div>
+        <div className="fb-strip ex-strip">{visits(entries).map((v,j)=>{const e=entries[v.last];const on=idx>=v.first&&idx<=v.last;return (
+          <button key={e.page.id+j} className={`fb-thumb ${on?'on':''}`} title={v.titles.join(' · ')} onClick={()=>{if(!busy)setIdx(v.last);}}>
+            {e.page.sceneKey?<img src={sceneUrl(region.id,e.page.sceneKey)} alt="" onError={ev=>{ev.currentTarget.style.visibility='hidden';}}/>:<span className="fb-thumb-ph"/>}
+            {v.count>1&&<span className="ex-thumb-n">×{v.count}</span>}
+            <span className="fb-thumb-t">{j+1}. {sceneByKey(region.id,e.page.sceneKey)?.title||e.page.title}</span>
+          </button>);})}</div>
       </div>
 
       <aside className="ex-side">

@@ -477,7 +477,8 @@ async function flipLocate(body, env) {
 // ── 探索：AI Game Master ──
 // The map is a fixed scene graph (scenes.js). Code decides WHERE things are hidden (per-run hide plan), whether this
 // step awards something, and pacing; the GM (Haiku) only writes the story, clues, gates and geo facts.
-const PACE_FORCE = 5;   // steps without a find/meet before the server reveals one at the current scene
+const PACE_FORCE = 4;   // steps without a find/meet before the server reveals one at the current scene
+const FIRST_FORCE = 2;  // the first find of a run comes quickly (by the 3rd step)
 const shuffle = a => { const b = [...a]; for (let i=b.length-1;i>0;i--) { const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]] = [b[j],b[i]]; } return b; };
 const bladerById = id => BLADERS.find(b=>b.id===id);
 const clean2 = (v, n) => String(v||'').replace(/[（(]?\b(?:bx|ph|mt|sm|gd|geo)-[a-z0-9-]+\b[)）]?/g,'').trim().slice(0, n);
@@ -512,6 +513,12 @@ function nearestTarget(region, scene, plan) {
   for (const [id, h] of Object.entries(plan)) { const p = bfsPath(region, scene, h.scene); if (p && (!best || p.length < best.path.length)) best = {id, ...h, path:p}; }
   return best;
 }
+// Character-bigram overlap: a new clue that mostly repeats an old one is dropped.
+function clueRepeats(text, old=[]) {
+  const grams = t => { const s = String(t).replace(/[\s，。！？、“”「」…·,.!?]/g,''); const g = new Set(); for (let i=0;i<s.length-1;i++) g.add(s.slice(i,i+2)); return g; };
+  const a = grams(text); if (!a.size) return true;
+  return (Array.isArray(old)?old:[]).some(o=>{ const b = grams(o); let n = 0; for (const x of a) if (b.has(x)) n++; return n/Math.min(a.size, b.size||1) > .3; });
+}
 function awardEvent(id, text='') {
   if (BEYS[id]) return {type:'find_bey', beyId:id, text:clean2(text,60)};
   const b = bladerById(id); return {type:'meet_blader', bladerId:id, line:clean2(text||b?.line||'来一场吧！',50)};
@@ -519,7 +526,8 @@ function awardEvent(id, text='') {
 function scenePageFor(region, sceneKey, raw={}) {
   const scene = sceneByKey(region.id, sceneKey) || sceneByKey(region.id, START_SCENE[region.id]);
   const renamed = new Map((Array.isArray(raw.hotspots)?raw.hotspots:[]).filter(h=>Number.isInteger(+h?.spot)).map(h=>[+h.spot, h]));
-  const hotspots = scene.spots.map((p,i)=>({...p, label:clean2(renamed.get(i)?.label||p.label,6), hint:String(renamed.get(i)?.hint||'').slice(0,120), spot:i}));
+  // Spot labels always come from the library (vision-located on the real art); the GM may only add a hint.
+  const hotspots = scene.spots.map((p,i)=>({...p, label:p.label, hint:String(renamed.get(i)?.hint||'').slice(0,120), spot:i}));
   const panels = (Array.isArray(raw.panels)?raw.panels:[]).slice(0,3).map((p,i)=>({...p, x:[.04,.56,.04][i], y:[.04,.04,.8][i]}));
   const page = sanitizePage({title:raw.title||scene.title, panels: panels.length?panels:[{text:`来到了${scene.title}。`, kind:'caption'}], imagePrompt:scene.desc, hotspots, cardId:raw.cardId}, (CARDS.find(c=>c.layer==='geo'&&c.region===region.id)||{}).id);
   page.hotspots = page.hotspots.map((h,i)=>({...h, spot:i}));
@@ -545,7 +553,8 @@ async function exploreStep(body, env) {
   const since = +st.sinceLast || 0;
   let award = null, forced = false;
   if (action.type==='inspect') { const hit = Object.entries(plan).find(([,h])=>h.scene===scene && h.spot===+action.spot); if (hit) award = hit[0]; }
-  if (!award && !enter && since >= PACE_FORCE) { const t = nearestTarget(region, scene, plan); if (t) { award = t.id; forced = true; } }
+  const pace = (+st.runAwards||0) === 0 ? FIRST_FORCE : PACE_FORCE;
+  if (!award && !enter && since >= pace) { const t = nearestTarget(region, scene, plan); if (t) { award = t.id; forced = true; } }
   if (award) delete plan[award];
   const target = nearestTarget(region, scene, plan);
   const {beysLeft, bladersLeft} = exploreManifest(region, st);
@@ -572,15 +581,16 @@ ${clueText}
 ${proto ? `真实原型：${proto.name}（${proto.place}），提到真实地点时只能用这些事实：\n${proto.facts.map(f=>'- '+f).join('\n')}` : ''}
 你的记忆：${String(st.gm||'').slice(0,500) || '（新的冒险）'}
 最近的页面：${(Array.isArray(st.trail)?st.trail.slice(-5):[]).join(' → ') || '（无）'}
+已经给过的线索（不要重复同样的意思；没有新信息就不要给 clue）：${(Array.isArray(st.clues)?st.clues.slice(0,4):[]).join(' / ') || '（无）'}
 地理知识卡（geo_fact / gate 只能用这些 id）：
 ${cardLines(geo)}
-规则：中文短句，热血冒险漫画风，给 10 岁孩子看；panels 2~3 个，每个≤40字；涉及真实危险（雷电、涨潮、冰川）要说出正确的安全做法。events 只可以用：clue（线索）${noGate?'':'、gate（关卡：只给 cardId 和一句 lead，题目由系统出）'}、geo_fact（cardId，顺手讲和画面有关的真实地理知识）。可以给 spot 改一个更有趣的名字（hotspots 里写 spot 序号）。
-只输出 JSON：{"page":{"title":"≤10字","panels":[{"text":"…","kind":"caption"},{"text":"…","kind":"bubble"}],"hotspots":[{"spot":0,"label":"≤6字","hint":"一句好奇的问题"}],"cardId":"geo-…"},"events":[{"type":"clue","text":"…"}],"gmMemory":"≤300字：走过哪里、给过哪些线索","narration":"博士的一句话≤30字","line":"${award&&!BEYS[award]?'这位陀螺手见面时说的一句话≤20字':''}"}`;
+规则：中文短句，热血冒险漫画风，给 10 岁孩子看；panels 2~3 个，每个≤40字；涉及真实危险（雷电、涨潮、冰川）要说出正确的安全做法。events 只可以用：clue（线索）${noGate?'':'、gate（关卡：只给 cardId 和一句 lead，题目由系统出）'}、geo_fact（cardId，顺手讲和画面有关的真实地理知识）。不要给 spot 改名字；hotspots 里只能为某个 spot 序号写一句 hint（好奇的问题）。
+只输出 JSON：{"page":{"title":"≤10字","panels":[{"text":"…","kind":"caption"},{"text":"…","kind":"bubble"}],"hotspots":[{"spot":0,"hint":"一句好奇的问题"}],"cardId":"geo-…"},"events":[{"type":"clue","text":"…"}],"gmMemory":"≤300字：走过哪里、给过哪些线索","narration":"博士的一句话≤30字","line":"${award&&!BEYS[award]?'这位陀螺手见面时说的一句话≤20字':''}"}`;
   const finish = (page, gmEvents, gmMemory, narration, extra={}) => {
     const events = [];
     if (award) events.push(awardEvent(award, extra.line || (BEYS[award] ? (page.panels[0]?.text||'') : '')));
     for (const e of Array.isArray(gmEvents) ? gmEvents.slice(0,4) : []) {
-      if (e?.type==='clue' && e.text && !events.some(x=>x.type==='clue')) events.push({type:'clue', text:clean2(e.text,70)});
+      if (e?.type==='clue' && e.text && !events.some(x=>x.type==='clue') && !clueRepeats(e.text, st.clues)) events.push({type:'clue', text:clean2(e.text,70)});
       else if (e?.type==='gate' && !noGate && GATE_BANK[e.cardId] && !events.some(x=>x.type==='gate')) events.push(bankGate(e.cardId, `${e.cardId}-${(+st.steps||0)+1}`, clean2(e.lead||'',40)));
       else if (e?.type==='geo_fact' && getCard(e.cardId)?.layer==='geo' && !events.some(x=>x.type==='geo_fact')) events.push({type:'geo_fact', cardId:e.cardId});
     }

@@ -4,10 +4,13 @@
 .ex-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .ex-top .btn{color:#111}
 .ex-region{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.ex-region b{font-family:var(--display);font-size:24px;color:#fff;-webkit-text-stroke:1.5px #111;text-shadow:3px 3px 0 var(--rc)}.ex-region small{font-weight:800;opacity:.75}
-.ex-stage{flex:1;min-height:0;display:grid;place-items:center;perspective:1800px}
-.ex .fb-page{height:100%}
-.ex-art{height:min(100%,calc(100vh - 200px))!important}
-.ex-strip{padding:4px 0 0}
+.ex-stage{flex:1;min-height:0;display:grid;place-items:center;perspective:1800px;container-type:size}
+.ex .fb-page{height:auto;max-height:100%;gap:6px}
+.ex-art{height:auto!important;flex:none!important;aspect-ratio:4/3;width:min(100cqw,calc((100cqh - 112px)*4/3))}
+.ex-strip{padding:4px 0 0;flex:none}
+.ex-strip .fb-thumb{position:relative;width:104px}
+.ex-thumb-n{position:absolute;right:4px;top:4px;background:var(--red);color:#fff;border:2px solid #111;font-weight:900;font-size:11px;padding:0 5px}
+.ex-strip .fb-thumb-t{font-size:12px}
 .ex-side{min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:8px;scrollbar-width:thin}
 .ex-guide{display:flex;gap:8px;align-items:flex-start}
 .ex-guide .bubble{color:#111;font-size:14px;padding:10px 12px}
@@ -41,7 +44,7 @@ button.ex-item:not(:disabled){cursor:pointer}
 .ex-gate{max-width:620px;width:100%;padding:20px;color:#111;background:#fffbe0}
 .ex-gate-q{font-family:var(--display);font-weight:900;font-size:clamp(20px,2.4vw,26px);margin:6px 0 12px}
 .ex-gate-opts{display:grid;gap:10px}
-.ex-toast{position:fixed;right:330px;bottom:24px;z-index:65;width:min(380px,40vw);background:#fff;color:#111;border:4px solid #111;box-shadow:8px 8px 0 #000;padding:10px;cursor:pointer}
+.ex-toast{position:fixed;right:14px;top:64px;z-index:65;width:300px;max-height:calc(100vh - 80px);overflow:hidden;background:#fff;color:#111;border:4px solid #111;box-shadow:8px 8px 0 #000;padding:10px;cursor:pointer}
 .ex-soon{position:fixed;inset:0;display:grid;place-items:center}
 @media (max-width:900px){.ex{grid-template-columns:1fr;overflow-y:auto;position:static;min-height:100vh}.ex-side{overflow:visible}.ex-toast{right:12px;width:calc(100vw - 24px)}}
 @keyframes rpPop{from{transform:scale(.7)}to{transform:none}}
@@ -73,8 +76,9 @@ button.ex-item:not(:disabled){cursor:pointer}
 .ex-sketch{position:absolute;inset:0;display:grid;place-items:center;background:repeating-linear-gradient(-35deg,transparent 0 14px,rgba(17,17,17,.08) 14px 16px),var(--tone-light),#fbf8f1;color:#111;font-family:var(--display);font-weight:900;font-size:clamp(22px,3vw,40px)}
 .ex-caret{animation:blink 1s steps(2) infinite}
 .ex-gate-lead{font-weight:800;color:#555;margin-top:6px}
-.ex-exits{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;z-index:4;pointer-events:none}
-.ex-exit{pointer-events:auto;border:3px solid #111;background:var(--yellow);color:#111;font-family:var(--display);font-weight:900;font-size:15px;padding:6px 14px;box-shadow:3px 3px 0 #111;clip-path:polygon(0 0,88% 0,100% 50%,88% 100%,0 100%);padding-right:22px}
+.ex-exits{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:nowrap;flex:none}
+.ex-exits-l{font-weight:900;color:#fff;font-size:13px}
+.ex-exit{border:3px solid #111;background:var(--yellow);color:#111;font-family:var(--display);font-weight:900;font-size:15px;padding:6px 14px;box-shadow:3px 3px 0 #111;clip-path:polygon(0 0,88% 0,100% 50%,88% 100%,0 100%);padding-right:22px}
 .ex-exit:hover{transform:translateX(3px)}
 .ex-exit:disabled{opacity:.5}
 .pop-in{animation:popIn .35s cubic-bezier(.2,1.4,.4,1) both}
