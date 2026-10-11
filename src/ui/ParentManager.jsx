@@ -1,4 +1,5 @@
 import {useEffect, useState} from 'react';
+import {createPortal} from 'react-dom';
 import {listKids, updateKid, deleteKid, loadSave, writeSave} from '../net/auth.js';
 import {freshSave, useGame} from '../game/store.js';
 import {BLADERS} from '../game/story.js';
@@ -53,17 +54,17 @@ function KidRow({kid, onChanged}) {
   return (
     <div className="panel" style={{padding: 16, display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16}}>
       <div className="col" style={{gap: 10}}>
-        <div className="row">
+        <div className="row" style={{gap: 10, flexWrap: 'nowrap'}}>
           <img src={`/art/avatars/${/^[1-4]$/.test(avatar) ? avatar : '1'}.png`} alt="" width={64} height={64} style={{borderRadius: '50%', border: 'var(--border)'}}/>
-          <input value={nickname} maxLength={24} onChange={e => setNickname(e.target.value)} style={{...input, flex: 1}} aria-label="昵称"/>
+          <input value={nickname} maxLength={24} onChange={e => setNickname(e.target.value)} style={{...input, flex: 1, minWidth: 0}} aria-label="昵称"/>
         </div>
-        <div className="row" style={{gap: 8}}>
-          <span style={{fontWeight: 800}}>头像</span>
+        <div className="row" style={{gap: 8, flexWrap: 'nowrap'}}>
+          <span style={{fontWeight: 800, whiteSpace: 'nowrap'}}>头像</span>
           {AVATARS.map(a => <button key={a} onClick={() => setAvatar(a)} aria-label={`头像 ${a}`} style={{padding: 0, border: 'none', background: 'none', borderRadius: '50%', outline: avatar === a ? '3px solid var(--red)' : 'none', outlineOffset: 2}}>
             <img src={`/art/avatars/${a}.png`} alt="" width={40} height={40} style={{borderRadius: '50%', border: '2px solid #111', display: 'block'}}/></button>)}
         </div>
         <div className="row" style={{gap: 8}}>
-          <span style={{fontWeight: 800}}>PIN</span>
+          <span style={{fontWeight: 800, whiteSpace: 'nowrap'}}>PIN</span>
           <input value={pin} inputMode="numeric" placeholder="不设置" onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} style={{...input, width: 110}} aria-label="PIN"/>
           <span className="muted" style={{fontSize: 12}}>孩子进入档案时需要输入</span>
         </div>
@@ -76,10 +77,11 @@ function KidRow({kid, onChanged}) {
         <div className="kicker">游戏进度</div>
         {save === undefined && <span className="muted">读取中…</span>}
         {save === null && <span className="muted">还没开始玩</span>}
-        {save && <div style={{lineHeight: 1.9, fontWeight: 700}}>
-          🌀 陀螺 {save.collection?.length || 0} 只 · 🪙 {save.coins || 0} 金币 · 📚 知识卡 {save.cards?.length || 0} 张<br/>
-          ⚔ 对战 {save.battles || 0} 场 · 队员 {save.team?.length || 0} 人<br/>
-          🏆 打败过：{beat.length ? beat.join('、') : '还没有'}
+        {save && <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '6px 14px', fontWeight: 700, lineHeight: 1.5}}>
+          <span>🌀 陀螺 {save.collection?.length || 0} 只</span><span>🪙 {save.coins || 0} 金币</span>
+          <span>📚 知识卡 {save.cards?.length || 0} 张</span><span>⚔ 对战 {save.battles || 0} 场</span>
+          <span>👥 队员 {save.team?.length || 0} 人</span><span/>
+          <span style={{gridColumn: '1 / -1'}}>🏆 打败过：{beat.length ? beat.join('、') : '还没有'}</span>
         </div>}
         <div className="row mt" style={{gap: 8}}>
           <button className="btn small" onClick={resetProgress}>重置进度</button>
@@ -94,9 +96,9 @@ export default function ParentManager({onClose}) {
   const [passed, setPassed] = useState(false), [kids, setKids] = useState(null);
   const refresh = () => listKids().then(r => setKids(r.data || []));
   useEffect(() => { if (passed) refresh(); }, [passed]);
-  return (
+  return createPortal(
     <div className="modal-back" onClick={onClose}>
-      <div className="modal panel pop" style={{maxWidth: 860, animationName: 'slidein', color: 'var(--ink)'}} onClick={e => e.stopPropagation()}>
+      <div className="modal panel pop" style={{maxWidth: 860, width: 'min(860px, calc(100vw - 32px))', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', animationName: 'slidein', color: 'var(--ink)'}} onClick={e => e.stopPropagation()}>
         <div className="row between"><h2 className="h-display" style={{fontSize: 30}}>⚙ 家长管理</h2><button className="btn small ghost" onClick={onClose}>关闭</button></div>
         {!passed ? <ParentGate onPass={() => setPassed(true)} onCancel={onClose}/> :
           <div className="col mt" style={{gap: 14}}>
@@ -105,6 +107,7 @@ export default function ParentManager({onClose}) {
             {kids?.map(k => <KidRow key={k.id + k.nickname + k.avatar + k.pin} kid={k} onChanged={refresh}/>)}
           </div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
