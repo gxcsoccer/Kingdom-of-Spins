@@ -1,5 +1,6 @@
 import {useEffect, useRef, useState} from 'react';
-import {fusionChat, ask} from '../ai/client.js';
+import {fusionChat, ask, sketch as sketchApi, fileToDataUrl} from '../ai/client.js';
+import {speak, stopSpeaking, ttsSupported, useMic} from './voice.js';
 import {fusionName, keptParts} from '../ai/fallback.js';
 import {getCard} from '../knowledge/cards.js';
 import KnowledgeCard, {KnowledgeChip} from '../knowledge/KnowledgeCard.jsx';
@@ -55,7 +56,7 @@ function CandidateCard({bey, parents, onPick, renderBey}) {
       </div>
       <div className="mt"><StatBars bey={bey}/></div>
       <table className="cand-diff mt">
-        <thead><tr><th>Blade</th>{parents.map(p=><th key={p.id}>{p.name}</th>)}<th className="new">新</th></tr></thead>
+        <thead><tr><th>Blade</th>{parents.map(p=><th key={p.id}>{p.name}</th>)}<th className="new">{parents.length?'新':'数值'}</th></tr></thead>
         <tbody>{PARAM_ROWS.map(([k,label,fmt])=>(
           <tr key={k}><td>{label}</td>{parents.map(p=><td key={p.id}>{fmt(p.blade[k])}</td>)}<td className="new">{fmt(bey.blade[k])}</td></tr>
         ))}
@@ -63,6 +64,7 @@ function CandidateCard({bey, parents, onPick, renderBey}) {
         </tbody>
       </table>
       <div className="model-note">转动惯量单位 ×10⁻⁶ kg·m²，由理想模型从参数算出</div>
+      {bey.specialMove && <div className="special-move"><span className="kicker">必杀技</span><b>{bey.specialMove.name}</b><span className="sfx" style={{fontSize:18}}>「{bey.specialMove.shout}」</span></div>}
       {bey.why && <p className="cand-why"><b>为什么：</b>{bey.why}</p>}
       {bey.tradeoff && <p className="cand-trade"><b>代价：</b>{bey.tradeoff}</p>}
       {bey.prediction && <p className="cand-trade"><b>博士预测：</b>{bey.prediction}</p>}
@@ -88,6 +90,10 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
   const [input, setInput] = useState('');
   const [chosen, setChosen] = useState(null);
   const [prediction, setPrediction] = useState('');
+  const [voiceOn, setVoiceOn] = useState(()=>{ try { return localStorage.getItem('kos.voice')!=='off'; } catch { return true; } });
+  const [sk, setSk] = useState({img:null, wish:'', keep:0, busy:false, result:null, msg:''});   // 📷 sketch flow
+  const fileRef = useRef(null);
+  const mic = useMic({onInterim:t=>setInput(t), onFinal:t=>send(t)});
   const logEnd = useRef(null);
   const parents = picked.map(id=>collection.find(b=>b.id===id)).filter(Boolean);
   const kept = parents.length===2 ? keptParts(parents, keep) : null;
@@ -95,6 +101,28 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
   const rival = opponents?.[0] || parents[1] || null;
 
   useEffect(()=>{ logEnd.current?.scrollIntoView({behavior:'smooth', block:'nearest'}); }, [log, busy, candidates]);
+  // 融合博士 reads each new reply aloud (toggle 🔊/🔇).
+  useEffect(()=>{
+    const last = log.at(-1);
+    if (voiceOn && last?.role==='assistant') speak([last.content, last.question].filter(Boolean).join('。'));
+  }, [log, voiceOn]);
+  useEffect(()=>()=>stopSpeaking(), []);
+  function toggleVoice() {
+    setVoiceOn(v=>{ const n=!v; try { localStorage.setItem('kos.voice', n?'on':'off'); } catch {} if (!n) stopSpeaking(); return n; });
+  }
+  async function onPickImage(e) {
+    const f = e.target.files?.[0]; e.target.value=''; if (!f) return;
+    try { const img = await fileToDataUrl(f, 1024); setSk(s=>({...s, img, result:null, msg:''})); }
+    catch { setSk(s=>({...s, msg:'这张图片打不开，换一张试试？'})); }
+  }
+  async function runSketch() {
+    if (!sk.img || sk.busy) return;
+    setSk(s=>({...s, busy:true, msg:'', result:null}));
+    const base = collection[sk.keep];
+    const r = await sketchApi({imageDataUrl:sk.img, wish:sk.wish, keepParts: base ? {ratchet:base.ratchet, bit:base.bit} : null});
+    if (r.bey) { setSk(s=>({...s, busy:false, result:r.bey})); if (voiceOn) speak(`${r.bey.why||''} 必杀技，${r.bey.specialMove?.name||''}！`); onUnlock?.(r.bey.knowledge.map(k=>k.id)); }
+    else setSk(s=>({...s, busy:false, msg: r.needKey ? '这个功能要用高级 AI 看画，需要家长先开启哦（在家长设置里）。现在可以先用“选两只陀螺融合”！' : '博士没看清这张画，再拍清楚一点试试？'}));
+  }
 
   const togglePick = id => setPicked(p => p.includes(id) ? p.filter(x=>x!==id) : p.length<2 ? [...p, id] : [p[1], id]);
 
@@ -167,11 +195,48 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
               );
             })}
           </div>
-          <div className="row center mt2">
+          <div className="row center mt2 wrap" style={{gap:14}}>
+            <button className="btn yellow big" onClick={()=>setStep('sketch')}>📷 画一个陀螺</button>
             <button className="btn primary big" disabled={parents.length<2} onClick={()=>setStep('keep')}>
               {parents.length===2 ? `${parents[0].name} × ${parents[1].name} ▶` : `再选 ${2-parents.length} 只`}
             </button>
           </div>
+        </section>
+      )}
+
+      {step==='sketch' && (
+        <section className="slidein">
+          <div className="row" style={{alignItems:'flex-end',gap:14}}>
+            <Doctor mood={sk.busy?'think':'talk'}/>
+            <div className="bubble grow">把你画的梦想陀螺拍给我看！我会数一数它有几片刃、哪里最重、是什么颜色，把它变成真的能上场的 <b>Blade</b>。</div>
+          </div>
+          <div className="sketch-grid mt2">
+            <div className="panel sketch-drop" onClick={()=>fileRef.current?.click()}>
+              {sk.img ? <img src={sk.img} alt="你的画"/> : <div className="sketch-empty"><span style={{fontSize:56}}>📷</span><b>拍照 / 选一张画</b><span className="muted">画在纸上就行，越清楚越好</span></div>}
+              <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={onPickImage}/>
+            </div>
+            <div className="col">
+              <label className="kicker">想对博士说点什么？（可以不填）</label>
+              <input className="sketch-wish" value={sk.wish} onChange={e=>setSk(s=>({...s, wish:e.target.value}))} placeholder="比如：它是一条会喷火的龙！" maxLength={60}/>
+              {collection.length>0 && <>
+                <label className="kicker mt">用谁的 Ratchet 和 Bit？</label>
+                <div className="row wrap" style={{gap:8}}>{collection.slice(0,8).map((b,i)=>(
+                  <button key={b.id} className={`btn small ${sk.keep===i?'ink':''}`} onClick={()=>setSk(s=>({...s, keep:i}))}>{b.name} · {b.ratchet?.prongs}-{b.ratchet?.height} · {TIPS[b.bit]?.label?.split(' ')[0]}</button>
+                ))}</div>
+              </>}
+              <div className="row mt" style={{gap:10}}>
+                <button className="btn" onClick={()=>setStep('pick')}>◀ 返回</button>
+                <button className="btn primary big" disabled={!sk.img||sk.busy} onClick={runSketch}>{sk.busy?'博士在看画…':'让博士看看！⚡'}</button>
+              </div>
+              {sk.msg && <div className="bubble mt">{sk.msg}</div>}
+            </div>
+          </div>
+          {sk.result && (
+            <div className="cand-zone mt2">
+              <h2 className="h-display h-yellow" style={{fontSize:30}}>你的画变成了……</h2>
+              <div className="cand-grid mt" style={{maxWidth:420}}><CandidateCard bey={sk.result} parents={[]} renderBey={renderBey} onPick={b=>{setChosen(b);setStep('predict');}}/></div>
+            </div>
+          )}
         </section>
       )}
 
@@ -233,7 +298,10 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
             </div>
             {log.length<=1 && !busy && <div className="row wrap opts" style={{padding:'0 14px'}}>{WISHES.map(w=><button key={w} className="btn small yellow" onClick={()=>send(w)}>{w}</button>)}</div>}
             <form className="chat-input" onSubmit={e=>{e.preventDefault();send(input);}}>
-              <input value={input} onChange={e=>setInput(e.target.value)} placeholder={candidates.length?'还想改？或者问博士一个问题…':'说说你想要的陀螺…'} maxLength={120} disabled={busy}/>
+              {ttsSupported && <button type="button" className="btn small" title={voiceOn?'博士说话：开':'博士说话：关'} onClick={toggleVoice}>{voiceOn?'🔊':'🔇'}</button>}
+              <input value={input} onChange={e=>setInput(e.target.value)} placeholder={mic.listening?'我在听…松开就发送':candidates.length?'还想改？或者问博士一个问题…':'说说你想要的陀螺…'} maxLength={120} disabled={busy}/>
+              {mic.supported && <button type="button" className={`btn mic ${mic.listening?'on':''}`} disabled={busy} title="按住说话"
+                onPointerDown={e=>{e.preventDefault();e.currentTarget.setPointerCapture?.(e.pointerId);mic.start();}} onPointerUp={mic.stop} onPointerCancel={mic.stop} onContextMenu={e=>e.preventDefault()}>🎤</button>}
               <button className="btn primary" disabled={busy||!input.trim()}>发送</button>
             </form>
           </div>

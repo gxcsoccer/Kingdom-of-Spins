@@ -14,7 +14,7 @@ async function post(path, body, ms) {
 // → {reply, question?, options?, candidates?: [Bey], fallback?}
 export async function fusionChat({parents, wish='', history=[], keepParent=0}) {
   try {
-    const out = await post('/api/ai/fusion/chat', {parents, wish, history, keepParent}, 22000);
+    const out = await post('/api/ai/fusion/chat', {parents, wish, history, keepParent}, 45000);
     if (out?.question || out?.candidates?.length) return out;
     throw new Error('empty');
   } catch { return templateFusion({parents, wish, history, keepParent}); }
@@ -24,7 +24,7 @@ export async function fusionChat({parents, wish='', history=[], keepParent=0}) {
 // → {headline, story:[...], science:{cardId,title,body}, tryNext, fallback?}
 export async function commentary(summary, names=['A','B']) {
   try {
-    const out = await post('/api/ai/commentary', {summary, names}, 16000);
+    const out = await post('/api/ai/commentary', {summary, names}, 26000);
     if (out?.headline) return out;
     throw new Error('empty');
   } catch { return templateCommentary(summary, names); }
@@ -33,7 +33,7 @@ export async function commentary(summary, names=['A','B']) {
 // → {answer, cards:[{id,title,body,layer}], fallback?}
 export async function ask(question, context='') {
   try {
-    const out = await post('/api/ai/ask', {question, context}, 12000);
+    const out = await post('/api/ai/ask', {question, context}, 24000);
     if (out?.answer) return out;
     throw new Error('empty');
   } catch { return templateAsk(question); }
@@ -43,7 +43,7 @@ export async function ask(question, context='') {
 // → {headline, moments:[{id,title,explain,cardId}], takeaway, fallback?}
 export async function explainMoments(summary, moments, names=['A','B']) {
   try {
-    const out = await post('/api/ai/moments', {summary, moments, names}, 13000);
+    const out = await post('/api/ai/moments', {summary, moments, names}, 32000);
     if (out?.moments?.length || out?.headline) return out;
     throw new Error('empty');
   } catch { return templateMoments(summary, moments, names); }
@@ -53,7 +53,7 @@ export async function explainMoments(summary, moments, names=['A','B']) {
 // → {verdict:'B更好'|'A更好'|'差不多', conclusion, why, repeatLesson, predictionFeedback, cardId, nextIdea, fallback?}
 export async function explainExperiment(input) {
   try {
-    const out = await post('/api/ai/experiment', input, 13000);
+    const out = await post('/api/ai/experiment', input, 26000);
     if (out?.verdict && out?.conclusion) return out;
     throw new Error('empty');
   } catch { return templateExperiment(input); }
@@ -65,7 +65,7 @@ export const experiment = payload => explainExperiment(payload);
 
 // Kid's drawing/photo → {bey} | {needKey:true} | {error}. Claude-only on the server.
 export async function sketch({imageDataUrl, wish='', keepParts=null}) {
-  const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(), 30000);
+  const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(), 32000);
   try {
     const r = await fetch('/api/ai/sketch', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({imageDataUrl, wish, keepParts}), signal:ctl.signal});
     const out = await r.json().catch(()=>({}));

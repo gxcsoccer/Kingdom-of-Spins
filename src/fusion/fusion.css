@@ -93,3 +93,16 @@
 .codex-progress i{position:absolute;inset:0 auto 0 0;background:var(--yellow);border-right:3px solid var(--ink)}
 .codex-progress span{position:relative;display:block;text-align:center;font-family:var(--display);font-weight:900;font-size:14px;line-height:20px}
 .kcard .badge{white-space:nowrap;flex:none}
+
+/* Voice + sketch */
+.chat-input .btn.small{padding:6px 9px}
+.btn.mic{padding:8px 12px;font-size:20px;touch-action:none;user-select:none;-webkit-user-select:none}
+.btn.mic.on{background:var(--red);color:#fff;animation:shake .3s linear infinite}
+.special-move{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:2px solid var(--ink);background:var(--ink);color:#fff}
+.special-move .kicker{color:var(--yellow)}
+.sketch-grid{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:24px;align-items:start}
+@media (max-width:820px){.sketch-grid{grid-template-columns:1fr}}
+.sketch-drop{aspect-ratio:1;display:grid;place-items:center;cursor:pointer;overflow:hidden;background:var(--tone-light),#fff}
+.sketch-drop img{width:100%;height:100%;object-fit:contain;background:#fff}
+.sketch-empty{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:18px}
+.sketch-wish{border:var(--border);padding:12px;font:inherit;font-weight:700;background:#fff;outline:none;width:100%}

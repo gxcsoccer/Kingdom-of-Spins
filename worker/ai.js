@@ -1,6 +1,7 @@
 // AI routes. Mounted by worker/index.js under /api/ai/*.
-// Provider order: Vercel AI Gateway (AI_GATEWAY_API_KEY, Anthropic Messages endpoint) → Anthropic API
-// (ANTHROPIC_API_KEY) → Workers AI (env.AI). Each step falls back to the next on error.
+// Provider order: 1) Claude through Cloudflare AI Gateway unified billing (env.AI binding, gateway "default",
+// model env.LLM_MODEL) → 2) optional env-gated Claude via Vercel AI Gateway / Anthropic API keys →
+// 3) Workers AI gpt-oss-120b → 4) deterministic template (in each route). Each step falls back on error.
 import Anthropic from '@anthropic-ai/sdk';
 // Every route returns a deterministic template fallback when the model fails or times out.
 import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard} from '../src/ai/fallback.js';
@@ -8,7 +9,14 @@ import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 
 export const MODEL = globalThis.process?.env?.AI_MODEL || '@cf/openai/gpt-oss-120b';
-const TIMEOUT_MS = {fusion:20000, commentary:14000, ask:10000, moments:12000, experiment:12000, sketch:25000};
+// Per-route budgets: Claude gets CLAUDE_MS, the Workers AI fallback gets TIMEOUT_MS after that.
+const TIMEOUT_MS = {fusion:20000, commentary:12000, ask:10000, moments:12000, experiment:12000, sketch:25000};
+const CLAUDE_MS = {fusion:22000, sketch:28000, moments:18000, experiment:12000, commentary:12000, ask:10000};
+// Model split: quality/vision routes use the smart model, live-feedback routes use the fast one.
+// moments is on the smart model: Haiku's quizzes/analogies were physically wrong in tests (Sonnet ~13 s, correct).
+const SMART_KINDS = new Set(['fusion','sketch','moments']);
+export const modelFor = (env, kind) => SMART_KINDS.has(kind) ? (env?.LLM_MODEL_SMART || env?.LLM_MODEL || 'anthropic/claude-sonnet-5.5') : (env?.LLM_MODEL_FAST || 'anthropic/claude-haiku-5.5');
+export const CF_CLAUDE_MODEL = 'anthropic/claude-sonnet-5.5';
 export const CLAUDE_MODEL = 'claude-sonnet-5-5';
 export const GATEWAY_URL = 'https://ai-gateway.vercel.sh';
 const json = (data, status=200) => new Response(JSON.stringify(data), {status, headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
@@ -17,7 +25,9 @@ export function contentOf(r) {
   if (r==null) return '';
   if (typeof r==='string') return r;
   if (typeof r.response==='string') return r.response;
-  const c = r.choices?.[0]?.message?.content ?? r.result?.choices?.[0]?.message?.content ?? r.result?.response;
+  const c = r.choices?.[0]?.message?.content ?? r.result?.choices?.[0]?.message?.content ?? r.result?.response
+    ?? (Array.isArray(r.content) ? r.content : null);
+  if (Array.isArray(c)) return c.filter(p=>p?.type==='text').map(p=>p.text).join('');   // content-part arrays
   return typeof c==='string' ? c : (c ? JSON.stringify(c) : '');
 }
 export function parseJSON(text) {
@@ -41,7 +51,7 @@ function claudeClient(env) {
   if (env?.ANTHROPIC_API_KEY) return {client:new Anthropic({apiKey:env.ANTHROPIC_API_KEY, maxRetries:0}), model:CLAUDE_MODEL, via:'anthropic'};
   return null;
 }
-export const hasClaude = env => Boolean(env?.AI_GATEWAY_API_KEY || env?.ANTHROPIC_API_KEY);
+export const hasClaude = env => cfClaudeAvailable(env) || Boolean(env?.AI_GATEWAY_API_KEY || env?.ANTHROPIC_API_KEY);
 async function callClaude(c, {system, user, images=[], maxTokens}, ms) {
   const content = [...images.map(({mediaType, data})=>({type:'image', source:{type:'base64', media_type:mediaType, data}})), {type:'text', text:user}];
   const params = {
@@ -56,12 +66,36 @@ async function callClaude(c, {system, user, images=[], maxTokens}, ms) {
   if (res.stop_reason==='refusal') throw new Error('refusal');
   return res.content.filter(b=>b.type==='text').map(b=>b.text).join('');
 }
+// Claude via the Workers AI binding routed through AI Gateway (unified billing). OpenAI-chat-style input;
+// images as {type:'image_url', image_url:{url:dataUrl}} content parts.
+let cfClaudeDownUntil = 0;   // per-isolate: skip Claude for 60 s after a balance/auth/model error
+export const cfClaudeAvailable = env => Boolean(env?.AI) && Date.now() >= cfClaudeDownUntil;
+async function callCfClaude(env, {system, user, images=[], maxTokens, model}, ms) {
+  // Verified binding shape (Anthropic-native): top-level `system`, required max_tokens, image blocks as
+  // {type:'image', source:{type:'base64', media_type, data}} before the text. Response is a native message
+  // ({content:[{type:'text',text}]}) — contentOf() also handles choices[].
+  const content = images.length ? [...images.map(({mediaType, data})=>({type:'image', source:{type:'base64', media_type:mediaType, data}})), {type:'text', text:user}] : user;
+  const m = model || modelFor(env, 'fusion');
+  const input = {system, messages:[{role:'user', content}], max_tokens:maxTokens + 1024, output_config:{effort:'low'}};   // headroom for adaptive thinking
+  // Haiku 5.5 otherwise burns the whole budget on adaptive thinking for long JSON; disabled is allowed at effort ≤ high.
+  if (/haiku/i.test(m)) input.thinking = {type:'disabled'};
+  try {
+    const r = await withTimeout(env.AI.run(m, input, {gateway:{id:env.AI_GATEWAY_ID || 'default'}}), ms);
+    const text = contentOf(r);
+    if (!text) throw new Error(`empty reply (stop=${r?.stop_reason ?? r?.choices?.[0]?.finish_reason}, blocks=${Array.isArray(r?.content)?r.content.map(b=>b.type).join('+'):typeof r}, out=${r?.usage?.output_tokens ?? r?.usage?.completion_tokens})`);
+    return text;
+  } catch (e) {
+    const msg = String(e?.message||e);
+    if (/2021|insufficient balance|insufficient ai gateway|unauthor|forbidden|no such model|401|403/i.test(msg)) cfClaudeDownUntil = Date.now() + 60_000;
+    throw e;
+  }
+}
 async function callWorkersAI(env, {system, user, maxTokens}, ms) {
   if (!env?.AI) throw new Error('no Workers AI binding');
   const r = await withTimeout(env.AI.run(MODEL, {messages:[{role:'system', content:system}, {role:'user', content:user}], max_tokens:maxTokens, reasoning_effort:'low'}), ms);
   return contentOf(r);
 }
-const tagVia = (o, via) => Object.defineProperty(o, '__via', {value:via, enumerable:false});
+const tagVia = (o, via, note='') => Object.defineProperty(Object.defineProperty(o, '__via', {value:via, enumerable:false}), '__note', {value:note, enumerable:false});
 // Hard physics rules of OUR model, given to every explaining prompt so the model can't invert causality.
 export const MODEL_RULES = `本游戏物理模型的硬规则（不得违背）：
 1. 外圈配重%只表示刃的重量有多少放在外圈；两只陀螺谁的转动惯量大，只能看“对比事实”。
@@ -71,21 +105,21 @@ export const MODEL_RULES = `本游戏物理模型的硬规则（不得违背）�
 5. 越重的陀螺被撞时速度变化越小（动量 = 质量 × 速度）。`;
 // One helper for every route. Returns parsed JSON (json:true) or text. Throws only if every provider failed.
 export async function llm(env, {system, user, images=[], maxTokens=800, json:wantJson=true, kind='fusion', claudeOnly=false}) {
-  const ms = TIMEOUT_MS[kind] || 12000, errors = [];
-  const c = claudeClient(env);
-  if (c) {
-    try {
-      const text = await withTimeout(callClaude(c, {system, user, images, maxTokens}, ms), ms);
-      const out = wantJson ? parseJSON(text) : text;
-      if (out) return wantJson ? tagVia(out, 'claude') : out;
-      errors.push(`${c.via}: unparseable`);
-    } catch (e) { errors.push(`${c.via}: ${e.message||e}`); }
+  const ms = TIMEOUT_MS[kind] || 12000, claudeMs = CLAUDE_MS[kind] || 12000, model = modelFor(env, kind), errors = [];
+  const parse = (text, via) => { const out = wantJson ? parseJSON(text) : text; return out && wantJson ? tagVia(out, via, errors.join('; ').slice(0,200)) : out; };
+  if (cfClaudeAvailable(env)) {
+    try { const text = await callCfClaude(env, {system, user, images, maxTokens, model}, claudeMs); const out = parse(text, 'claude'); if (out) return out; errors.push(`cf-claude: unparseable (${String(text).length} chars) ${String(text).slice(0,60)}…${String(text).slice(-60)}`); }
+    catch (e) { errors.push(`cf-claude: ${String(e.message||e).slice(0,160)}`); }
   }
-  if (claudeOnly) throw new Error(errors.join('; ') || 'no Claude key');
+  const c = claudeClient(env);   // optional extras, only when keys are configured
+  if (c) {
+    try { const out = parse(await withTimeout(callClaude(c, {system, user, images, maxTokens}, claudeMs), claudeMs), 'claude'); if (out) return out; errors.push(`${c.via}: unparseable`); }
+    catch (e) { errors.push(`${c.via}: ${e.message||e}`); }
+  }
+  if (claudeOnly) throw new Error(errors.join('; ') || 'Claude unavailable');
   try {
-    const text = await callWorkersAI(env, {system, user, maxTokens: maxTokens+300}, ms);   // + room for gpt-oss reasoning tokens
-    const out = wantJson ? parseJSON(text) : text;
-    if (out) return wantJson ? tagVia(out, 'workers-ai') : out;
+    const out = parse(await callWorkersAI(env, {system, user, maxTokens: maxTokens+300}, ms), 'workers-ai');   // + room for gpt-oss reasoning
+    if (out) return out;
     errors.push('workers-ai: unparseable');
   } catch (e) { errors.push(`workers-ai: ${e.message||e}`); }
   throw new Error(errors.join('; '));
@@ -145,7 +179,7 @@ B（候选）：{"mode":"candidates","reply":"一句兴奋的开场","candidates
     const out = await runModel(env, [{role:'system', content:COACH}, {role:'user', content:user}]);
     if (out.mode==='ask' && !askedBefore && out.question) {
       const options = (Array.isArray(out.options)?out.options:[]).map(o=>String(o).slice(0,24)).filter(Boolean).slice(0,3);
-      return json({reply:String(out.reply||CLARIFY.reply).slice(0,60), question:String(out.question).slice(0,60), options: options.length>=2?options:CLARIFY.options});
+      return json({reply:String(out.reply||CLARIFY.reply).slice(0,60), question:String(out.question).slice(0,60), options: options.length>=2?options:CLARIFY.options, via:out.__via});
     }
     const raw = Array.isArray(out.candidates) ? out.candidates.slice(0,3) : [];
     const candidates = raw.map(c=>sanitizeCandidate(c, parents, keepParent, 'ai'));
@@ -153,7 +187,7 @@ B（候选）：{"mode":"candidates","reply":"一句兴奋的开场","candidates
     const seen = new Set(), uniq = candidates.filter(c=>!seen.has(c.id) && seen.add(c.id));
     const names = new Set(); uniq.forEach((c,i)=>{ if (names.has(c.name)) c.name = `${c.name} ${['II','X','Z'][i-1]||i}`; names.add(c.name); });
     if (uniq.length<2) for (const t of templateFusion({parents, wish:allWish, history:[{role:'assistant',question:'x'}], keepParent}).candidates||[]) if (uniq.length<2 && !seen.has(t.id)) { seen.add(t.id); uniq.push(t); }
-    return json({reply:String(out.reply||'融合完成！看看这几个方案！').slice(0,60), candidates:uniq});
+    return json({reply:String(out.reply||'融合完成！看看这几个方案！').slice(0,60), candidates:uniq, via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
     return json({...fallback(), error:String(e.message||e)});
   }
@@ -191,14 +225,14 @@ tryNext 只能建议改“你的 ${names[0]}”的一个地方（外圈配重/�
   try {
     const out = await runModel(env, [{role:'system', content:'你是陀螺对战的热血解说员兼科学老师。中文，短句，有趣，诚实。只输出 JSON。'}, {role:'user', content:user}], 600, 'commentary');
     const card = getCard(out.science?.cardId) || getCard(fallback().science.cardId);
-    const story = (Array.isArray(out.story)?out.story:[]).map(s=>tidyNumbers(String(s)).slice(0,64)).filter(Boolean).slice(0,4);
+    const story = (Array.isArray(out.story)?out.story:[]).map(s=>clip(ownName(tidyNumbers(String(s)), names[0]),72)).filter(Boolean).slice(0,4);
     if (!story.length || !out.headline) throw new Error('incomplete');
     let sciBody = tidyNumbers(String(out.science?.body||card.body)).slice(0,90);
     if (!sciBody.includes('模型')) sciBody += '（在这个模型里）';
     // tryNext must target the player's own bey; otherwise use the deterministic suggestion.
     let tryNext = tidyNumbers(String(out.tryNext||''));
     if (!tryNext || (names[1] && tryNext.includes(names[1]) && !tryNext.includes(names[0])) || !(tryNext.includes(names[0])||tryNext.includes('你的'))) tryNext = hint;
-    return json({headline:tidyNumbers(String(out.headline)).slice(0,20), story, science:{cardId:card.id, title:card.title, body:sciBody, layer:card.layer}, tryNext:tryNext.slice(0,60)});
+    return json({headline:tidyNumbers(String(out.headline)).slice(0,20), story, science:{cardId:card.id, title:card.title, body:sciBody, layer:card.layer}, tryNext:tryNext.slice(0,60), via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
     return json({...fallback(), error:String(e.message||e)});
   }
@@ -250,14 +284,14 @@ ${wantQuiz ? `- quiz：一个“你猜？”问题，问这个时刻“为什么
     const merged = list.map(m=>{
       const t = templateMoment(m, names), o = got.get(String(m.id));
       if (!o) return t;
-      return {id:m.id, title:clip(tidyNumbers(String(o.title||t.title)),12), explain:clip(ownName(tidyNumbers(String(o.explain||t.explain)), names[0]),80),
+      return {id:m.id, title:clip(tidyNumbers(String(o.title||t.title)),14), explain:clip(ownName(tidyNumbers(String(o.explain||t.explain)), names[0]),80),
         cardId:getCard(o.cardId)?o.cardId:t.cardId, dj:clip(String(o.dj||t.dj),28),
         // Smaller open models invert causality in quizzes; only trust Claude's, else the vetted template.
         quiz: out.__via==='claude' ? sanitizeQuiz(o.quiz, m) : t.quiz};
     });
     let takeaway = clip(ownName(tidyNumbers(String(out.takeaway||'')), names[0]),60);
     if (!takeaway || !takeaway.includes('你的')) takeaway = designTakeaway(summary, names);
-    return json({headline:String(out.headline||fallback().headline).slice(0,16), moments:merged, takeaway});
+    return json({headline:String(out.headline||fallback().headline).slice(0,16), moments:merged, takeaway, via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
     return json({...fallback(), error:String(e.message||e)});
   }
@@ -289,7 +323,7 @@ ${row('B',B)}
     const pick = (k, max) => { const v = ownName(tidyNumbers(String(out[k]||'')).trim(), names[0]); return (v || base[k]).slice(0, max); };
     let conclusion = pick('conclusion', 80);
     if (!conclusion.includes('模型')) conclusion = conclusion.replace(/。?$/, '（在这个模型里）。');
-    return json({verdict:base.verdict, conclusion, why:pick('why',110), repeatLesson:pick('repeatLesson',70), predictionFeedback:pick('predictionFeedback',50), cardId:base.cardId, nextIdea:pick('nextIdea',50)});
+    return json({verdict:base.verdict, conclusion, why:pick('why',110), repeatLesson:pick('repeatLesson',70), predictionFeedback:pick('predictionFeedback',50), cardId:base.cardId, nextIdea:pick('nextIdea',50), via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
     return json({...base, error:String(e.message||e)});
   }
@@ -323,9 +357,11 @@ ${cards.map(c=>`- ${c.id} ${c.title}：${c.body}`).join('\n')}
     bey.specialMove = {name:String(sm.name||'必杀旋风').slice(0,10), shout:String(sm.shout||'旋转吧——！').slice(0,20)};
     if (!out.zh) bey.zh = '梦想陀螺';
     if (!out.lore) bey.lore = '从小画家的画里诞生的陀螺。';
-    return json({bey});
+    return json({bey, via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
-    return json({error:String(e.message||e)}, 502);
+    const msg = String(e.message||e);
+    if (/2021|insufficient|unavailable|unauthor|401|403/i.test(msg) || !hasClaude(env)) return json({needKey:true, error:'需要家长开启高级 AI'}, 503);
+    return json({error:msg}, 502);
   }
 }
 
@@ -344,7 +380,7 @@ ${cardLines(ground)}
     const out = await runModel(env, [{role:'system', content:'你是陀螺王国的融合博士，回答小学生关于陀螺和科学的问题。中文，短句，准确，有趣。只输出 JSON。'}, {role:'user', content:user}], 600, 'ask');
     if (!out.answer) throw new Error('no answer');
     const ids = (Array.isArray(out.cards)?out.cards:[]).filter(id=>getCard(id)).slice(0,2);
-    return json({answer:String(out.answer).slice(0,140), cards:ids.map(id=>{const c=getCard(id);return {id,title:c.title,body:c.body,layer:c.layer};})});
+    return json({via:out.__via, aiNote:out.__note||undefined, answer:String(out.answer).slice(0,140), cards:ids.map(id=>{const c=getCard(id);return {id,title:c.title,body:c.body,layer:c.layer};})});
   } catch (e) {
     return json({...templateAsk(question), error:String(e.message||e)});
   }
@@ -352,6 +388,13 @@ ${cardLines(ground)}
 
 export async function handle(request, env) {
   const path = new URL(request.url).pathname;
+  // GET /api/ai/providers — live check of the Claude path (e.g. after loading AI Gateway credits).
+  if (request.method==='GET' && path.endsWith('/providers')) {
+    const t = Date.now(); let claude;
+    try { const text = await callCfClaude(env, {system:'Reply with JSON only.', user:'{"ok":true}', maxTokens:20, model:modelFor(env,'ask')}, 12000); claude = {ok:true, sample:text.slice(0,80)}; }
+    catch (e) { claude = {ok:false, error:String(e.message||e).slice(0,300)}; }
+    return json({smart:modelFor(env,'fusion'), fast:modelFor(env,'ask'), gateway:env?.AI_GATEWAY_ID || 'default', claude, ms:Date.now()-t, workersAI:Boolean(env?.AI), extras:{vercel:Boolean(env?.AI_GATEWAY_API_KEY), anthropic:Boolean(env?.ANTHROPIC_API_KEY)}});
+  }
   if (request.method!=='POST') return json({error:'POST only'}, 405);
   let body; try { body = await request.json(); } catch { return json({error:'bad json'}, 400); }
   if (!env?.AI && !hasClaude(env)) {

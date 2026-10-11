@@ -1,14 +1,16 @@
-import {useState} from 'react';
-import {VARIABLES,TRIALS,EXP_MAX_TIME,runExperiment} from '../game/experiment.js';
+import {useState,useMemo} from 'react';
+import {TRIALS,EXP_MAX_TIME,runExperiment} from '../game/experiment.js';
 import * as ai from '../ai/client.js';
 import {getCard} from '../knowledge/cards.js';
 import {KnowledgeChip} from '../knowledge/KnowledgeCard.jsx';
 import {DoctorFace} from '../ui/MapScreen.jsx';
 import {FINISH_ZH} from '../game/story.js';
+import Workbench from './Workbench.jsx';
+import DualReplay from './DualReplay.jsx';
 import './lab.css';
 
 const PRED=[{id:'more',label:'会更好 👍'},{id:'less',label:'会更差 👎'},{id:'same',label:'差不多 🤔'}];
-const fmtVal=(key,v)=>VARIABLES[key].options.find(o=>o.value===v)?.label??String(v);
+
 
 function localReview({variable,prediction,stats,verdict}){
   const {A,B}=stats;
@@ -22,19 +24,17 @@ function localReview({variable,prediction,stats,verdict}){
 }
 
 export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,onUnlock}){
-  const [key,setKey]=useState(suggest?.key||'bit');
-  const cur=VARIABLES[key].launch?Math.round(launches[0].rpm/100)*100:VARIABLES[key].get(mine);
-  const opts=VARIABLES[key].options.filter(o=>o.value!==cur);
-  const [value,setValue]=useState(suggest?.value??opts[0]?.value);
+  const [change,setChange]=useState(null);
   const [pred,setPred]=useState(null);
   const [phase,setPhase]=useState('setup'); // setup | running | done
   const [progress,setProgress]=useState(0);
   const [res,setRes]=useState(null);
   const [review,setReview]=useState(null);
-  const pickKey=k=>{setKey(k);const c=VARIABLES[k].launch?Math.round(launches[0].rpm/100)*100:VARIABLES[k].get(mine);setValue(VARIABLES[k].options.find(o=>o.value!==c)?.value);};
-  const variable={key,label:VARIABLES[key].label,from:VARIABLES[key].launch?`${cur.toLocaleString()} rpm`:fmtVal(key,cur),to:fmtVal(key,value)};
+  const key=change?.key, value=change?.to;
+  const variable=change?{key,label:change.label,from:change.fromLabel,to:change.toLabel}:{key:null,label:'（还没选）',from:'—',to:'—'};
 
   const run=async()=>{
+    if(!change)return;
     setPhase('running');setProgress(0);setReview(null);
     const r=await runExperiment({mine,opp,launches,key,value,onProgress:setProgress});
     setRes(r);setPhase('done');
@@ -53,15 +53,11 @@ export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,
     <div className="lab">
       <div className="lab-head"><span className="h-display h-yellow" style={{fontSize:28}}>🔬 科学实验室</span><span className="lab-sub">只改一个变量 · 做 {TRIALS} 次对照 · 看证据</span></div>
       {phase==='setup'&&<div className="lab-grid">
-        <div className="panel lab-step">
-          <div className="lab-n">1</div><div className="prep-h">想改哪一个？</div>
-          <div className="row wrap" style={{gap:8}}>{Object.entries(VARIABLES).map(([k,v])=><button key={k} className={`chip ${key===k?'on':''}`} onClick={()=>pickKey(k)}>{v.label}</button>)}</div>
-          <div className="row wrap mt" style={{gap:8,alignItems:'center'}}>
-            <span className="lab-from">{variable.from}</span><b>→</b>
-            {opts.map(o=><button key={o.value} className={`chip ${value===o.value?'on':''}`} onClick={()=>setValue(o.value)}>{o.label}</button>)}
-          </div>
+        <div className="panel lab-step lab-bench">
+          <div className="lab-n">1</div><div className="prep-h">动手改装：只改一个地方</div>
+          <Workbench base={mine} onChange={(v,c)=>setChange(c)}/>
           <table className="lab-ctrl mt"><tbody>
-            <tr><th>🔀 改变（自变量）</th><td><b>{variable.label}</b>：{variable.from} → {variable.to}</td></tr>
+            <tr><th>🔀 改变（自变量）</th><td>{change?<><b>{variable.label}</b>：{variable.from} → {variable.to}</>:<span className="muted">在工作台上改一个零件</span>}</td></tr>
             <tr><th>🔒 保持不变（控制变量）</th><td>对手 {names[1]}、发射角度和速度、其他零件、物理模型</td></tr>
             <tr><th>📏 测量什么</th><td>赢了几次、第 3 秒还剩多少转速</td></tr>
           </tbody></table>
@@ -70,7 +66,7 @@ export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,
           <div className="lab-n">2</div><div className="prep-h">先预测：改了以后会怎样？</div>
           <div className="col" style={{gap:8}}>{PRED.map(p=><button key={p.id} className={`btn small ${pred===p.id?'primary':''}`} style={{justifyContent:'flex-start'}} onClick={()=>setPred(p.id)}>{p.label}</button>)}</div>
           <div className="muted" style={{fontSize:12,marginTop:8}}>科学家总是先写下猜想，再用实验检验。猜对有 🪙 +20。</div>
-          <button className="btn primary big mt" onClick={run} disabled={value==null}>开始实验 ▶</button>
+          <button className="btn primary big mt" onClick={run} disabled={!change}>{change?'开始实验 ▶':'先在工作台上改一个零件'}</button>
         </div>
       </div>}
       {phase==='running'&&<div className="panel lab-running">
@@ -81,18 +77,24 @@ export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,
           <div className="muted" style={{fontSize:12}}>每一对比赛的发射条件完全一样，只有「{variable.label}」不同（每场最多 {EXP_MAX_TIME} 秒）</div>
         </div>
       </div>}
-      {phase==='done'&&res&&<Results res={res} review={review} variable={variable} names={names} pred={pred} onAgain={()=>{setPhase('setup');setPred(null);}}/>}
+      {phase==='done'&&res&&<Results res={res} review={review} variable={variable} names={names} pred={pred} mine={mine} opp={opp} onAgain={()=>{setPhase('setup');setPred(null);setChange(null);}}/>}
     </div>
   );
 }
 
-function Results({res,review,variable,names,pred,onAgain}){
+function Results({res,review,variable,names,pred,mine,opp,onAgain}){
   const {stats,trials,verdict}=res;
+  const beysA=useMemo(()=>[mine,opp],[mine,opp]), beysB=useMemo(()=>[res.variantBey,opp],[res.variantBey,opp]);
+  const fullA=trials[0]?.A?.full, fullB=trials[0]?.B?.full;
   const card=review?.cardId&&getCard(review.cardId);
   const winner=verdict==='B更好'?'B':verdict==='A更好'?'A':null;
   return (
     <div className="lab-results slidein">
       <div className="lab-verdict"><span className="sfx" style={{fontSize:44}}>{verdict==='B更好'?'改装版胜出！':verdict==='A更好'?'原版更强！':'差不多！'}</span></div>
+      {fullA&&fullB&&<div className="lab-dual">
+        <div className="prep-h lab-dual-h">同一个发射，两种陀螺 <small>A：{variable.from} · B：{variable.to} · 第 1 次实验</small></div>
+        <DualReplay beysA={beysA} beysB={beysB} fullA={fullA} fullB={fullB}/>
+      </div>}
       <div className="lab-grid">
         <div className="panel lab-step">
           <table className="lab-table">
