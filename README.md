@@ -58,11 +58,13 @@ Supabase
 pnpm install --registry=https://registry.npmjs.org
 pnpm worker:dev     # Cloudflare Worker（AI + 联机），127.0.0.1:8787
 pnpm dev            # 前端，http://127.0.0.1:5173（/api 和 /ws 会代理到 8787）
-pnpm test           # 物理测试：确定性、有限值、参数夹取、惯量单调性
+pnpm test           # 单元测试：物理/Worker、存档同步、联机、AI、复盘、异步任务/录音清理、融合选材
 pnpm deploy         # 构建并部署到 Cloudflare
 ```
 
 调平衡用的脚本：`node scripts/balance.mjs dragoon charge 3`、`node scripts/run-battle.mjs dragoon fish`。
+
+单元测试使用 Node 自带的测试运行器，云存档、Durable Object 存储、WebSocket 和计时器均在本地隔离，不需要登录或 AI API Key。`scripts/room-smoke.mjs`、`scripts/room-sync.proto.mjs` 和 `scripts/ai-test.mjs` 是另行运行的服务集成检查，不包含在 `pnpm test` 中。
 
 ## 目录
 

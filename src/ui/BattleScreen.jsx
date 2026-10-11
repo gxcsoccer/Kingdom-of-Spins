@@ -4,6 +4,8 @@ import {useGame,bladerById} from '../game/store.js';
 import {BEYS} from '../game/beys.js';
 import {WIN_ROUNDS,FINISH_LABEL,FINISH_ZH} from '../game/story.js';
 import {createBattle} from '../game/battlePlayer.js';
+import {useTaskScope} from '../game/useTaskScope.js';
+import {resultCacheKey} from '../game/resultCache.js';
 import {commentary} from '../ai/client.js';
 import {getCard} from '../knowledge/cards.js';
 import {KnowledgeChip} from '../knowledge/KnowledgeCard.jsx';
@@ -22,9 +24,10 @@ import * as sfx from '../game/sfx.js';
 import {STYLES,cpuLaunch,playerLaunch} from '../game/launch.js';
 export {STYLES,cpuLaunch,playerLaunch};
 
-export const RESULT_KEY=()=>`kos-result:${location.pathname}${location.search}`;
+export const RESULT_KEY=()=>resultCacheKey(useGame.getState().saveKey,location.pathname,location.search);
 export const clearSavedResult=(key=RESULT_KEY())=>{try{sessionStorage.removeItem(key);}catch{}};
 export default function BattleScreen(){
+  const tasks=useTaskScope();
   const {save,params,go,recordMatch,unlockCards,recruit,addCoins}=useGame();
   const blader=params.bladerId?bladerById(params.bladerId):null;
   const opp=useMemo(()=>blader?{name:blader.name,bey:blader.bey,launch:blader.launch,color:blader.color,blader}:(()=>{const look=params.oppLook?bladerById(params.oppLook):null; // optional cosmetic opponent (versus mode: a defeated blader's portrait/taunt, no story effects)
@@ -74,6 +77,7 @@ export default function BattleScreen(){
     const p=createBattle({beys:[myBey,opp.bey],launches});
     p.meta={round,launches,beyName:beyTitle(myBey),bey:myBey,pilot:mate?{id:mate.id,name:mate.name}:null,experiment:!!experiment};
     p.onEvent(e=>{if(e.type==='collision')sfx.clang(e.intensity);if(e.type==='dash')sfx.whoosh();if(e.type==='finish'){sfx.spinHum(false);sfx.fanfare(e.winner===0);}});
+    p.onError(()=>{sfx.spinHum(false);setPhase('error');});
     setPlayer(p);setPaused(false);setSpeed(1);p.start();sfx.spinHum(true);setPhase('fight');
   };
 
@@ -86,7 +90,7 @@ export default function BattleScreen(){
       setScore(next);
       setRounds(r=>[...r,{...player.meta,result:res,summary:player.summary,samples:player.samples,events:player.events}]);
       // advance after 2.6 s of *unpaused* time
-      let left=2600;const step=()=>{if(!pauseRef.current)left-=100;if(left<=0)setPhase(next[0]>=target||next[1]>=target?'result':'roundEnd');else setTimeout(step,100);};setTimeout(step,100);
+      let left=2600;const step=()=>{if(!pauseRef.current)left-=100;if(left<=0)setPhase(next[0]>=target||next[1]>=target?'result':'roundEnd');else tasks.schedule(step,100);};tasks.schedule(step,100);
       return;}raf=requestAnimationFrame(tick);};
     raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf);
   },[phase,player]);// eslint-disable-line
@@ -109,6 +113,9 @@ export default function BattleScreen(){
     else if(p.from&&p.from!=='battle')go(p.from);
     else go(blader?'map':'versus');
   };
+
+  if(!myBey)return <div className="page"><div className="panel"><p>先选一只陀螺，再来挑战吧！</p><button className="btn primary" onClick={()=>go('starter')}>选择初始陀螺</button></div></div>;
+  if(phase==='error')return <div className="page"><div className="panel"><p>对战暂时没能启动，请再试一次</p><button className="btn primary" onClick={()=>{player?.dispose();setPlayer(null);setPhase(rounds.length?'roundEnd':'prep');}}>重新发射</button><button className="btn" onClick={exitBattle}>返回</button></div></div>;
 
   return (
     <div className="page dark battle-page">

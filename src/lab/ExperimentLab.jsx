@@ -1,5 +1,6 @@
 import {useState,useMemo,useEffect,useRef,Component} from 'react';
 import {TRIALS,EXP_MAX_TIME,runExperiment} from '../game/experiment.js';
+import {useTaskScope} from '../game/useTaskScope.js';
 import * as ai from '../ai/client.js';
 import {getCard} from '../knowledge/cards.js';
 import {KnowledgeChip} from '../knowledge/KnowledgeCard.jsx';
@@ -40,6 +41,7 @@ class LabBoundary extends Component{
 }
 export default function ExperimentLab(props){return <LabBoundary><ExperimentLabInner {...props}/></LabBoundary>;}
 function ExperimentLabInner({mine,opp,launches,names,suggest,onReward,onUnlock}){
+  const tasks=useTaskScope();
   const [varKey,setVarKey]=useState(null); // null = step ① (ask)
   const [change,setChange]=useState(null);
   const [pred,setPred]=useState(null);
@@ -55,21 +57,27 @@ function ExperimentLabInner({mine,opp,launches,names,suggest,onReward,onUnlock})
 
   const run=async(n=TRIALS)=>{
     if(!change)return;
+    const current=tasks.begin();
     setPhase('running');setProgress(0);setReview(null);setLive({A:[],B:[],n});
-    const onTrial=t=>setLive(l=>{const arr=[...l[t.arm]];arr[t.k]=t;return {...l,[t.arm]:arr};});
-    const r=await runExperiment({mine,opp,launches,key,value,onProgress:setProgress,onTrial,trials:n});
+    try{
+    const onTrial=t=>{if(current())setLive(l=>{const arr=[...l[t.arm]];arr[t.k]=t;return {...l,[t.arm]:arr};});};
+    const r=await runExperiment({mine,opp,launches,key,value,onProgress:p=>{if(current())setProgress(p);},onTrial,trials:n});
+    if(!current())return;
     await new Promise(ok=>setTimeout(ok,900)); // let the last cards stamp before switching
+    if(!current())return;
     setRes(r);setPhase('done');
     const payload={names,variable,prediction:pred,metric:{label:'胜场 / 第 3 秒转速',unit:'rpm'},stats:r.stats,verdict:r.verdict,
       trials:r.trials.map(t=>({A:{winner:t.A.result.winner,reason:t.A.result.reason,time:t.A.result.time,rpm3:Math.round(t.A.rpm3[0])},B:{winner:t.B.result.winner,reason:t.B.result.reason,time:t.B.result.time,rpm3:Math.round(t.B.rpm3[0])}}))};
     let rv=null;
     try{rv=ai.experiment?await ai.experiment(payload):null;}catch{}
+    if(!current())return;
     rv={...localReview({variable,prediction:pred,stats:r.stats,verdict:r.verdict}),...(rv||{}),verdict:r.verdict};
     rv={...rv,predictionFeedback:`${rv.predictionFeedback||''}　🔬 完成观察 🪙 +15`};
     setReview(rv);
     // 完成观察就有奖励：鼓励认真做实验，而不是只奖励猜对。
     onReward?.(15);
     if(rv.cardId)onUnlock?.([rv.cardId]);
+    }catch{if(current())setPhase('error');}
   };
   const stepN=phase!=='setup'?3:varKey?2:1;
   const chips=<div className="lab-chips">
@@ -104,6 +112,7 @@ function ExperimentLabInner({mine,opp,launches,names,suggest,onReward,onUnlock})
         <div className="lab-live-h"><DoctorFace mood="thinking" size={52}/><div><b>实验中…同时跑 {live.n} 场原版 + {live.n} 场改装版</b><small>每一对比赛的发射条件完全一样，只有「{variable.label}」不同</small></div></div>
         <LiveTrials n={live.n} live={live} labels={[variable.from,variable.to]}/>
       </div>}
+      {phase==='error'&&<div className="lab-body"><div className="lab-side"><b>实验暂时没跑完，请再试一次</b><button className="lab-run" onClick={()=>setPhase('setup')}>返回实验设置</button></div></div>}
       {phase==='done'&&res&&<Results res={res} review={review} variable={variable} change={change} names={names} pred={pred} mine={mine} opp={opp} onMore={()=>run(5)} onAgain={()=>{setPhase('setup');setPred(null);setChange(null);setVarKey(null);}}/>}
     </div>
   );

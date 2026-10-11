@@ -1,4 +1,5 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
+import {useTaskScope} from '../game/useTaskScope.js';
 import {bookArt} from './chapters.js';
 import {EXPERIMENTS} from './experiments.jsx';
 import {flipImage, flipTap, markTap} from './api.js';   // flipImage: only for missing main-page art
@@ -126,6 +127,7 @@ function Magnifier({src, x, y, spots=[], onTap, busy, tapMark}) {
 
 /** 一章科学绘本：<ChapterBook chapter onClose onUnlock/>. 6-page arc + optional curiosity branches. */
 export default function ChapterBook({chapter, onClose, onUnlock}) {
+  const tasks = useTaskScope();
   const [n, setN] = useState(0);
   const [dir, setDir] = useState(1);
   const [guess, setGuess] = useState(null);
@@ -156,21 +158,26 @@ export default function ChapterBook({chapter, onClose, onUnlock}) {
   useEffect(()=>{ const onKey = e => { if (e.key==='Escape') onClose?.(); if (branch) return; if (e.key==='ArrowRight' && canNext) go(n+1); if (e.key==='ArrowLeft') go(n-1); };
     window.addEventListener('keydown', onKey); return ()=>window.removeEventListener('keydown', onKey); });
   const canNext = n < chapter.pages.length-1 && !(page.kind==='hook' && guess==null) && !(page.kind==='quiz' && quizAns==null);
-  const go = i => { if (i<0 || i>=chapter.pages.length) return; setDir(i>n?1:-1); setN(i); setBranch(null); stopSpeaking(); if (chapter.pages[i].kind==='wrap') { onUnlock?.(chapter.cards); try { const b = JSON.parse(localStorage.getItem('kos.badges')||'[]'); if (!b.includes(chapter.id)) localStorage.setItem('kos.badges', JSON.stringify([...b, chapter.id])); } catch {} } };
+  const leaveBranch = () => { tasks.cancel(); setBusy(false); setTapMark(null); setBranch(null); stopSpeaking(); };
+  const go = i => { if (i<0 || i>=chapter.pages.length) return; leaveBranch(); setDir(i>n?1:-1); setN(i); if (chapter.pages[i].kind==='wrap') { onUnlock?.(chapter.cards); try { const b = JSON.parse(localStorage.getItem('kos.badges')||'[]'); if (!b.includes(chapter.id)) localStorage.setItem('kos.badges', JSON.stringify([...b, chapter.id])); } catch {} } };
   const slim = spots => (spots||[]).map(({x, y, label, cardId})=>({x, y, label, cardId}));
   async function tapToBranch(x, y, src, spots) {   // main page → branch level 1
     if (busy) return;
+    const current = tasks.begin();
     setBusy(true); setTapMark({x, y});
     const r = await flipTap({chapter:chInfo, page:{title:page.title, text:page.text}, imageDataUrl: await markTap(src, x, y).catch(()=>null), x, y, spots:slim(spots), exclude:[]});
+    if (!current()) return;
     setBranch({src, spots:slim(spots), levels:[{page:r.page, x, y}]});
     if (r.page.cardId) onUnlock?.([r.page.cardId]);
     setBusy(false); setTapMark(null);
   }
   async function tapDeeper(x, y) {   // level 1 (zoomed main picture, coords in main-picture space) → level 2, a different card
     if (busy || !canDeeper) return;
+    const current = tasks.begin();
     setBusy(true); setTapMark({x, y});
     const r = await flipTap({chapter:chInfo, page:{title:page.title, text:page.text}, imageDataUrl: await markTap(branch.src, x, y).catch(()=>null), x, y, spots:deeperSpots, exclude:used});
-    setBranch(b=>({...b, levels:[...b.levels, {page:r.page, x, y}]}));
+    if (!current()) return;
+    setBranch(b=>b ? {...b, levels:[...b.levels, {page:r.page, x, y}]} : b);
     if (r.page.cardId) onUnlock?.([r.page.cardId]);
     setBusy(false); setTapMark(null);
   }
@@ -215,7 +222,7 @@ export default function ChapterBook({chapter, onClose, onUnlock}) {
             {bp && (bp.cardId && getCard(bp.cardId)) && <div className="cb-cardref">🔬 本章知识卡：{getCard(bp.cardId).title}</div>}
             {bp && canDeeper && <div className="cb-hint">👆 在放大的画里再点一个，还能再挖一层（最后一层）</div>}
             {bp && <div className="cb-branch-nav">
-              <button className="btn primary big" onClick={()=>{ stopSpeaking(); setBranch(null); }}>↩ 回到主线</button>
+              <button className="btn primary big" onClick={leaveBranch}>↩ 回到主线</button>
               {!bp.offTopic && n < chapter.pages.length-1 && <button className="btn big" onClick={()=>go(n+1)}>📖 这一章还讲了什么</button>}
             </div>}
             {!bp && page.kind==='wrap' && <div className="cb-end"><button className="btn" onClick={()=>{ setGuess(null); setQuizAns(null); setExpDone(false); go(0); }}>📖 再读一遍</button><button className="btn primary" onClick={onClose}>回游戏 ▶</button></div>}

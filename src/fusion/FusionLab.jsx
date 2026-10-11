@@ -1,4 +1,6 @@
 import {useEffect, useRef, useState} from 'react';
+import {useTaskScope} from '../game/useTaskScope.js';
+import {selectionKey, selectedParents, toggleParent} from './selection.js';
 import {fusionChat, ask, sketch as sketchApi, fileToDataUrl} from '../ai/client.js';
 import {speak, stopSpeaking, ttsSupported, useMic} from './voice.js';
 import {fusionName, keptParts} from '../ai/fallback.js';
@@ -95,6 +97,7 @@ function CandidateCard({bey, parents, onPick, renderBey}) {
  *        onUnlock?(cardIds) when knowledge cards are revealed; opponents? [Bey] for the prediction step.
  */
 export default function FusionLab({collection=[], onSave, onClose, renderBey, onUnlock, opponents, onPlay, onViewCollection}) {
+  const tasks = useTaskScope();
   const [step, setStep] = useState('pick');
   const [picked, setPicked] = useState([]);
   const [keep, setKeep] = useState(0);
@@ -110,7 +113,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
   const fileRef = useRef(null);
   const mic = useMic({onInterim:t=>setInput(t), onFinal:t=>send(t)});
   const logEnd = useRef(null);
-  const parents = picked.map(id=>collection.find(b=>b.id===id)).filter(Boolean);
+  const parents = selectedParents(collection, picked);
   const kept = parents.length===2 ? keptParts(parents, keep) : null;
   const name = parents.length===2 ? fusionName(parents[0], parents[1]) : '';
   const rival = opponents?.[0] || parents[1] || null;
@@ -143,17 +146,21 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
   }, [step]);// eslint-disable-line
   async function runSketch() {
     if (!sk.img || sk.busy) return;
+    const current = tasks.ticket();
     setSk(s=>({...s, busy:true, msg:'', result:null}));
     const base = collection[sk.keep];
     const r = await sketchApi({imageDataUrl:sk.img, wish:sk.wish, keepParts: base ? {ratchet:base.ratchet, bit:base.bit} : null});
+    if (!current()) return;
     if (r.bey) { setSk(s=>({...s, busy:false, result:r.bey})); if (voiceOn) speak(`${r.bey.why||''} 必杀技，${r.bey.specialMove?.name||''}！`); onUnlock?.(r.bey.knowledge.map(k=>k.id)); }
     else setSk(s=>({...s, busy:false, msg: r.needKey ? '这个功能要用高级 AI 看画，需要家长先开启哦（在家长设置里）。现在可以先用“选两只陀螺融合”！' : '博士没看清这张画，再拍清楚一点试试？'}));
   }
 
-  const togglePick = id => setPicked(p => p.includes(id) ? p.filter(x=>x!==id) : p.length<2 ? [...p, id] : [p[1], id]);
+  const togglePick = key => setPicked(p => toggleParent(p, key));
 
   async function send(text) {
     const t = String(text||'').trim(); if (!t || busy) return;
+    const current = tasks.ticket();
+    if (!current()) return;
     setInput('');
     const history = log.map(({role, content, question})=>({role, content, question}));
     setLog(l=>[...l, {role:'user', content:t}]);
@@ -161,19 +168,21 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
     try {
       if (isQuestion(t) && candidates.length) {
         const r = await ask(t, `正在融合 ${parents.map(p=>p.name).join(' + ')}`);
+        if (!current()) return;
         setLog(l=>[...l, {role:'assistant', content:r.answer, cards:r.cards}]);
         onUnlock?.(r.cards.map(c=>c.id));
         return;
       }
       const wish = [...log.filter(m=>m.role==='user').map(m=>m.content), t].join('；');
       const r = await fusionChat({parents, wish, history, keepParent:keep});
+      if (!current()) return;
       if (r.question) setLog(l=>[...l, {role:'assistant', content:r.reply, question:r.question, options:r.options}]);
       else {
         setLog(l=>[...l, {role:'assistant', content:r.reply + (r.fallback ? '（博士的 AI 线路忙，先用物理公式算的方案）' : '')}]);
         setCandidates(r.candidates||[]);
         onUnlock?.([...new Set((r.candidates||[]).flatMap(c=>c.knowledge.map(k=>k.id)))]);
       }
-    } finally { setBusy(false); }
+    } finally { if (current()) setBusy(false); }
   }
 
   function startChat() {
@@ -213,9 +222,9 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
           </div>
           <div className="pick-grid mt2">
             {collection.map(b=>{
-              const idx = picked.indexOf(b.id);
+              const key = selectionKey(b), idx = picked.indexOf(key);
               return (
-                <button key={b.id} className={`panel pick ${idx>=0?'on':''}`} onClick={()=>togglePick(b.id)}>
+                <button key={key} className={`panel pick ${idx>=0?'on':''}`} onClick={()=>togglePick(key)}>
                   {idx>=0 && <span className="pick-n">{idx===0?'A':'B'}</span>}
                   {renderBey ? renderBey(b, 120) : <BeyArt bey={b} size={120}/>}
                   <div className="panel-title" style={{fontSize:18}}>{beyTitle(b)}</div>

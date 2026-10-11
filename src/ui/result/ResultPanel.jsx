@@ -7,6 +7,8 @@ import * as aiClient from '../../ai/client.js';
 import {getCard} from '../../knowledge/cards.js';
 import {KnowledgeChip} from '../../knowledge/KnowledgeCard.jsx';
 import {findMoments} from '../../game/moments.js';
+import {createMomentPlayback} from '../../game/momentPlayback.js';
+import {useTaskScope} from '../../game/useTaskScope.js';
 import {openFlipbook} from '../../flipbook/store.js';
 import {momentCard} from '../../ai/fallback.js';
 import {freshQuiz, markSeen} from '../../knowledge/quizSeen.js';
@@ -55,6 +57,7 @@ function useBoxHeight(){
 }
 
 export default function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins,restored}){
+  const tasks=useTaskScope();
   const [aiBy,setAiBy]=useState({});       // AI review per round index
   const [recruitOpen,setRecruitOpen]=useState(false);
   const [recruited,setRecruited]=useState(false);
@@ -87,7 +90,8 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
     if(aiBy[ri]!==undefined)return;
     setAiBy(m=>({...m,[ri]:null}));
     const req=aiClient.moments?aiClient.moments({summary:focus.summary,moments,names}):commentary(focus.summary,names);
-    Promise.resolve(req).then(r=>{setAiBy(m=>({...m,[ri]:r||{}}));const ids=(r?.moments||[]).map(m=>m.cardId).concat(r?.science?.cardId||[]).filter(Boolean);if(ids.length)unlockCards(ids);}).catch(()=>setAiBy(m=>({...m,[ri]:{}})));
+    const current=tasks.ticket();
+    Promise.resolve(req).then(r=>{if(!current())return;setAiBy(m=>({...m,[ri]:r||{}}));const ids=(r?.moments||[]).map(m=>m.cardId).concat(r?.science?.cardId||[]).filter(Boolean);if(ids.length)unlockCards(ids);}).catch(()=>{if(current())setAiBy(m=>({...m,[ri]:{}}));});
   },[ri]);// eslint-disable-line
   const goPage=useCallback(n=>{setPage(p=>{const q=Math.max(0,Math.min(PAGES.length-1,typeof n==='function'?n(p):n));setDir(q>=p?1:-1);return q;});},[]);
   useEffect(()=>{
@@ -200,11 +204,13 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
   const [cursor,setCursor]=useState(null);
   const [auto,setAuto]=useState(false);
   const timers=useRef([]);
+  const sequence=useRef(null);
   const aiM=id=>(ai?.moments||[]).find(m=>m.id===id);
   // One quiz per moment, never a repeat of what this kid has already been asked (any feature).
   const quizMap=useMemo(()=>{if(!ai)return {};const o={};for(const m of moments){const concept=m.kind==='finish'&&/over|xtreme/.test(m.data?.reason||'')?'ph-momentum':momentCard(m);const q=freshQuiz(aiM(m.id)?.quiz,concept);if(q)o[m.id]=q;}return o;},[ai]);// eslint-disable-line
   useEffect(()=>{if(quizOn&&sel&&quizMap[sel])markSeen(quizMap[sel].id,quizMap[sel].alsoIds||[]);},[quizOn,sel]);// eslint-disable-line
-  const clear=()=>{timers.current.forEach(clearTimeout);timers.current=[];};
+  const clearEffects=()=>{timers.current.forEach(clearTimeout);timers.current=[];};
+  const clear=()=>{sequence.current?.stop();clearEffects();};
   useEffect(()=>()=>{clear();window.speechSynthesis?.cancel();},[]);
   // 先猜再揭晓: with an unanswered quiz the replay freezes just BEFORE the moment, the quiz shows with no
   // explanation; only after the kid answers does the slow-mo play and the explanation appear.
@@ -212,8 +218,9 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
     viewer.current?.playMoment?.(m.id);
     const line=aiM(m.id)?.dj;if(line)timers.current.push(setTimeout(()=>sfx.say(line,'zh-CN',1.2),600));
   };
-  const play=useCallback((m,{withQuiz=true}={})=>{
-    clear();setSel(m.id);setQuizOn(false);
+  const play=useCallback((m,{withQuiz=true,fromSequence=false}={})=>{
+    if(fromSequence)clearEffects();else clear();
+    setSel(m.id);setQuizOn(false);
     if(withQuiz&&quizMap[m.id]&&answers[m.id]==null){
       viewer.current?.seek?.(Math.max(0,m.time-.6));viewer.current?.pause?.();
       setQuizOn(true);return;
@@ -221,10 +228,10 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
     reveal(m);
   },[ai,answers,quizMap]);// eslint-disable-line
   const playAll=()=>{
-    if(auto){clear();setAuto(false);return;}
-    setAuto(true);clear();
-    moments.forEach((m,i)=>timers.current.push(setTimeout(()=>play(m,{withQuiz:false}),i*7600)));
-    timers.current.push(setTimeout(()=>setAuto(false),moments.length*7600));
+    if(auto){clear();return;}
+    clear();
+    sequence.current=createMomentPlayback({play:m=>play(m,{withQuiz:false,fromSequence:true}),onPlaying:setAuto});
+    sequence.current.start(moments);
   };
   const cur=moments.find(m=>m.id===sel);const curAi=cur&&aiM(cur.id);
   const answer=(m,i)=>{const q=quizMap[m.id];setAnswers(x=>({...x,[m.id]:i}));if(i===q.answer){sfx.beep(true);addCoins(5);}else sfx.beep();const c=aiM(m.id)?.cardId;if(c)unlockCards([c]);clear();reveal(m);};

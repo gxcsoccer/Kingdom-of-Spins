@@ -33,7 +33,7 @@ export function playerId() {
  */
 export function joinRoom(code, {nickname, bey, pid = playerId(), origin} = {}, handlers = {}) {
   const url = `${base({origin}).replace(/^http/, 'ws')}/ws/room/${encodeURIComponent(String(code).toUpperCase())}`;
-  let ws = null, closed = false, retries = 0, pingTimer = null, slot = -1;
+  let ws = null, closed = false, retries = 0, pingTimer = null, reconnectTimer = null, slot = -1;
   const queue = [];
   const h = name => (...args) => { try { handlers[name]?.(...args); } catch (e) { console.error(e); } };
   const onState = h('onState'), onStart = h('onStart'), onFinal = h('onFinal'), onError = h('onError'), onConnection = h('onConnection');
@@ -42,9 +42,11 @@ export function joinRoom(code, {nickname, bey, pid = playerId(), origin} = {}, h
   let offset = 0, bestRtt = Infinity, synced = false;
 
   function send(msg) {
+    if (closed) return;
     if (ws?.readyState === 1) ws.send(JSON.stringify(msg)); else queue.push(msg);
   }
   function connect() {
+    if (closed) return;
     ws = new WebSocket(url);
     ws.onopen = () => {
       retries = 0;
@@ -76,7 +78,7 @@ export function joinRoom(code, {nickname, bey, pid = playerId(), origin} = {}, h
       clearInterval(pingTimer);
       if (closed) return onConnection('closed');
       onConnection('reconnecting');
-      setTimeout(connect, Math.min(8000, 500 * 2 ** retries++));
+      reconnectTimer = setTimeout(connect, Math.min(8000, 500 * 2 ** retries++));
     };
     ws.onerror = () => {};
   }
@@ -96,6 +98,6 @@ export function joinRoom(code, {nickname, bey, pid = playerId(), origin} = {}, h
     unready() { send({type: 'unready'}); },
     sendResult({matchId, winner, reason, time}) { send({type: 'result', matchId, winner, reason, time}); },
     rematch() { send({type: 'rematch'}); },
-    leave() { closed = true; clearInterval(pingTimer); try { ws?.readyState === 1 && ws.send('{"type":"leave"}'); ws?.close(1000); } catch {} },
+    leave() { closed = true; clearTimeout(reconnectTimer); clearInterval(pingTimer); queue.length = 0; try { ws?.readyState === 1 && ws.send('{"type":"leave"}'); ws?.close(1000); } catch {} },
   };
 }

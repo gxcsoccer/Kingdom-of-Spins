@@ -126,9 +126,12 @@ export class BattleRoom extends DurableObject {
     }
     ws.serializeAttachment({slot, pid});
     await this.save();
-    await this.ctx.storage.setAlarm(Date.now() + IDLE_EXPIRE_MS);
+    await this.ctx.storage.setAlarm(r.status === 'locked' && r.match?.deadline ? r.match.deadline : Date.now() + IDLE_EXPIRE_MS);
     this.send(ws, {type: 'joined', slot, code: r.code, serverNow: Date.now()});
     this.broadcastState();
+    // The final broadcast may have happened while this player was offline.
+    // Re-send it so an existing client's round banner can finish on reconnect.
+    if (r.last) this.send(ws, {type: 'final', ...r.last, score: r.score, matchOver: r.status === 'done', champion: r.champion});
     // Re-send an in-flight match so a reconnecting client can (re)simulate it.
     if (r.status === 'locked' && r.match) this.send(ws, {type: 'start', ...startPayload(r.match)});
     else if (r.status === 'waiting' && r.go) this.send(ws, {type: 'go', ...r.go});
@@ -149,7 +152,7 @@ export class BattleRoom extends DurableObject {
     const r = this.room, m = r.match;
     if (r.status !== 'locked' || !m || msg.matchId !== m.matchId || m.results[slot]) return; // late/duplicate
     const winner = msg.winner === 0 || msg.winner === 1 ? msg.winner : null;
-    if (winner === null || !(msg.reason in POINTS)) return this.send(this.sockets().find(w => this.slotOf(w) === slot), {type: 'error', message: 'bad result'});
+    if (winner === null || !Object.hasOwn(POINTS, msg.reason)) return this.send(this.sockets().find(w => this.slotOf(w) === slot), {type: 'error', message: 'bad result'});
     m.results[slot] = {winner, reason: msg.reason, time: Number(msg.time) || 0};
     if (m.results[0] && m.results[1]) return this.finalize();
     m.deadline = Date.now() + RESULT_WAIT_MS;

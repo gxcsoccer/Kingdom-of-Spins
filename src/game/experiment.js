@@ -13,17 +13,21 @@ export const VARIABLES={
 export const TRIALS=3, EXP_MAX_TIME=20;
 
 let pool=null, seq=1;
+function makeWorker(){const w=new Worker(new URL('./battle.worker.js',import.meta.url),{type:'module'});w.postMessage({type:'warmup'});return w;}
 function getPool(){
   if(!pool){const n=Math.max(2,Math.min(4,(navigator.hardwareConcurrency||4)-1));
-    pool=Array.from({length:n},()=>{const w=new Worker(new URL('./battle.worker.js',import.meta.url),{type:'module'});w.postMessage({type:'warmup'});return {w,busy:false};});}
+    pool=Array.from({length:n},()=>({w:makeWorker(),busy:false}));}
   return pool;
 }
 function sim(job){
   return new Promise((resolve,reject)=>{
     const tryRun=()=>{const slot=getPool().find(s=>!s.busy);if(!slot)return setTimeout(tryRun,30);
-      slot.busy=true;const id=seq++;
-      const h=({data})=>{if(data.id!==id)return;slot.w.removeEventListener('message',h);slot.busy=false;data.type==='simDone'?resolve(data):reject(new Error(data.message));};
-      slot.w.addEventListener('message',h);slot.w.postMessage({type:'sim',id,...job});};
+      try{slot.w||=makeWorker();}catch(error){reject(error);return;}
+      slot.busy=true;const id=seq++,w=slot.w;
+      const cleanup=()=>{w.removeEventListener('message',h);w.removeEventListener('error',fail);slot.busy=false;};
+      const fail=event=>{cleanup();w.terminate();slot.w=null;reject(new Error(event.message||'Physics worker unavailable'));};
+      const h=({data})=>{if(data.id!==id)return;cleanup();data.type==='simDone'?resolve(data):reject(new Error(data.message));};
+      w.addEventListener('message',h);w.addEventListener('error',fail);w.postMessage({type:'sim',id,...job});};
     tryRun();
   });
 }

@@ -7,6 +7,7 @@ import {useGame} from '../../game/store.js';
 import {FINISH_LABEL,FINISH_ZH} from '../../game/story.js';
 import {createRoom,joinRoom} from '../../net/room.js';
 import {createBattle} from '../../game/battlePlayer.js';
+import {useTaskScope} from '../../game/useTaskScope.js';
 import BattleScene from '../../scene/BattleScene.jsx';
 import BeyArt from '../BeyArt.jsx';
 import {beyTitle} from '../beyName.js';
@@ -40,6 +41,7 @@ function Avatar({avatar,bey,size=96}){
 
 /** props: myBey, onExit, initialCode (from ?room= invite link), ns (storage namespace — dev harness only) */
 export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
+  const tasks=useTaskScope();
   const profile=useGame(s=>s.save.profile);
   const nickname=profile?.nickname||'玩家';
   const avatar=avatarOf(profile?.avatar);
@@ -104,10 +106,12 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
 
   function startMatch(m){
     if(matchRef.current===m.matchId)return;
+    tasks.cancel();
     matchRef.current=m.matchId;
     const p=createBattle({beys:m.beys,launches:m.launches});
     p.meta=m;
     p.onEvent(e=>{if(e.type==='collision')sfx.clang(e.intensity);if(e.type==='dash')sfx.whoosh();if(e.type==='finish'){sfx.spinHum(false);sfx.fanfare(e.winner===slotRef.current);}});
+    p.onError(()=>{tasks.cancel();sfx.spinHum(false);setPhase('error');});
     // Report as soon as the physics is done (not when playback ends) so a local pause never stalls the other kid.
     p.onDone(pl=>{const r=pl.result;api.current?.sendResult({matchId:m.matchId,winner:r.winner,reason:r.reason,time:r.time});});
     pauseRef.current=false;
@@ -115,7 +119,7 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
     const at=m.at?api.current?.toLocal(m.at)??Date.now():Date.now(), wait=Math.max(0,Math.min(3000,at-Date.now()));
     setStartAt(Date.now()+wait);
     setPlayer(p);setLaunched(false);setPhase('fight');
-    setTimeout(()=>{p.start();sfx.spinHum(true);},wait);
+    tasks.schedule(()=>{p.start();sfx.spinHum(true);},wait);
   }
 
   // Playback finished → hold 2.6 s (unpaused) on the finish banner → round banner.
@@ -150,6 +154,7 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
   const onPower=pw=>{const t=Date.now();if(t-lastPull.current>=150||pw===0){lastPull.current=t;api.current?.pull(+pw.toFixed(2));}};
 
   if(!code)return <Lobby {...{myBey,nickname,avatar,error,busy,create,join,onExit}}/>;
+  if(phase==='error')return <div className="page"><div className="panel"><p>对战暂时没能启动，请退出后重新加入房间</p><button className="btn primary" onClick={leave}>退出房间</button></div></div>;
 
   const names=[0,1].map(i=>room?.players?.[i]?.nickname||'…');
   const beys=[0,1].map(i=>room?.players?.[i]?.bey||(i===slot?myBey:myBey));

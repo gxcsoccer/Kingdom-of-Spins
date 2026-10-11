@@ -55,6 +55,6 @@ export function useMic({onInterim, onFinal}={}) {
     try { r.start(); rec.current = r; setListening(true); } catch { rec.current = null; }
   }, []);
   const stop = useCallback(()=>{ try { rec.current?.stop(); } catch {} }, []);
-  useEffect(()=>()=>{ try { rec.current?.abort(); } catch {} }, []);
+  useEffect(()=>()=>{ const r=rec.current;rec.current=null;if(r){r.onend=r.onresult=r.onerror=null;try{r.abort();}catch{}} }, []);
   return {supported: micSupported, listening, start, stop};
 }

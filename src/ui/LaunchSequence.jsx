@@ -1,4 +1,6 @@
 import {useEffect,useRef,useState,lazy,Suspense} from 'react';
+import {useTaskScope} from '../game/useTaskScope.js';
+import {createMicrophoneSession} from '../game/microphoneSession.js';
 import {beyTitle,beySub} from './beyName.js';
 import BeyArt from './BeyArt.jsx';
 import {TypeBadge} from './common.jsx';
@@ -120,11 +122,12 @@ const routeOf=L=>Math.abs(L.aim)>.6?'绕场游走':Math.abs(L.aim)>.25?'斜线�
 // Optional (online): autoFireAt = local ms when the shared launch window closes (fires with the current pull, or a medium default);
 // onPower(0..1) reports the live pull so it can be shown to the other kid.
 function Slingshot({myBey,oppBey,onLaunch,avatar,autoFireAt,onPower}){
+  const tasks=useTaskScope();
   const stateRef=useRef({pull:null,power:0,dir:null,over:false,aura:'#29b6ff',launched:null,shake:0});
   const [pull,setPull]=useState(null);
   const [launched,setLaunched]=useState(false),[cut,setCut]=useState(false);
   const [mic,setMic]=useState(false),[heard,setHeard]=useState(''),[level,setLevel]=useState(0);
-  const rec=useRef(null),audio=useRef(null),peak=useRef(0);
+  const microphone=useRef(null),peak=useRef(0);
   const L=pull?slingToLaunch(pull):null, pw=pull?Math.min(1.15,Math.hypot(pull.x,pull.y)/MAX_PULL):0;
 
   const update=pl=>{
@@ -133,17 +136,18 @@ function Slingshot({myBey,oppBey,onLaunch,avatar,autoFireAt,onPower}){
     setPull(pl);onPower?.(Math.min(1,p));
   };
   const fire=launch=>{
-    if(launched)return;
+    if(stateRef.current.launched)return;
+    microphone.current?.stop();
     setLaunched(true);chargeTone(null);
     stateRef.current.launched={t0:performance.now(),dir:launch.dir,from:[-.09,0]};stateRef.current.shake=.06;
     sfx.clang(1);sfx.whoosh();sfx.say('Go shoot!','en-US',1.25);
-    setTimeout(()=>{setCut(true);stateRef.current.shake=0;},180);
-    setTimeout(()=>onLaunch(launch),1350);
+    tasks.schedule(()=>{setCut(true);stateRef.current.shake=0;},180);
+    tasks.schedule(()=>onLaunch(launch),1350);
   };
   const onPull=pl=>{if(launched)return;chargeTone(Math.min(1.15,Math.hypot(pl.x,pl.y)/MAX_PULL));update(pl);};
   const onRelease=pl=>{if(launched)return;if(Math.hypot(pl.x,pl.y)<8){chargeTone(null);update(null);return;}fire(slingToLaunch(pl));};
 
-  useEffect(()=>()=>{rec.current?.stop();audio.current?.stop?.();chargeTone(null);},[]);
+  useEffect(()=>()=>{microphone.current?.stop();chargeTone(null);},[]);
   const fireRef=useRef(fire);fireRef.current=fire;
   useEffect(()=>{
     if(!autoFireAt)return;
@@ -151,19 +155,28 @@ function Slingshot({myBey,oppBey,onLaunch,avatar,autoFireAt,onPower}){
       fireRef.current(slingToLaunch(pl&&Math.hypot(pl.x,pl.y)>=8?pl:{x:-MAX_PULL*.6*.85,y:-MAX_PULL*.6*.45}));},Math.max(0,autoFireAt-Date.now()));
     return()=>clearTimeout(t);
   },[autoFireAt]);
-  async function toggleMic(){
-    if(mic){rec.current?.stop();audio.current?.stop?.();setMic(false);return;}
+  function toggleMic(){
+    if(microphone.current?.active){microphone.current.stop();return;}
     setMic(true);setHeard('');peak.current=0;
-    try{ // loudness meter: louder shout = faster spin
-      const stream=await navigator.mediaDevices.getUserMedia({audio:true});const ctx=new AudioContext();const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=512;src.connect(an);
-      const buf=new Uint8Array(an.fftSize);let raf;const tick=()=>{an.getByteTimeDomainData(buf);let s=0;for(const v of buf)s+=((v-128)/128)**2;const rms=Math.sqrt(s/buf.length);const lv=clamp(rms*4,0,1);peak.current=Math.max(peak.current,lv);setLevel(lv);
+    microphone.current=createMicrophoneSession({
+      getUserMedia:()=>navigator.mediaDevices.getUserMedia({audio:true}),
+      startMeter:stream=>{ // loudness meter: louder shout = faster spin
+      const ctx=new AudioContext();let raf;
+      try{
+      const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=512;src.connect(an);
+      const buf=new Uint8Array(an.fftSize);const tick=()=>{an.getByteTimeDomainData(buf);let s=0;for(const v of buf)s+=((v-128)/128)**2;const rms=Math.sqrt(s/buf.length);const lv=clamp(rms*4,0,1);peak.current=Math.max(peak.current,lv);setLevel(lv);
         // live aura from loudness
         const fake={x:-MAX_PULL*lv*.85,y:-MAX_PULL*lv*.45};if(!stateRef.current.launched)update(lv>.05?fake:null);
         raf=requestAnimationFrame(tick);};tick();
-      audio.current={stop:()=>{cancelAnimationFrame(raf);stream.getTracks().forEach(t=>t.stop());ctx.close();}};
-    }catch{}
-    rec.current=listen({lang:'en-US',onText:t=>{setHeard(t);if(/shoot|shot|shoe|chute|sure/i.test(t)){rec.current?.stop();const p=clamp(.35+peak.current*.8,.35,1);audio.current?.stop?.();setMic(false);
-      fire(slingToLaunch({x:-MAX_PULL*p*.85,y:-MAX_PULL*p*.45}));}},onEnd:()=>setMic(false)});
+      return()=>{cancelAnimationFrame(raf);ctx.close();};
+      }catch(error){cancelAnimationFrame(raf);ctx.close();throw error;}
+      },
+      listen:callbacks=>listen({lang:'en-US',...callbacks}),
+      onText:t=>{setHeard(t);if(/shoot|shot|shoe|chute|sure/i.test(t)){const p=clamp(.35+peak.current*.8,.35,1);
+        fire(slingToLaunch({x:-MAX_PULL*p*.85,y:-MAX_PULL*p*.45}));}},
+      onEnd:()=>{setMic(false);setLevel(0);},
+    });
+    void microphone.current.start();
   }
 
   return (
@@ -234,6 +247,7 @@ function TeamPicker({me,team,pilot,onPick}){
 
 // Teammate's turn: big portrait + specialty explained with physics; one tap → anime cut-in → auto launch.
 function MateLaunch({mate,myBey,oppBey,onLaunch,makeLaunch,me,team,pilot,onPick,beys,onSwitch}){
+  const tasks=useTaskScope();
   const stateRef=useRef({pull:null,power:0,dir:null,over:false,aura:'#ffd400',launched:null,shake:0});
   const [cut,setCut]=useState(false);
   const sk=SKILLS[mate.skill], syn=synergyOf(mate.blader,myBey);
@@ -242,8 +256,8 @@ function MateLaunch({mate,myBey,oppBey,onLaunch,makeLaunch,me,team,pilot,onPick,
     if(cut)return;
     const L=makeLaunch();
     setCut(true);sfx.whoosh();sfx.clang(.8);sfx.say(`${mate.name}，${sk.name}！`,'zh-CN',1.15);
-    setTimeout(()=>{stateRef.current.launched={t0:performance.now(),dir:{x:1,y:0},from:[-.09,0]};stateRef.current.shake=.06;sfx.clang(1);},1500);
-    setTimeout(()=>onLaunch(L),2300);
+    tasks.schedule(()=>{stateRef.current.launched={t0:performance.now(),dir:{x:1,y:0},from:[-.09,0]};stateRef.current.shake=.06;sfx.clang(1);},1500);
+    tasks.schedule(()=>onLaunch(L),2300);
   };
   return (
     <div className="ls-launch mate" style={{'--c':mate.color}}>

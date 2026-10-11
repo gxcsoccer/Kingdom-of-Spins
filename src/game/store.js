@@ -17,6 +17,7 @@ const copyBey=(b,extra={})=>({...structuredClone(b),uid:uid(),...extra});
 
 export const useGame=create((set,get)=>({
   saveKey:KEY,
+  slotVersion:0,
   save:loadLocal(KEY),
   ...(typeof window!=='undefined'?pathToScreen():{screen:'title',params:{}}),
   go(screen,params={},opts={}){
@@ -25,7 +26,7 @@ export const useGame=create((set,get)=>({
       if(path&&path!==location.pathname+location.search)history[opts.replace?'replaceState':'pushState']({screen,params},'',path);}
   },
   // Switch which save slot (kid profile) is active. Remote sync hooks in via onChange.
-  useSlot(key,remote){const save=remote?{...freshSave(),...remote}:loadLocal(key);set({saveKey:key,save});},
+  useSlot(key,remote){const save=remote?{...freshSave(),...remote}:loadLocal(key);set({saveKey:key,save,slotVersion:get().slotVersion+1});},
   update(fn){
     const save=structuredClone(get().save);fn(save);
     set({save});

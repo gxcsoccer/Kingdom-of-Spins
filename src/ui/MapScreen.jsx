@@ -1,5 +1,6 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {useGame,bladerById} from '../game/store.js';
+import {useTaskScope} from '../game/useTaskScope.js';
 import {BLADERS,TIERS,tierUnlocked} from '../game/story.js';
 import {REGIONS,regionUnlocked} from '../game/regions.js';
 import {BEYS} from '../game/beys.js';
@@ -199,6 +200,7 @@ function CharacterPage({b,save,onBack,onChallenge,closing}){
 }
 
 export default function MapScreen(){
+  const tasks=useTaskScope();
   const {save,go,setDemo}=useGame();
   const stage=useStage();
   const [focus,setFocus]=useState(null);   // {x,y} zoom origin (%)
@@ -218,19 +220,20 @@ export default function MapScreen(){
   const wait=ms=>reduced()?0:ms;
   const zoomTo=r=>{const [x,y]=REGION_POS[r.id].pin;setFocus({x,y});};
   const tapRegion=r=>{
-    if(r.comingSoon){zoomTo(r);setTimeout(()=>{setPicker(r);setClosing(false);},wait(520));return;}
+    tasks.cancel();
+    if(r.comingSoon){zoomTo(r);tasks.schedule(()=>{setPicker(r);setClosing(false);},wait(520));return;}
     if(locked(r))return;
     zoomTo(r);
-    setTimeout(()=>setEntering(r),wait(480));
-    setTimeout(()=>go('explore',{regionId:r.id}),wait(1350));
+    tasks.schedule(()=>setEntering(r),wait(480));
+    tasks.schedule(()=>go('explore',{regionId:r.id}),wait(1350));
   };
   const closePage=()=>{ // character page -> back to picker (volcano)
     if(reduced()){setPage(null);return;}
-    setClosing(true);setTimeout(()=>{setPage(null);setClosing(false);},480);
+    setClosing(true);tasks.schedule(()=>{setPage(null);setClosing(false);},480);
   };
   const closePicker=()=>{
     if(reduced()){setPicker(null);setFocus(null);return;}
-    setClosing(true);setTimeout(()=>{setPicker(null);setClosing(false);setFocus(null);},480);
+    setClosing(true);tasks.schedule(()=>{setPicker(null);setClosing(false);setFocus(null);},480);
   };
 
   const team=save.team.map(t=>bladerById(t.bladerId)).filter(Boolean);

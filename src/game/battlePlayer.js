@@ -1,7 +1,11 @@
 // Streams a physics battle from the worker and exposes the playback interface used by BattleScene.
 let worker, nextId=1;
 export function getWorker(){
-  if(!worker){worker=new Worker(new URL('./battle.worker.js',import.meta.url),{type:'module'});worker.postMessage({type:'warmup'});}
+  if(!worker){
+    const created=worker=new Worker(new URL('./battle.worker.js',import.meta.url),{type:'module'});
+    created.addEventListener('error',()=>{if(worker===created)worker=null;created.terminate();});
+    created.postMessage({type:'warmup'});
+  }
   return worker;
 }
 
@@ -21,6 +25,7 @@ function slerp(a,b,t){
  */
 export function createBattle({beys,launches,maxTime=20}){
   const w=getWorker(), id=nextId++;
+  let disposed=false;
   const listeners={done:[],event:[],error:[]};
   const player={beys,launches,samples:[],events:[],result:null,summary:null,done:false,error:null,
     speed:1,paused:true,clock:0,lastWall:null,slowmo:0,firedEvents:0,
@@ -52,21 +57,24 @@ export function createBattle({beys,launches,maxTime=20}){
       return {time:t,bodies:a.bodies.map((x,i)=>({p:x.p.map((v,j)=>lerp(v,b.bodies[i].p[j],k)),q:slerp(x.q,b.bodies[i].q,k),rpm:lerp(x.rpm,b.bodies[i].rpm,k),tilt:lerp(x.tilt,b.bodies[i].tilt,k)}))};
     },
     get finished(){return this.done&&this.clock>=(this.samples.at(-1)?.time??0)-1e-6;},
-    start(){this.paused=false;this.lastWall=performance.now();},
+    start(){if(disposed||this.error)return;this.paused=false;this.lastWall=performance.now();},
     setPaused(p){this.getTime();this.paused=p;},
     setSpeed(x){this.getTime();this.speed=x;},
     onDone(cb){listeners.done.push(cb);},
     onEvent(cb){listeners.event.push(cb);},
     onError(cb){listeners.error.push(cb);},
-    dispose(){w.removeEventListener('message',handler);if(!this.done)w.postMessage({type:'cancel'});},
+    dispose(){if(disposed)return;disposed=true;w.removeEventListener('message',handler);w.removeEventListener('error',onWorkerError);if(!this.done)w.postMessage({type:'cancel',id});},
   };
+  const fail=message=>{if(disposed||player.error)return;player.error=message;player.paused=true;listeners.error.forEach(cb=>cb(message));};
+  const onWorkerError=event=>fail(event.message||'Physics worker unavailable');
   const handler=({data})=>{
     if(data.id!==id)return;
     if(data.type==='chunk'){player.samples.push(...data.samples);player.events.push(...data.events);}
     if(data.type==='done'){player.result=data.result;player.summary=data.summary;player.done=true;listeners.done.forEach(cb=>cb(player));}
-    if(data.type==='error'){player.error=data.message;listeners.error.forEach(cb=>cb(data.message));}
+    if(data.type==='error')fail(data.message);
   };
   w.addEventListener('message',handler);
+  w.addEventListener('error',onWorkerError);
   w.postMessage({type:'run',id,beys,launches,maxTime});
   return player;
 }

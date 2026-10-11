@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
+import {useTaskScope} from '../game/useTaskScope.js';
 import {flipStartOnce, flipTapFree as flipTap, flipImage, markTap} from './api.js';
 import {useFlipbook} from './store.js';
 import ChapterBook from './ChapterBook.jsx';
@@ -21,6 +22,7 @@ const pageText = p => [p.title, ...p.panels.map(x=>x.text)].join('。');
  * props: start {topic?|cardId?|bey?|moment?}, onClose(), onUnlock?(cardIds)
  */
 export default function Flipbook({start, onClose, onUnlock}) {
+  const tasks = useTaskScope();
   const [pages, setPages] = useState([]);        // [{page, image, tapped}]
   const [idx, setIdx] = useState(0);
   const [busy, setBusy] = useState(true);
@@ -43,8 +45,9 @@ export default function Flipbook({start, onClose, onUnlock}) {
 
   // First page.
   useEffect(()=>{
+    const current = tasks.begin();
     alive.current = true; setPages([]); setIdx(0); setBusy(true); prefetch.current.clear();
-    flipStartOnce(start||{}).then(page=>{ if (alive.current) { addPage(page, '', 0); setBusy(false); } });
+    flipStartOnce(start||{}).then(page=>{ if (current()) { addPage(page, '', 0); setBusy(false); } });
     return ()=>{ alive.current = false; stopSpeaking(); };
   }, [startKey]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -66,6 +69,7 @@ export default function Flipbook({start, onClose, onUnlock}) {
 
   async function onImageTap(e) {
     if (busy || !cur) return;
+    const current = tasks.ticket();
     const r = e.currentTarget.getBoundingClientRect();
     const x = Math.max(0, Math.min(1, (e.clientX - r.left)/r.width)), y = Math.max(0, Math.min(1, (e.clientY - r.top)/r.height));
     setTap({x, y}); setBusy(true); stopSpeaking();
@@ -74,7 +78,7 @@ export default function Flipbook({start, onClose, onUnlock}) {
     let res;
     if (pre && Math.hypot(pre.hs.x-x, pre.hs.y-y) < .1) res = await pre.promise;
     else res = await flipTap({page, imageDataUrl: await markTap(cur.image, x, y).catch(()=>null), x, y, trail});
-    if (!alive.current) return;
+    if (!current()) return;
     addPage(res.page, res.tapped, at);
     setTap(null); setBusy(false);
   }
