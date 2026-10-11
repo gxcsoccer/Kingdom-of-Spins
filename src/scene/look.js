@@ -3,15 +3,15 @@
 // so the art never contradicts the collision hull.
 import { wingOutline } from '../physics/model.js';
 
-export const SHAPES = ['blade', 'claw', 'fang', 'wing', 'flame', 'shield'];
+export const SHAPES = ['blade', 'claw', 'fang', 'wing', 'flame', 'shield', 'horn', 'shuriken'];
 export const FINISHES = ['toon', 'metal', 'crystal', 'neon'];
-export const EMBLEMS = ['dragon', 'wolf', 'eagle', 'shark', 'tiger', 'phoenix', 'lightning', 'flame', 'star', 'wave', 'mountain', 'letter'];
+export const EMBLEMS = ['dragon', 'wolf', 'eagle', 'shark', 'tiger', 'phoenix', 'lightning', 'flame', 'star', 'wave', 'mountain', 'fish', 'ram', 'shuriken', 'mask', 'letter'];
 export const PATTERNS = ['none', 'stripes', 'flames', 'bolts', 'dots'];
 
 export const LOOK_ZH = {
-  shape: { blade: '利刃', claw: '龙爪刃', fang: '獠牙刃', wing: '后掠翼', flame: '火舌刃', shield: '圆盾刃' },
+  shape: { blade: '利刃', claw: '龙爪刃', fang: '獠牙刃', wing: '后掠翼', flame: '火舌刃', shield: '圆盾刃', horn: '羊角刃', shuriken: '手里剑' },
   finish: { toon: '漫画涂装', metal: '金属', crystal: '水晶', neon: '霓虹' },
-  emblem: { dragon: '龙', wolf: '狼', eagle: '鹰', shark: '鲨', tiger: '虎', phoenix: '凤凰', lightning: '闪电', flame: '火焰', star: '星', wave: '海浪', mountain: '山', letter: '字母' },
+  emblem: { dragon: '龙', wolf: '狼', eagle: '鹰', shark: '鲨', tiger: '虎', phoenix: '凤凰', lightning: '闪电', flame: '火焰', star: '星', wave: '海浪', mountain: '山', fish: '鱼', ram: '山羊', shuriken: '手里剑', mask: '巨人', letter: '字母' },
   pattern: { none: '', stripes: '条纹', flames: '火焰纹', bolts: '闪电纹', dots: '圆点纹' },
 };
 
@@ -22,6 +22,7 @@ export function normLook(look) {
     finish: FINISHES.includes(look.finish) ? look.finish : 'toon',
     emblem: EMBLEMS.includes(look.emblem) ? look.emblem : 'letter',
     pattern: PATTERNS.includes(look.pattern) ? look.pattern : 'none',
+    trim: ['silver', 'accent', 'gold'].includes(look.trim) ? look.trim : null, // accent-plate colour override (catalog art)
   };
 }
 
@@ -41,7 +42,7 @@ export function visualOutline(spec, i, shape = 'blade') {
   if (!shape || shape === 'blade') return wingOutline(spec, i);
   const n = spec.wings, h = { 2: .78, 3: .56, 4: .42 }[n] || .56, R = spec.reach, a0 = i * 2 * Math.PI / n;
   let pts;
-  if (shape === 'claw') pts = [[RIN, -h], [R * .82, -h * .95], [R * .98, -h * .35], [R, h * .25], [R * .94, h * .8], [R * .84, h * 1.12], [R * .8, h * .62], [R * .64, h * .55], [RIN, h * .85]];
+  if (shape === 'claw') pts = [[RIN, -h * .9], [R * .7, -h * .8], [R * .94, -h * .3], [R, h * .35], [R * .97, h * 1.05], [R * .9, h * 1.5], [R * .84, h * .95], [R * .76, h * .45], [R * .58, h * .15], [RIN, h * .2]]; // hooked crescent
   else if (shape === 'fang') pts = [[RIN, -h], [R * .7, -h * .9], [R * .86, -h * .55], [R * .72, -h * .2], [R, h * .45], [R * .66, h * .78], [RIN, h]];
   else if (shape === 'wing') pts = [[RIN, -h * .4], [R * .62, -h * 1.15], [R, -h * 1.45], [R * .9, -h * .7], [R * .86, h * .05], [R * .7, h * .6], [RIN, h * .9]];
   else if (shape === 'flame') {
@@ -53,6 +54,10 @@ export function visualOutline(spec, i, shape = 'blade') {
     pts = [[RIN, -h * 1.1], [R * .84, -h * 1.1], [R * .97, -h * .92]];
     for (let j = 0; j <= 12; j++) { const t = -h * .8 + 1.6 * h * j / 12; pts.push([R * (j % 4 === 0 ? .93 : 1), t]); } // scalloped armour rim
     pts.push([R * .97, h * .92], [R * .84, h * 1.1], [RIN, h * 1.1]);
+  } else if (shape === 'horn') { // curled ram horn: sweeps out, curls back in toward the hub
+    pts = [[RIN, -h * .95], [R * .78, -h * 1.12], [R, -h * .62], [R, -h * .05], [R * .93, h * .45], [R * .76, h * .72], [R * .58, h * .62], [R * .54, h * .3], [R * .66, h * .12], [R * .74, h * .22], [R * .8, -h * .1], [R * .62, -h * .3], [RIN, h * .2]];
+  } else if (shape === 'shuriken') { // one star point per wing
+    pts = [[RIN, -h * .98], [R * .5, -h * .42], [R, h * .1], [R * .48, h * .42], [RIN, h * .98]];
   } else return wingOutline(spec, i);
   return polar(a0, pts);
 }

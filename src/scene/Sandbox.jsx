@@ -59,6 +59,19 @@ export default function Sandbox() {
     const cands = [LOOKS[0], LOOKS[1], LOOKS[2]].map((b, i) => ({ ...b, parents: ['dragoon', 'fish'], why: '刃重更大、半径更长，撞击时动量更大，更难被撞飞。', tradeoff: '转速掉得更快一点。', knowledge: ks.slice(0, 2 + (i % 2)) }));
     return <div className="fusion" style={{ height: '100vh', padding: 16, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: '#2a2d3a' }}><div className="cand-zone" style={{ flex: 1 }}><HeroCards candidates={cands} parents={[BEYS.dragoon, BEYS.fish]} onPick={() => {}} /></div></div>;
   }
+  if (typeof location !== 'undefined' && location.search.includes('compare')) {
+    const ids6 = ['dragoon', 'fish', 'goatpuff', 'ninjamight', 'titan', 'bossdragoon'];
+    return (
+      <div style={{ background: '#fbf8f1', height: '100vh', padding: 8, boxSizing: 'border-box', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gridTemplateRows: 'repeat(2,1fr)', gap: 8 }}>
+        <ShowcaseCanvas />
+        {ids6.map(id => <div key={id} style={{ border: '4px solid #111', display: 'grid', gridTemplateColumns: '1fr 1fr', position: 'relative', minHeight: 0 }}>
+          <img src={`/art/beys/${id}.png`} style={{ width: '100%', height: '100%', objectFit: 'contain', minHeight: 0 }} />
+          <div style={{ position: 'relative', borderLeft: '3px dashed #111' }}><BeyShowcase bey={BEYS[id]} zoom={1.35} tilt={.5} rpm={900} background={false} /></div>
+          <b style={{ position: 'absolute', left: 6, top: 4, font: '900 14px system-ui' }}>{BEYS[id].zh}</b>
+        </div>)}
+      </div>
+    );
+  }
   if (typeof location !== 'undefined' && location.search.includes('grid')) {
     const SH = ['blade', 'claw', 'fang', 'wing', 'flame', 'shield'], FI = ['toon', 'metal', 'crystal', 'neon'];
     const PAL = [['#16161a', '#e8202a', '#ff7a3d'], ['#2f7bff', '#ffffff', '#ffd400'], ['#ff2d4a', '#ffd400', '#111111'], ['#14c9a5', '#e0fff6', '#0b3d5c'], ['#8a3cff', '#ffd400', '#ff5bd0'], ['#16161a', '#ffd400', '#e8202a']];

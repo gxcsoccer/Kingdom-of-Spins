@@ -102,3 +102,8 @@
 .ks-rv-moment.active, .ks-rv-moment:hover { background: #ff2d4a; color: #fff; transform: translateX(-50%) scale(1.15); }
 .ks-rv-head { position: absolute; top: -6px; bottom: -6px; width: 4px; margin-left: -2px; background: #111; pointer-events: none; z-index: 3; }
 .ks-rv-head::before { content: ''; position: absolute; top: -8px; left: -6px; border: 8px solid transparent; border-top-color: #111; }
+
+/* calmer arena by default; speed lines flare on impacts */
+.ks-battle-bg{opacity:.32}
+.ks-speedflash{position:absolute;inset:-20%;pointer-events:none;background:repeating-conic-gradient(from 0deg at 50% 52%,rgba(17,17,17,.75) 0 .8deg,transparent .8deg 4.5deg);-webkit-mask-image:radial-gradient(circle at 50% 52%,transparent 28%,#000 62%);mask-image:radial-gradient(circle at 50% 52%,transparent 28%,#000 62%);animation:ks-speedflash .55s ease-out forwards}
+@keyframes ks-speedflash{0%{opacity:1;transform:scale(1.15)}100%{opacity:0;transform:scale(1)}}

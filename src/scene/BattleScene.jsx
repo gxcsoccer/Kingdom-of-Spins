@@ -9,6 +9,7 @@ import { blobShadowTexture } from './toon.js';
 import './scene.css';
 
 const S = 10; // physics meters -> scene units
+export const SIDE_COLORS = ['#2f7bff', '#ff9f1a']; // me / opponent — same as the HUD plates
 const INTRO = .42; // visual drop-in duration (s); physics unchanged
 const toWorld = (p, out = new THREE.Vector3()) => out.set(p[0] * S, p[2] * S, -p[1] * S);
 const Z = new THREE.Vector3(0, 0, 1);
@@ -28,6 +29,8 @@ function BeyActor({ player, index, fx }) {
     return { N, g, pts: [], color: new THREE.Color(bey.colors?.accent || '#fff') };
   }, [bey]);
   const shadowMat = useMemo(() => new THREE.MeshBasicMaterial({ map: blobShadowTexture(), transparent: true, opacity: .7, depthWrite: false }), []);
+  const ringRef = useRef();
+  const ringMat = useMemo(() => new THREE.MeshBasicMaterial({ color: SIDE_COLORS[index] || '#fff', transparent: true, opacity: .9, depthWrite: false, toneMapped: false }), [index]);
   const trailMat = useMemo(() => new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }), []);
   const axis = useMemo(() => new THREE.Vector3(), []), q = useMemo(() => new THREE.Quaternion(), []), tq = useMemo(() => new THREE.Quaternion(), []);
 
@@ -47,6 +50,7 @@ function BeyActor({ player, index, fx }) {
     const fh = floorHeight(b.p[0], b.p[1]);
     const h = Math.max(0, b.p[2] - fh);
     shadowRef.current.position.set(b.p[0] + .004, b.p[1] - .004, fh + .0008);
+    if (ringRef.current) { ringRef.current.position.set(b.p[0], b.p[1], fh + .0016); ringMat.opacity = .9 * (1 - drop); }
     const sc = .075 * (1 + h * 8) * (1 - drop * .5);
     shadowRef.current.scale.set(sc, sc, 1);
     shadowMat.opacity = Math.max(0, .7 - h * 6) * (1 - drop * .6);
@@ -77,6 +81,7 @@ function BeyActor({ player, index, fx }) {
     <>
       <mesh geometry={trail.g} material={trailMat} renderOrder={1} frustumCulled={false} />
       <mesh ref={shadowRef} material={shadowMat}><planeGeometry args={[1, 1]} /></mesh>
+      <mesh ref={ringRef} material={ringMat} renderOrder={2}><ringGeometry args={[.026, .033, 48]} /></mesh>
       <group ref={posRef}>
         <group ref={tiltRef}>
           <BeyModel bey={bey} rpmRef={rpmRef} />
@@ -232,6 +237,7 @@ const FINISH = {
 const Overlay = forwardRef(function Overlay({ beys }, ref) {
   const [items, setItems] = useState([]);
   const [flash, setFlash] = useState(0);
+  const [speed, setSpeed] = useState(0);
   const [finish, setFinish] = useState(null);
   const id = useRef(0);
   useImperativeHandle(ref, () => ({
@@ -241,6 +247,7 @@ const Overlay = forwardRef(function Overlay({ beys }, ref) {
       setItems(a => [...a.slice(-4), it]);
       setTimeout(() => setItems(a => a.filter(b => b.id !== it.id)), 900);
       if (I > .55) { setFlash(f => f + 1); }
+      if (I > .35) setSpeed(k => k + 1);
     },
     dash() {},
     finish(e) { setFinish(e); setFlash(f => f + 1); },
@@ -251,6 +258,7 @@ const Overlay = forwardRef(function Overlay({ beys }, ref) {
   return (
     <div className="ks-overlay">
       {flash > 0 && <div key={'f' + flash} className="ks-flash" />}
+      {speed > 0 && <div key={'s' + speed} className="ks-speedflash" />}
       {items.map(it => (
         <div key={it.id} className="ks-impact" style={{ left: it.x, top: it.y }}>
           <div className="ks-burst" style={{ transform: `translate(-50%,-50%) scale(${.6 + it.I})` }} />

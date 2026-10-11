@@ -40,20 +40,20 @@ function sector(rIn, rOut, a0, a1, z0, z1, curve = 24) {
 
 function laneTexture() {
   // gear-tooth band for the Xtreme line
-  return canvasTexture('xline', 512, 64, (g, w, h) => {
-    g.fillStyle = '#151515'; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#ffd400';
+  return canvasTexture('xline2', 512, 64, (g, w, h) => {
+    g.fillStyle = '#5c5e66'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#e8d38c';
     for (let i = 0; i < 16; i++) { const x = i * w / 16; g.beginPath(); g.moveTo(x + 4, h - 8); g.lineTo(x + 14, 10); g.lineTo(x + 26, 10); g.lineTo(x + 18, h - 8); g.fill(); }
     g.fillStyle = '#fbf8f1'; g.fillRect(0, 0, w, 5); g.fillRect(0, h - 5, w, 5);
   }, { repeat: [6, 1] });
 }
 
 function centerTexture() {
-  return canvasTexture('center', 1024, 1024, (g, w, h) => {
+  return canvasTexture('center2', 1024, 1024, (g, w, h) => {
     const cx = w / 2, cy = h / 2;
     g.fillStyle = '#fbf8f1'; g.fillRect(0, 0, w, h);
     // concentration lines (集中線)
-    g.fillStyle = 'rgba(17,17,17,.9)';
+    g.fillStyle = 'rgba(17,17,17,.32)';
     for (let i = 0; i < 140; i++) {
       const a = (i / 140) * Math.PI * 2 + Math.sin(i * 12.9898) * .02, wdt = .006 + (Math.abs(Math.sin(i * 78.233)) * .012);
       const r0 = 180 + Math.abs(Math.sin(i * 3.7)) * 150, r1 = 520;
@@ -122,7 +122,7 @@ export default function Stadium() {
   }, []);
 
   const mats = useMemo(() => ({
-    slope: halftoneMaterial({ color: '#f3efe4', shade: '#dcd5c4', cell: 5.5, ao: .42, aoRange: [.12, .19] }),
+    slope: halftoneMaterial({ color: '#f3efe4', shade: '#e2dccd', cell: 5.5, dots: .45, ao: .3, aoRange: [.12, .19] }),
     centre: halftoneMaterial({ color: '#fbf8f1', shade: '#e6e0d1', cell: 5.5, ao: 0, map: centerTexture() }),
     lane: new THREE.MeshBasicMaterial({ map: (() => { const t = laneTexture(); return t; })(), polygonOffset: true, polygonOffsetFactor: -2 }),
     wall: halftoneMaterial({ color: '#ffffff', shade: '#cfd6e0', cell: 5, ao: 0 }),

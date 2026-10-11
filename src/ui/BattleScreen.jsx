@@ -110,7 +110,6 @@ export default function BattleScreen(){
         {phase!=='result'&&<PauseMenu onPause={setPausedAll} onExit={exitBattle}/>}
         <BattleScene player={player||idlePlayer} frameloop={player?'always':'demand'} style={{position:'absolute',inset:0}}/>
         {phase==='fight'&&<div className="fight-controls">
-          <button className="btn small" onClick={()=>{player.setPaused(!paused);setPaused(!paused);}}>{paused?'▶ 继续':'⏸ 暂停'}</button>
           {[1,2,4].map(s=><button key={s} className={`btn small ${speed===s?'yellow':''}`} onClick={()=>{player.setSpeed(s);setSpeed(s);}}>{s}×</button>)}
           <button className="btn small" onClick={()=>{sfx.setMuted(!muted);setMutedState(!muted);}}>{muted?'🔇':'🔊'}</button>
           <span className="model-note" style={{color:'#bbb'}}>模型结果 · MuJoCo 4 kHz</span>
@@ -130,9 +129,9 @@ export function Hud({player,names,beys,score,target,color,round}){
   const [st,setSt]=useState(null);
   useEffect(()=>{if(!player)return;let raf;const f=()=>{const cur=player.getState(player.clock);setSt(cur);if(cur&&!player.paused)sfx.spinRpm(cur.bodies[0]?.rpm,cur.bodies[1]?.rpm);raf=requestAnimationFrame(f);};f();return()=>cancelAnimationFrame(raf);},[player]);
   const side=(i)=>{const b=st?.bodies?.[i],rpm=Math.max(0,Math.abs(b?.rpm||0));return (
-    <div className={`hud-side ${i?'right':''}`} style={{background:i?color:beys[0].colors?.primary}}>
+    <div className={`hud-side ${i?'right':''}`} style={{background:i?'#ff9f1a':'#2f7bff'}}>
       <div className="hud-top"><span className="hud-name"><b>{names[i]}</b><em> · {beyTitle(beys[i])}</em></span><span className="hud-pts">{score[i]}<small> 胜</small></span></div>
-      <div className="hud-bar"><i style={{width:`${Math.min(100,rpm/70)}%`,background:rpm<1200?'var(--red)':'var(--yellow)'}}/></div>
+      <div className="hud-bar"><span className="hud-bar-l">转速</span><i style={{width:`${Math.min(100,rpm/70)}%`,background:rpm<1200?'var(--red)':'var(--yellow)'}}/></div>
       <div className="hud-meta">{Math.round(rpm).toLocaleString()} RPM · 倾角 {Math.round(b?.tilt||0)}°</div>
     </div>);};
   return (

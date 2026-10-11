@@ -98,7 +98,7 @@ export function emblemTexture(bey, fusion = null, icon = null) {
     g.lineWidth = 10; g.strokeStyle = INK; g.strokeText(letter, cx, cy + 4);
     g.fillStyle = '#fff'; g.fillText(letter, cx, cy + 4);
   }, { mirror: true });
-  if (fresh && bey.id && !icon && typeof Image !== 'undefined') {
+  if (fresh && bey.id && !bey.parents && !bey.fusedBy && typeof Image !== 'undefined') { // delivered emblem art wins for catalog beys
     const img = new Image();
     img.onload = () => {
       if (!img.naturalWidth) return;
@@ -197,6 +197,17 @@ export const ICONS = {
   star: g => { for (let i = 0; i <= 10; i++) { const r = i % 2 ? 21 : 48, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(r * Math.cos(a), r * Math.sin(a)); } g.closePath(); },
   wave: g => { g.moveTo(-48, 34); g.quadraticCurveTo(-46, -32, 4, -36); g.quadraticCurveTo(42, -38, 42, -6); g.quadraticCurveTo(24, -20, 12, -6); g.quadraticCurveTo(2, 8, 22, 16); g.quadraticCurveTo(42, 24, 48, 34); g.closePath(); },
   // one big peak + a smaller one (snow cap drawn in DETAIL) — not a "W"
+  fish: g => { // koi: round body, forked tail, top fin
+    g.moveTo(40, 0); g.quadraticCurveTo(30, -26, 2, -24); g.lineTo(-6, -40); g.lineTo(-14, -22); g.quadraticCurveTo(-26, -16, -30, -6);
+    g.lineTo(-50, -26); g.lineTo(-42, 0); g.lineTo(-50, 26); g.lineTo(-30, 6); g.quadraticCurveTo(-10, 26, 14, 22); g.quadraticCurveTo(34, 18, 40, 0); g.closePath(); },
+  ram: g => { // sheep face with two curled horns
+    g.arc(0, 6, 22, 0, Math.PI * 2);
+    g.moveTo(-14, -12); g.arc(-30, -8, 16, -.3, Math.PI * 1.6, false);
+    g.moveTo(14, -12); g.arc(30, -8, 16, Math.PI + .3, -Math.PI * .6, true); },
+  shuriken: g => { for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 3; g.moveTo(0, 0);
+      g.quadraticCurveTo(Math.cos(a - .9) * 30, Math.sin(a - .9) * 30, Math.cos(a) * 50, Math.sin(a) * 50); g.quadraticCurveTo(Math.cos(a + .5) * 18, Math.sin(a + .5) * 18, 0, 0); } },
+  mask: g => { // titan robot face
+    g.moveTo(-30, -38); g.lineTo(30, -38); g.lineTo(40, -14); g.lineTo(34, 22); g.lineTo(16, 42); g.lineTo(-16, 42); g.lineTo(-34, 22); g.lineTo(-40, -14); g.closePath(); },
   mountain: g => { g.moveTo(-50, 36); g.lineTo(-10, -44); g.lineTo(12, -4); g.lineTo(24, -16); g.lineTo(50, 36); g.closePath(); },
 };
 export const DETAIL = { // drawn in the light colour on top of the dark silhouette
@@ -206,6 +217,10 @@ export const DETAIL = { // drawn in the light colour on top of the dark silhouet
   shark: g => { g.arc(30, 2, 4, 0, Math.PI * 2); },
   mountain: g => { g.moveTo(-10, -44); g.lineTo(4, -16); g.lineTo(-2, -20); g.lineTo(-8, -12); g.lineTo(-14, -20); g.lineTo(-24, -16); g.closePath(); g.rect(-50, 30, 100, 6); },
   eagle: g => { g.arc(0, -16, 4, 0, Math.PI * 2); },
+  fish: g => { g.arc(22, -4, 4.5, 0, Math.PI * 2); },
+  ram: g => { g.arc(-8, 4, 4, 0, Math.PI * 2); g.moveTo(12, 4); g.arc(8, 4, 4, 0, Math.PI * 2); g.moveTo(-6, 18); g.lineTo(6, 18); g.lineTo(0, 24); g.closePath(); },
+  shuriken: g => { g.arc(0, 0, 8, 0, Math.PI * 2); },
+  mask: g => { g.rect(-26, -10, 52, 9); g.rect(-4, 4, 8, 16); g.rect(-16, 28, 32, 5); },
 };
 export function drawIcon(g, kind, cx, cy, s = 1, fill = INK, light = '#fff') {
   const f = ICONS[kind]; if (!f) return;

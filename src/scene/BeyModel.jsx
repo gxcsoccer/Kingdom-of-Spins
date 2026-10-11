@@ -74,9 +74,11 @@ function buildGeometry(spec, bey, look) {
   const wingGeo = [merge(wings[0]), merge(wings[1])], accentGeo = [merge(accents[0]), merge(accents[1])];
 
   // Core disc (matches physics cylinder r=18.5 mm, ±4 mm)
-  const core = new THREE.CylinderGeometry(.0185, .0185, .008, 48).applyMatrix4(Z_UP);
+  // Catalog/fusion looks: a slimmer hub so the blades read like the illustrations (visual only).
+  const k = look ? .8 : 1;
+  const core = new THREE.CylinderGeometry(.0185 * k, .0185 * k, .008, 48).applyMatrix4(Z_UP);
   // Metal ring on top
-  const mp = [[.0138, .0038], [.0176, .0038], [.0179, .0045], [.0174, .0055], [.0141, .0055], [.0136, .0047], [.0138, .0038]]
+  const mp = [[.0138, .0038], [.0176, .0038], [.0179, .0045], [.0174, .0055], [.0141, .0055], [.0136, .0047], [.0138, .0038]].map(([r, z]) => [r * k, z])
     .map(([r, z]) => new THREE.Vector2(r, z));
   const metal = new THREE.LatheGeometry(mp, 64).applyMatrix4(Z_UP);
   metal.computeVertexNormals();
@@ -84,13 +86,13 @@ function buildGeometry(spec, bey, look) {
   const notches = [];
   for (let i = 0; i < 12; i++) {
     const b = new THREE.BoxGeometry(.0018, .0012, .0008);
-    b.translate(.0157, 0, .0059);
+    b.translate(.0157 * k, 0, .0059);
     b.rotateZ(i * Math.PI / 6);
     notches.push(b);
   }
   const notchGeo = mergeGeometries(notches);
   // Lock chip
-  const chip = new THREE.CylinderGeometry(.0108, .0112, .0026, 40).applyMatrix4(Z_UP);
+  const chip = new THREE.CylinderGeometry(.0108 * (look ? .9 : 1), .0112 * (look ? .9 : 1), .0026, 40).applyMatrix4(Z_UP);
   chip.translate(0, 0, .0053);
 
   // Ratchet: z -.004 .. -.0105
@@ -150,7 +152,7 @@ function lookMaterials(look, colors) {
   const pat = look.pattern !== 'none' ? look.pattern : null;
   const pattern = pat ? patternTexture(pat, pal.P, pal.mark, pal.dark ? pal.A : pal.S) : null;
   const base = { color: new THREE.Color(pattern ? '#ffffff' : pal.P), map: pattern, gradientMap: toonGradient() };
-  const plate = pal.dark ? pal.H : pal.mark;
+  const plate = look.trim === 'silver' ? '#dfe5ec' : look.trim === 'gold' ? '#f2c14e' : look.trim === 'accent' ? pal.A : pal.dark ? pal.H : pal.mark;
   let wing, accent, outline = pal.dark ? new THREE.Color(pal.H) : null;
   if (look.finish === 'metal') {
     // banded grey-scale gradient × the kid's colour (no stray hues); plates are polished metal in H
@@ -224,7 +226,7 @@ export default function BeyModel({ bey, rpm, rpmRef, spinning = false, blur = tr
       prong: toonMat('#2a2c31'),
       collar: toonMat(colors.accent),
       gear: toonMat(shade(colors.accent, .7)),
-      bit: toonMat(spec.tip === 'rush' ? '#26282c' : colors.secondary),
+      bit: toonMat(spec.tip === 'rush' ? '#26282c' : look ? colors.primary : colors.secondary),
       blur: new THREE.MeshBasicMaterial({ map: spinBlurTexture(), transparent: true, opacity: 0, depthWrite: false, toneMapped: false }),
       ghost: new THREE.MeshBasicMaterial({ color: colors.primary, transparent: true, opacity: 0, depthWrite: false }),
     };
