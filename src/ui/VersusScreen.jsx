@@ -29,31 +29,26 @@ export default function VersusScreen(){
   };
   if(mode==='online')return <OnlineRoom myBey={myBey} onExit={()=>setMode(null)}/>;
   return (
-    <div className="page">
+    <div className="page vs-page">
       <TopBar title="对战模式" back="title"/>
-      <div className="grid" style={{gridTemplateColumns:'repeat(auto-fit,minmax(380px,1fr))'}}>
-        <div className="panel" style={{padding:22}}>
-          <h2 className="h-display" style={{fontSize:34}}>VS CPU</h2>
-          <p style={{fontWeight:700}}>从你的收藏里任选一只，对手任你挑。适合做「只改一个变量」的科学实验。</p>
-          <div className="prep-h mt">我方</div>
-          <BeyPicker list={pool} value={mine} onChange={setMine}/>
-          <div className="prep-h mt">对手</div>
-          <div className="row wrap" style={{gap:8}}>{opponents.map(o=><button key={o.id} className={`chip ${oppId===o.id?'on':''}`} onClick={()=>setOppId(o.id)}>{o.label}</button>)}</div>
-          <button className="btn primary big mt2" onClick={startCpu}>开打 ▶</button>
+      <div className="vs-grid">
+        <div className="panel vs-cpu">
+          <div className="vs-h"><h2 className="h-display">VS CPU</h2><span>任选一只陀螺，对手任你挑 · 适合做「只改一个变量」的实验</span></div>
+          <div className="prep-h">我方</div>
+          <div className="vs-tiles">{pool.map(b=><button key={b.uid} className={`vs-tile ${b.uid===mine?'on':''}`} style={{'--c':b.colors?.primary}} onClick={()=>setMine(b.uid)}><BeyArt bey={b} size={64}/><b>{b.name}</b><TypeBadge type={b.type||b.blade?.style}/></button>)}</div>
+          <div className="prep-h">对手</div>
+          <div className="vs-tiles opp">{opponents.map(o=><button key={o.id} className={`vs-tile ${oppId===o.id?'on':''}`} style={{'--c':o.bey.colors?.primary}} onClick={()=>setOppId(o.id)}><BeyArt bey={o.bey} size={48}/><b>{o.label}</b></button>)}</div>
+          <div className="vs-go-row"><span className="vs-match"><b>{myBey?.name}</b> VS <b>{opp.label}</b></span><button className="btn primary big" onClick={startCpu}>开打 ▶</button></div>
         </div>
-        <div className="panel ink" style={{padding:22,boxShadow:'6px 6px 0 var(--red)'}}>
-          <h2 className="h-display h-yellow" style={{fontSize:34}}>VS 朋友（联机）</h2>
-          <p style={{fontWeight:700,lineHeight:1.6}}>创建房间，把房间码告诉朋友。双方准备好后，服务器发同一个随机种子，两边各自算同一份确定性物理，再由服务器核对结果。</p>
+        <div className="panel ink vs-online">
+          <h2 className="h-display h-yellow">VS 朋友（联机）</h2>
+          <p>创建房间，把房间码告诉朋友。双方准备好后，服务器发同一个随机种子，两边各自算同一份确定性物理，再由服务器核对结果。</p>
           <p className="model-note" style={{color:'#bbb'}}>只能用房间码邀请，没有陌生人匹配和私信。</p>
-          <button className="btn yellow big mt" onClick={()=>setMode('online')}>进入联机大厅</button>
+          <button className="btn yellow big" onClick={()=>setMode('online')}>进入联机大厅</button>
         </div>
       </div>
     </div>
   );
-}
-
-function BeyPicker({list,value,onChange}){
-  return <div className="col" style={{gap:8,maxHeight:260,overflowY:'auto'}}>{list.map(b=><button key={b.uid} className={`prep-bey ${b.uid===value?'on':''}`} onClick={()=>onChange(b.uid)}><BeyArt bey={b} size={44}/><span className="grow"><b>{b.name}</b></span><TypeBadge type={b.type||b.blade?.style}/></button>)}</div>;
 }
 
 function OnlineRoom({myBey,onExit}){

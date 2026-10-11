@@ -11,6 +11,9 @@ import { BEYS } from '../game/beys.js';
 // tip at z = -spec.tipDepth. Wing silhouettes come from wingOutline() = the physics hulls.
 
 const Z_UP = new THREE.Matrix4().makeRotationX(Math.PI / 2); // Y-up primitives -> Z-up
+// VISUAL spin rate caps (rev/s at >= 5000 rpm). Physics is untouched; the blur disc sells real speed.
+export const BATTLE_REVS = 3.0;   // in-battle / launch stage
+export const SHOWCASE_REVS = 1.25; // menus, title, cards — slow enough to read the blade
 
 function shapeFrom(points) {
   const s = new THREE.Shape();
@@ -122,11 +125,11 @@ const shade = (hex, k) => {
 };
 
 /**
- * <BeyModel bey rpm? rpmRef? spinning? blur? outline? />
+ * <BeyModel bey rpm? rpmRef? spinning? blur? outline? maxRevs? blurStrength? />
  * - rpm / rpmRef.current: drives visual spin + blur (abs value; sign = direction)
  * - spinning: when no rpm given, a gentle showcase spin
  */
-export default function BeyModel({ bey, rpm, rpmRef, spinning = false, blur = true, outline = true, outlineWidth = 2.6 }) {
+export default function BeyModel({ bey, rpm, rpmRef, spinning = false, blur = true, outline = true, outlineWidth = 2.6, maxRevs = BATTLE_REVS, blurStrength = 1 }) {
   const dpr = useThree(st => st.viewport.dpr);
   const ow = outlineWidth * dpr;
   const spec = useMemo(() => specFromBey(bey), [bey]);
@@ -176,16 +179,16 @@ export default function BeyModel({ bey, rpm, rpmRef, spinning = false, blur = tr
     const mag = has ? Math.abs(r) : (spinning ? 600 : 0);
     const dir = has && r < 0 ? -1 : 1;
     // Visual spin: slow enough not to alias badly; the blur disc sells the speed.
-    const revPerSec = has ? Math.min(4.2, mag / 5000 * 3.4) : (spinning ? .35 : 0);
+    const revPerSec = has ? maxRevs * Math.min(1, mag / 5000) : (spinning ? .35 : 0);
     if (spinRef.current) spinRef.current.rotation.z += dir * revPerSec * Math.PI * 2 * d;
     const k = blur && has ? THREE.MathUtils.clamp((mag - 600) / 3800, 0, 1) : 0;
     if (blurRef.current) {
       blurRef.current.rotation.z += dir * 2.39; // shimmering streaks
-      mats.blur.opacity = .85 * k;
+      mats.blur.opacity = .85 * k * blurStrength;
       blurRef.current.visible = k > .01;
     }
     if (ghostRef.current) {
-      mats.ghost.opacity = .28 * k;
+      mats.ghost.opacity = .28 * k * blurStrength;
       ghostRef.current.visible = k > .01;
     }
   });

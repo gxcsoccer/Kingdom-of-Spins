@@ -6,15 +6,11 @@
   -webkit-mask-image:linear-gradient(160deg,#000 0,transparent 35%,transparent 65%,#000 100%);mask-image:linear-gradient(160deg,#000 0,transparent 35%,transparent 65%,#000 100%)}
 /* hero beys */
 .ti-bey{position:absolute;width:min(34vw,46vh);aspect-ratio:1;pointer-events:none}
-.ti-bey.l{left:-6vw;top:-4vh;transform:rotate(-14deg) perspective(900px) rotateX(38deg)}
-.ti-bey.r{right:-7vw;bottom:-8vh;transform:rotate(12deg) perspective(900px) rotateX(38deg);width:min(38vw,52vh)}
-.ti-bey img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.ti-bey-img{animation:ti-spin .42s linear infinite;filter:drop-shadow(0 0 18px rgba(255,255,255,.7)) drop-shadow(8px 10px 0 rgba(0,0,0,.6))}
-.ti-bey-ghost{animation:ti-spin .42s linear infinite;filter:blur(5px)}
+.ti-bey .ks-showcase{position:absolute;inset:0;background:transparent;min-height:0}
+.ti-bey.l{left:-5vw;top:-3vh}
+.ti-bey.r{right:-6vw;bottom:-6vh;width:min(38vw,52vh)}
 .ti-bey-glow{position:absolute;inset:-12%;border-radius:50%;background:radial-gradient(circle,rgba(41,182,255,.55),transparent 62%);animation:ti-pulse 1.6s ease-in-out infinite alternate}
 .ti-bey.r .ti-bey-glow{background:radial-gradient(circle,rgba(255,45,74,.6),transparent 62%)}
-.ti-bey-ring{position:absolute;inset:-4%;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.95) 0 6deg,transparent 6deg 30deg);
-  -webkit-mask-image:radial-gradient(circle,transparent 60%,#000 63%,transparent 72%);mask-image:radial-gradient(circle,transparent 60%,#000 63%,transparent 72%);animation:ti-spin .3s linear infinite}
 .ti-bey-streak{position:absolute;left:30%;right:-60%;top:46%;height:9%;background:linear-gradient(90deg,rgba(17,17,17,.6),transparent);filter:blur(2px);transform:skewX(-30deg);animation:ti-streak 1.2s ease-in-out infinite}
 .ti-bey.r .ti-bey-streak{left:-60%;right:30%;background:linear-gradient(270deg,rgba(17,17,17,.6),transparent)}
 .ti-sfx{position:absolute;font-weight:900;font-style:italic;color:#fff;-webkit-text-stroke:5px #111;paint-order:stroke fill;pointer-events:none;animation:ti-jitter .18s linear infinite}

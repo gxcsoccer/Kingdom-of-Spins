@@ -1,7 +1,7 @@
 import { useRef, useSyncExternalStore, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { View, PerspectiveCamera } from '@react-three/drei';
-import BeyModel from './BeyModel.jsx';
+import BeyModel, { SHOWCASE_REVS } from './BeyModel.jsx';
 import './scene.css';
 
 // Shared-canvas registry: if <ShowcaseCanvas/> is mounted once (e.g. in App), every <BeyShowcase>
@@ -26,7 +26,7 @@ export function ShowcaseCanvas() {
   );
 }
 
-function ShowcaseContent({ bey, spinning, rpm, rpmRef, tilt, zoom }) {
+function ShowcaseContent({ bey, spinning, rpm, rpmRef, tilt, zoom, revs }) {
   const g = useRef();
   const aspect = useThree(st => st.size.width / Math.max(1, st.size.height));
   const dist = 1.32 / zoom * Math.max(1, .95 / aspect); // tall panels: back off so the bey isn't cropped
@@ -44,7 +44,7 @@ function ShowcaseContent({ bey, spinning, rpm, rpmRef, tilt, zoom }) {
       <directionalLight position={[-2, .5, -1]} intensity={.6} color="#bcd4ff" />
       <group ref={g}>
         <group rotation-x={-Math.PI / 2 + tilt} scale={10}>
-          <BeyModel bey={bey} spinning={spinning} rpm={rpm} rpmRef={rpmRef} outlineWidth={2.4} />
+          <BeyModel bey={bey} spinning={spinning} rpm={rpm} rpmRef={rpmRef} outlineWidth={2.4} maxRevs={revs} blurStrength={.35} />
         </group>
       </group>
     </>
@@ -52,13 +52,13 @@ function ShowcaseContent({ bey, spinning, rpm, rpmRef, tilt, zoom }) {
 }
 
 /**
- * <BeyShowcase bey spinning? rpm? rpmRef? tilt? zoom? background? standalone? className? style? />
+ * <BeyShowcase bey spinning? rpm? rpmRef? tilt? zoom? background? standalone? revs? className? style? />  (revs = visual rev/s cap, default SHOWCASE_REVS)
  * Rotating bey for menus/cards. tilt: radians toward camera (default .45). rpm: show spin blur.
  */
-export default function BeyShowcase({ bey, spinning = true, rpm, rpmRef, tilt = .32, zoom = 1.35, background = true, standalone = false, className = '', style }) {
+export default function BeyShowcase({ bey, spinning = true, rpm, rpmRef, tilt = .32, zoom = 1.35, background = true, standalone = false, revs = SHOWCASE_REVS, className = '', style }) {
   const useView = useShared() && !standalone; // standalone: own canvas (e.g. inside modals above the shared canvas)
   if (!bey) return null;
-  const content = <ShowcaseContent bey={bey} spinning={spinning} rpm={rpm} rpmRef={rpmRef} tilt={tilt} zoom={zoom} />;
+  const content = <ShowcaseContent bey={bey} spinning={spinning} rpm={rpm} rpmRef={rpmRef} tilt={tilt} zoom={zoom} revs={revs} />;
   return (
     <div className={`ks-showcase ${className}`} style={style}>
       {background && <div className="ks-showcase-bg" />}

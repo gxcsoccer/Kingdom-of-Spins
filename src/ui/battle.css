@@ -73,3 +73,21 @@
   .hud-bar{height:9px;border-width:2px;margin-top:3px}
   .hud-meta{font-size:10px;margin-top:2px}
 }
+/* VS mode lobby: one screen */
+.vs-page{height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;padding-bottom:16px}
+.vs-page .topbar{flex:none}
+.vs-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px}
+.vs-cpu,.vs-online{padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-height:0;overflow:hidden}
+.vs-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.vs-h h2,.vs-online h2{font-size:30px;margin:0}
+.vs-h span{font-weight:700;font-size:13px;color:#555}
+.vs-online p{font-weight:700;line-height:1.6;margin:0}
+.vs-online .btn{align-self:flex-start;margin-top:auto}
+.vs-tiles{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;flex:none;scrollbar-width:thin}
+.vs-tile{flex:none;width:112px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;font:inherit;font-size:12px;border:3px solid #111;background:#fff;box-shadow:3px 3px 0 #111;cursor:pointer;text-align:center}
+.vs-tile b{line-height:1.2}
+.vs-tile.on{background:color-mix(in srgb,var(--c,#ffd400) 30%,#fff);outline:4px solid var(--red);outline-offset:1px}
+.vs-tiles.opp .vs-tile{width:100px;font-size:11px}
+.vs-go-row{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.vs-match{font-weight:900;font-size:16px}.vs-match b{color:var(--red)}
+@media (max-width:900px){.vs-page{height:auto;overflow:visible}.vs-grid{grid-template-columns:1fr}}

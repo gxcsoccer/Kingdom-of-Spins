@@ -1,20 +1,23 @@
-import {useState} from 'react';
+import {useEffect,useRef,useState,lazy,Suspense} from 'react';
+import {BEYS} from '../game/beys.js';
 import {useGame} from '../game/store.js';
 import AccountPanel from './AccountPanel.jsx';
 import './title.css';
+const BeyShowcase=lazy(()=>import('../scene/BeyShowcase.jsx'));
 
 // Anime key-visual title: animated speed lines + screentone, two spinning hero beys with motion blur,
 // big logo, and the parent login panel as a manga panel. Fits one screen.
+// Hero beys are the real 3D model spinning about its own axis (never a rotated 3/4-view PNG).
 function HeroBey({id,cls}){
-  const [ok,setOk]=useState(true);
-  if(!ok)return null;
+  const rpmRef=useRef(0);
+  useEffect(()=>{ // ease from a stop up to cruise speed over ~3 s
+    const t0=performance.now();let raf;const f=()=>{const k=Math.min(1,(performance.now()-t0)/3000);rpmRef.current=5200*(1-Math.pow(1-k,3));if(k<1)raf=requestAnimationFrame(f);};f();return()=>cancelAnimationFrame(raf);
+  },[]);
   return (
     <div className={`ti-bey ${cls}`}>
       <span className="ti-bey-glow"/>
-      <span className="ti-bey-ring"/>
-      {[.18,.35].map((o,i)=><img key={i} className="ti-bey-ghost" style={{opacity:o,animationDelay:`${-(i+1)*.03}s`}} src={`/art/beys/${id}.png`} alt=""/>)}
-      <img className="ti-bey-img" src={`/art/beys/${id}.png`} alt="" onError={()=>setOk(false)}/>
       <span className="ti-bey-streak"/>
+      <Suspense fallback={null}><BeyShowcase bey={BEYS[id]} rpmRef={rpmRef} tilt={.62} zoom={1.05} background={false}/></Suspense>
     </div>
   );
 }

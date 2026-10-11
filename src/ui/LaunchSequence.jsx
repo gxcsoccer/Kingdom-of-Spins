@@ -1,11 +1,12 @@
-import {useEffect,useRef,useState} from 'react';
-import BeyArt,{BeyArt3D} from './BeyArt.jsx';
+import {useEffect,useRef,useState,lazy,Suspense} from 'react';
+import BeyArt from './BeyArt.jsx';
 import {TypeBadge} from './common.jsx';
 import {DoctorFace} from './MapScreen.jsx';
 import {voiceSupported,listen} from '../game/voice.js';
 import * as sfx from '../game/sfx.js';
 import LaunchStage3D from '../scene/LaunchStage3D.jsx';
 import './launch.css';
+const BeyShowcase=lazy(()=>import('../scene/BeyShowcase.jsx'));
 
 export const PREDICT_CARDS=[
   {id:'ko',emoji:'💥',label:'撞飞它！',sub:'OVER / XTREME'},
@@ -87,7 +88,7 @@ function BeyPicker({beys,value,onChange,onDone}){
       <div className="ls-carousel">
         {beys.length>1&&<button className="ls-arrow" onClick={()=>go(-1)} aria-label="上一只">◀</button>}
         <div className="ls-pick-card" key={b.uid} style={{'--c':b.colors?.primary}}>
-          <BeyArt3D.Provider value={true}><BeyArt bey={b} size={250}/></BeyArt3D.Provider>
+          <div className="ls-pick-3d"><Suspense fallback={<BeyPic bey={b} size={230}/>}><BeyShowcase bey={b} rpm={3600} tilt={.5} zoom={1.15} background={false} standalone/></Suspense></div>
           <div className="ls-pick-name">{b.name}</div>
           <div className="ls-pick-meta"><TypeBadge type={b.type||b.blade?.style}/><span>{b.ratchet?.prongs||3}-{b.ratchet?.height||60} · {b.bit}</span></div>
         </div>
