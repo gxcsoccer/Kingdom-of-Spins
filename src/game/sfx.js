@@ -1,4 +1,4 @@
-import {playClip} from './voiceClips.js';
+import {playClip,voiceLine} from './voiceClips.js';
 // Procedural battle audio (WebAudio) + spoken countdown. Uses /art/audio/*.mp3 if the user supplies them.
 let ctx, master, muted=false, spinNodes=null;
 const ac=()=>{if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=.55;master.connect(ctx.destination);}if(ctx.state==='suspended')ctx.resume();return ctx;};
@@ -45,6 +45,8 @@ export function spinRpm(a=0,b=0){
 }
 export function say(text,lang='en-US',rate=1.15){
   if(muted)return;
+  const synth=()=>{if(!window.speechSynthesis)return;try{const u=new SpeechSynthesisUtterance(text);u.lang=lang;u.rate=rate;u.pitch=1.15;speechSynthesis.cancel();speechSynthesis.speak(u);}catch{}};
   if(playClip(text))return;   // 预生成配音（队员招式名等）
-  if(!window.speechSynthesis)return;try{const u=new SpeechSynthesisUtterance(text);u.lang=lang;u.rate=rate;u.pitch=1.15;speechSynthesis.cancel();speechSynthesis.speak(u);}catch{}
+  if(/^zh/.test(lang)&&text.length>12){voiceLine(text,{onFail:synth});return;}   // 博士的长句：实时配音
+  synth();
 }

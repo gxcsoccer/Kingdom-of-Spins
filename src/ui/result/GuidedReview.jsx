@@ -3,6 +3,7 @@ import ReplaySlot from '../ReplaySlot.jsx';
 import {DoctorFace} from '../MapScreen.jsx';
 import {getCard} from '../../knowledge/cards.js';
 import {openFlipbook} from '../../flipbook/store.js';
+import {voiceLine} from '../../game/voiceClips.js';
 import * as sfx from '../../game/sfx.js';
 import {momentCard} from '../../ai/fallback.js';
 import {freshQuiz, markSeen} from '../../knowledge/quizSeen.js';
@@ -65,6 +66,15 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
     const tts=!sfx.isMuted()&&typeof window!=='undefined'&&window.speechSynthesis&&window.SpeechSynthesisUtterance;
     const t0=performance.now(), minRead=opt.next?0:(opt.instant?0:text.length*25)+1400; // typing time + a beat to read
     let done=false;const finish=force=>{if(done)return;const wait=minRead-(performance.now()-t0);if(!force&&wait>0&&alive(id)){setTimeout(finish,Math.min(wait,400));return;}done=true;setNextBtn(false);res(true);};
+    if(!sfx.isMuted()){
+      // 博士配音（预生成 / 实时）；不可用时退回浏览器朗读
+      let fell=false;const stop=voiceLine(speakable(text),{onEnd:()=>setTimeout(finish,opt.next?1200:250),onFail:()=>{fell=true;synth();}});
+      sleep(est*2.2+6000,id).then(finish);
+      const watch=()=>{if(done||fell)return;if(!alive(id)){stop();return finish(true);}if(st.current.skip){st.current.skip=null;stop();return finish(true);}setTimeout(watch,120);};watch();
+      return;
+    }
+    synth();
+    function synth(){
     if(tts){
       try{
         window.speechSynthesis.cancel();
@@ -77,6 +87,7 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
       }catch{/* fall through */}
     }
     sleep(est,id).then(()=>finish(true));
+    }
   }),[]);// eslint-disable-line
   const waitAnswer=id=>new Promise(res=>{st.current.answer=i=>{st.current.answer=null;res(i);};const w=()=>{if(!alive(id)){st.current.answer=null;return res(null);}if(st.current.answer)setTimeout(w,120);};w();});
   const waitViewer=async id=>{const t0=performance.now();while(alive(id)&&!viewer.current?.playMoment&&performance.now()-t0<5000)await sleep(100,id);};

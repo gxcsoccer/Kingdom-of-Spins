@@ -1,6 +1,6 @@
 // Browser speech helpers for 融合博士: TTS via speechSynthesis, hold-to-talk via SpeechRecognition.
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {playClip, stopClip} from '../game/voiceClips.js';
+import {voiceLine, stopVoice} from '../game/voiceClips.js';
 
 const synth = typeof window!=='undefined' ? window.speechSynthesis : null;
 let zhVoice = null;
@@ -15,9 +15,8 @@ export const ttsSupported = Boolean(synth) || typeof Audio !== 'undefined';
 export function speak(text, {rate=1.05, pitch=1.2}={}) {
   if (!text) return;
   synth?.cancel();
-  // 有预生成的博士配音就用它（声线固定、更像角色），播放失败再回退到浏览器朗读。
-  if (playClip(text, {onFail: () => speakSynth(text, rate, pitch)})) return;
-  speakSynth(text, rate, pitch);
+  // 博士配音：预生成 → 实时（Fish Audio）→ 浏览器朗读
+  voiceLine(text, {onFail: () => speakSynth(text, rate, pitch)});
 }
 function speakSynth(text, rate, pitch) {
   if (!synth) return;
@@ -29,7 +28,7 @@ function speakSynth(text, rate, pitch) {
   if (zhVoice || pickVoice()) u.voice = zhVoice;
   synth.speak(u);
 }
-export const stopSpeaking = () => { stopClip(); synth?.cancel(); };
+export const stopSpeaking = () => { stopVoice(); synth?.cancel(); };
 
 const Recognition = typeof window!=='undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 export const micSupported = Boolean(Recognition);

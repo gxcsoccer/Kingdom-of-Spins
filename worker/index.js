@@ -17,6 +17,7 @@ export default {
     const path = url.pathname;
     try {
       if (path === '/api/health') return json({ok: true, service: 'kingdom-of-spins', ai: Boolean(env.AI), rooms: Boolean(env.ROOMS), time: new Date().toISOString()});
+      if (path === '/api/tts' && request.method === 'POST') return await tts(request, env, ctx);
       if (path.startsWith('/api/ai/')) return await ai.handle(request, env, ctx);
 
       if (path === '/api/rooms' && request.method === 'POST') {
@@ -41,3 +42,24 @@ export default {
     }
   },
 };
+
+// 博士实时配音（Fish Audio，老爷爷声线）：只合成游戏/AI 生成的博士台词；前端发送前已去掉孩子昵称。
+// 同样的句子走 Cloudflare 缓存，第二次播放不再调用外部服务。
+const VOICES = {doctor: 'ee18d36ee7bc4ab09f0533fa1e8e1ed0'};
+async function tts(request, env, ctx) {
+  if (!env.FISH_API_KEY) return json({error: 'tts not configured'}, 503);
+  let body; try { body = await request.json(); } catch { return json({error: 'bad json'}, 400); }
+  const text = String(body.text || '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 220);
+  if (!text) return json({error: 'empty'}, 400);
+  const voice = VOICES[body.voice] || VOICES.doctor;
+  const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(voice + '|' + text)))].map(b => b.toString(16).padStart(2, '0')).join('');
+  const cacheKey = new Request(`https://tts.cache/${digest}.mp3`);
+  const cache = caches.default, hit = await cache.match(cacheKey);
+  if (hit) return hit;
+  const r = await fetch('https://api.fish.audio/v1/tts', {method: 'POST', headers: {Authorization: `Bearer ${env.FISH_API_KEY}`, 'Content-Type': 'application/json', model: 's2.1-pro-free'},
+    body: JSON.stringify({text, format: 'mp3', mp3_bitrate: 64, reference_id: voice})});
+  if (!r.ok) return json({error: 'tts upstream ' + r.status}, 502);
+  const res = new Response(await r.arrayBuffer(), {headers: {'content-type': 'audio/mpeg', 'cache-control': 'public, max-age=604800'}});
+  ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
+}
