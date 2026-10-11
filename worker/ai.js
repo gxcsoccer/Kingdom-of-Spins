@@ -4,7 +4,7 @@
 // 3) Workers AI gpt-oss-120b → 4) deterministic template (in each route). Each step falls back on error.
 import Anthropic from '@anthropic-ai/sdk';
 // Every route returns a deterministic template fallback when the model fails or times out.
-import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE, bankGate, GATE_BANK} from '../src/ai/fallback.js';
+import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, decisiveMetric, contradictsVerdict, textbookExpectation, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE, bankGate, GATE_BANK} from '../src/ai/fallback.js';
 import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 import {regionById} from '../src/game/regions.js';
@@ -309,12 +309,14 @@ ${wantQuiz ? `- quiz：一个“你猜？”问题，问这个时刻“为什么
 
 async function experiment(body, env) {
   const names = Array.isArray(body.names) ? body.names.slice(0,2).map(String) : ['A','B'];
-  const input = {names, variable:body.variable||{}, prediction:['more','less','same'].includes(body.prediction)?body.prediction:null, metric:body.metric||{}, stats:body.stats||{}, trials:Array.isArray(body.trials)?body.trials.slice(0,10):[]};
+  const input = {names, variable:body.variable||{}, prediction:['more','less','same'].includes(body.prediction)?body.prediction:null, metric:body.metric||{}, stats:body.stats||{}, trials:Array.isArray(body.trials)?body.trials.slice(0,10):[], verdict:body.verdict, physics:body.physics&&typeof body.physics==='object'?body.physics:{}};
   const base = templateExperiment(input);       // deterministic verdict, consistency, card, prediction check
   const {variable, stats, trials, prediction} = input, A = stats.A||{}, B = stats.B||{};
   const me = `你的 ${names[0]}`;
-  const row = (k,x) => `${k}（${k==='A'?`原来：${variable.from}`:`改成：${variable.to}`}）：赢 ${x.wins??0}/${x.trials??trials.length} 次，平均用时 ${fmtT(x.avgTime)}，3 秒时转速 ${fmtRpm(x.avgRpm3)}，平均碰撞 ${(+x.avgHits||0).toFixed(1)} 次`;
-  const tr = trials.map((t,i)=>`第${i+1}次：A ${t.A?.winner===0?'赢':'输'}（${t.A?.reason}，${fmtT(t.A?.time)}），B ${t.B?.winner===0?'赢':'输'}（${t.B?.reason}，${fmtT(t.B?.time)}）`).join('；');
+  // Round time is NOT a quality measure (a quick knock-out win is short), so it is left out on purpose.
+  const row = (k,x) => `${k}（${k==='A'?`原来：${variable.from}`:`改成：${variable.to}`}）：赢 ${x.wins??0}/${x.trials??trials.length} 次，第 3 秒转速 ${fmtRpm(x.avgRpm3)}`;
+  const dm = decisiveMetric(stats, base.verdict);
+  const tr = trials.map((t,i)=>`第${i+1}次：A ${t.A?.winner===0?'赢':'输'}，B ${t.B?.winner===0?'赢':'输'}`).join('；');
   const card = getCard(base.cardId);
   const predZh = {more:'改了以后会更好', less:'改了以后会更差', same:'差不多'}[prediction] || '没有预测';
   const user = `小朋友做了一个控制变量实验（理想化物理模型模拟）。
@@ -322,18 +324,28 @@ ${me} 对战 ${names[1]}，只改了一个变量：${variable.label}，从「${v
 ${row('A',A)}
 ${row('B',B)}
 每次结果：${tr||'无'}
-已算好的结论（必须照用，不得改变）：verdict=${base.verdict}；重复性：${base.repeatLesson}
-孩子的预测：${predZh}；预测对比：${base.predictionFeedback}
+已算好的结论（必须照用，不得改变）：${base.verdict==='B更好'?'改装后更好':base.verdict==='A更好'?'原来的更好':'两种差不多'}。决定结论的测量：${dm.text}。
+重复性：${base.repeatLesson}
 这个变量的物理事实（why 必须和它一致）：${variableFacts(variable)}
+算好的物理数据：${JSON.stringify(input.physics)}（Iz=转动惯量，mass=总重 g，height=Ratchet 高度，tip=轴尖）
+${base.steps.expect}（这次数据${base.steps.textbookDir===0?'无法和课本直接比较':((base.verdict==='B更好'?1:base.verdict==='A更好'?-1:0)===base.steps.textbookDir?'和课本一致':(base.verdict==='差不多'?'差别不明显':'和课本相反'))}）
 相关知识卡：${card.id} ${card.title}：${card.body}
-请用小学生能懂的话写：conclusion（≤50字，只引用胜场和平均用时两个数字，说“在这个模型里”）；why（≤70字，根据“物理事实”解释为什么改${variable.label}会这样）；repeatLesson（≤45字，根据每次结果说重复实验的意义）；predictionFeedback（≤35字，温暖，和孩子预测比较）；nextIdea（≤36字，建议下次只改另一个变量，比如轴尖/外圈配重/Ratchet 高度/翼片数/发射转速中的一个，不要和${variable.label}重复）。
-只输出 JSON：{"conclusion":"","why":"","repeatLesson":"","predictionFeedback":"","nextIdea":""}`;
+请用小学生能懂的话写：conclusion（≤50字，只引用“决定结论的测量”里的数字，结论方向必须和已算好的结论一致，说“在这个模型里”；不要提比赛用时）；repeatLesson（≤45字，根据每次结果说重复实验的意义）；dataWhy（≤90字，诚实解释这次数据为什么是这个结论，必须和已算好的结论一致；如果和课本相反，要说出可能的竞争因素并建议多做几次）；nextIdea（≤36字，建议下次只改另一个变量，比如轴尖/外圈配重/Ratchet 高度/翼片数/发射转速中的一个，不要和${variable.label}重复）。
+只输出 JSON：{"conclusion":"","repeatLesson":"","dataWhy":"","nextIdea":""}`;
   try {
     const out = await runModel(env, [{role:'system', content:'你是陀螺王国的科学老师，带小学生做实验。中文短句，鼓励，诚实，只输出 JSON。'}, {role:'user', content:user}], 650, 'experiment');
     const pick = (k, max) => { const v = ownName(tidyNumbers(String(out[k]||'')).trim(), names[0], names[1]); return (v || base[k]).slice(0, max); };
-    let conclusion = pick('conclusion', 80);
+    let conclusion = pick('conclusion', 80), why = pick('why', 110);
+    // Consistency guard: any text that claims the opposite winner/direction falls back to the template.
+    const fixed = [];
+    if (contradictsVerdict(conclusion, base.verdict) || /用时|更慢|更快地输/.test(conclusion)) { conclusion = base.conclusion; fixed.push('conclusion'); }
+    if (contradictsVerdict(why, base.verdict)) { why = base.why; fixed.push('why'); }
+    let dataWhy = pick('dataWhy', 110); if (!out.dataWhy || contradictsVerdict(dataWhy, base.verdict)) { dataWhy = base.steps.why; if (out.dataWhy) fixed.push('steps.why'); }
+    const life = base.steps.life;   // vetted analogy per variable (model analogies were sometimes physically wrong)
+    const steps = {expect: base.steps.expect, why: dataWhy, life};
+    why = dataWhy;   // the top-level explanation must describe THIS data, not just the textbook
     if (!conclusion.includes('模型')) conclusion = conclusion.replace(/。?$/, '（在这个模型里）。');
-    return json({verdict:base.verdict, conclusion, why:pick('why',110), repeatLesson:pick('repeatLesson',70), predictionFeedback:pick('predictionFeedback',50), cardId:base.cardId, nextIdea:pick('nextIdea',50), via:out.__via, aiNote:out.__note||undefined});
+    return json({verdict:base.verdict, decisive:base.decisive, steps, conclusion, why, repeatLesson:pick('repeatLesson',70), predictionFeedback:base.predictionFeedback, cardId:base.cardId, nextIdea:pick('nextIdea',50), via:out.__via, aiNote:out.__note||undefined, fixed:fixed.length?fixed:undefined});
   } catch (e) {
     return json({...base, error:String(e.message||e)});
   }
@@ -519,9 +531,16 @@ function clueRepeats(text, old=[]) {
   const a = grams(text); if (!a.size) return true;
   return (Array.isArray(old)?old:[]).some(o=>{ const b = grams(o); let n = 0; for (const x of a) if (b.has(x)) n++; return n/Math.min(a.size, b.size||1) > .3; });
 }
+// Encounter lines are shown as 「…」 under the blader's name: strip a leading "名字：" and wrapping quotes.
+function bladerLine(text, b) {
+  let t = String(text||'').trim();
+  if (b?.name) t = t.replace(new RegExp(`^${b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s*(说|喊|道)?\\s*[：:]\\s*`), '');
+  t = t.replace(/^[「“"『]+|[」”"』]+$/g, '').trim();
+  return t || b?.line || '来一场吧！';
+}
 function awardEvent(id, text='') {
   if (BEYS[id]) return {type:'find_bey', beyId:id, text:clean2(text,60)};
-  const b = bladerById(id); return {type:'meet_blader', bladerId:id, line:clean2(text||b?.line||'来一场吧！',50)};
+  const b = bladerById(id); return {type:'meet_blader', bladerId:id, line:clean2(bladerLine(text||b?.line, b),50)};
 }
 function scenePageFor(region, sceneKey, raw={}) {
   const scene = sceneByKey(region.id, sceneKey) || sceneByKey(region.id, START_SCENE[region.id]);
@@ -564,7 +583,8 @@ async function exploreStep(body, env) {
   const noGate = enter || action.type==='answer' || !!award || (+st.sinceGate||0) < 3;
   // 3. Ask the GM to write it.
   let actionText;
-  if (enter) actionText = `孩子刚进入${region.name}（第 ${(+st.runs||0)+1} 次探险），站在「${sc.title}」。介绍这里，并给出第一个线索。`;
+  // The client counts the run before sending 'enter', so st.runs already is this run's number.
+  if (enter) actionText = `孩子刚进入${region.name}（这是第 ${Math.max(1, +st.runs||1)} 次探险${(+st.runs||1)<=1?'，第一次来':''}），站在「${sc.title}」。介绍这里，并给出第一个线索。`;
   else if (action.type==='move') actionText = `孩子从「${sceneByKey(region.id, st.scene)?.title||''}」走到了「${sc.title}」。描写到达时看到的景象。`;
   else if (action.type==='inspect') { const h = (action.page?.hotspots||[])[+action.spot] || sc.spots[+action.spot] || {}; actionText = `孩子仔细查看了「${sc.title}」里的「${h.label||sc.spots[+action.spot]?.label||'某处'}」。描写他在那里发现了什么。`; }
   else if (action.type==='answer') { const g = st.pendingGate || {}; const ok = String(action.quizId)===String(g.quizId) && +action.choice===+g.answer; actionText = ok ? `孩子答对了关卡题「${g.q||''}」！热烈表扬，告诉他前进的方向。` : `孩子答错了关卡题「${g.q||''}」。温柔地说出正确答案（${g.explain||''}），然后鼓励他继续。`; }

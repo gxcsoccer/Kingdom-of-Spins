@@ -157,3 +157,6 @@ button.codex-tile:hover{transform:translate(-2px,-2px)}
 .cand-more{align-self:flex-start;font-size:12px!important;padding:3px 8px!important;border-width:2px!important}
 .pop-in{animation:popIn .35s cubic-bezier(.2,1.4,.4,1) both}
 @keyframes popIn{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+/* When mounted inside another .page (FusionScreen), the outer padding must not push the lab below the fold. */
+.page:has(> .fusion.page){padding:0;height:100vh;min-height:0;overflow:hidden}
+.page > .fusion.page{background:transparent}

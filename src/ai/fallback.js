@@ -269,12 +269,38 @@ export function templateMoments(summary={}, moments=[], names=['A','B']) {
 }
 
 // ── Controlled experiment ── (A = original setting, B = changed variable; index 0 = player)
+// Same rule as src/game/experiment.js: wins first, then 3-second rpm differing by >15%.
 export function experimentVerdict(stats={}) {
   const A = stats.A || {}, B = stats.B || {};
   if ((B.wins??0) !== (A.wins??0)) return (B.wins??0) > (A.wins??0) ? 'B更好' : 'A更好';
-  const ta = +A.avgTime||0, tb = +B.avgTime||0, base = Math.max(ta, tb, 1e-6);
-  if (Math.abs(tb-ta)/base > .15) return tb > ta ? 'B更好' : 'A更好';
+  const ra = +A.avgRpm3||0, rb = +B.avgRpm3||0;
+  if (Math.abs(rb-ra) > Math.max(ra,1)*.15) return rb > ra ? 'B更好' : 'A更好';
   return '差不多';
+}
+// Which measurement decided the verdict, with the numbers — every text must agree with this.
+export function decisiveMetric(stats={}, verdict) {
+  const A = stats.A || {}, B = stats.B || {};
+  if ((B.wins??0) !== (A.wins??0)) return {key:'wins', text:`胜场：改装后 ${B.wins??0}/${B.trials??3} 次，原来 ${A.wins??0}/${A.trials??3} 次`, short:`改装后赢 ${B.wins??0} 次、原来赢 ${A.wins??0} 次`};
+  if (verdict!=='差不多') return {key:'rpm3', text:`胜场一样多（都是 ${A.wins??0} 次），比第 3 秒转速：改装后${fmtRpm(B.avgRpm3)}，原来${fmtRpm(A.avgRpm3)}`, short:`第 3 秒转速改装后${fmtRpm(B.avgRpm3)}、原来${fmtRpm(A.avgRpm3)}`};
+  return {key:'same', text:`胜场一样多（都是 ${A.wins??0} 次），第 3 秒转速也接近（${fmtRpm(B.avgRpm3)} vs ${fmtRpm(A.avgRpm3)}）`, short:'胜场和转速都差不多'};
+}
+const VERDICTS = ['B更好','A更好','差不多'];
+export const predictionOk = (prediction, verdict) => (prediction==='more'&&verdict==='B更好')||(prediction==='less'&&verdict==='A更好')||(prediction==='same'&&verdict==='差不多');
+export function predictionFeedbackText(prediction, verdict) {
+  const said = {more:'改了会更好', less:'改了会更差', same:'差不多'}[prediction];
+  const got = {B更好:'改了以后更好', A更好:'原来的更好', 差不多:'差不多'}[verdict];
+  if (!said) return '下次先猜一猜，再看实验结果！';
+  return predictionOk(prediction, verdict) ? `你猜「${said}」，结果真的是${got}！🪙 +20` : `你猜「${said}」，结果是${got}——这正是实验的意义！`;
+}
+// Does a sentence claim the opposite of the verdict?
+export function contradictsVerdict(text='', verdict) {
+  const t = String(text);
+  const saysB = /改(装|了|成)[^，。；]{0,12}(更好|更强|赢|胜|更久|更持久)|原(来|版)[^，。；]{0,10}(更差|不如|输)/.test(t);
+  const saysA = /原(来|版)[^，。；]{0,12}(更好|更强|赢|胜|更久|更持久)|改(装|了|成)[^，。；]{0,10}(更差|变差|不如|更弱|输)/.test(t);
+  const saysSame = /差不多|几乎一样|没(什么|有)区别|一样好/.test(t);
+  if (verdict==='B更好') return saysA || (saysSame && !saysB);
+  if (verdict==='A更好') return saysB || (saysSame && !saysA);
+  return (saysA || saysB) && !saysSame;
 }
 const VAR_CARD = [[/bit|tip|轴/i,'ph-friction-area'],[/ring|配重|惯量/i,'ph-inertia'],[/height|ratchet|高度/i,'ph-com-height'],[/wing|翼/i,'ph-wing-contact'],[/rpm|launch|发射|转速/i,'ph-launch-rpm'],[/mass|重/i,'ph-mass-tradeoff'],[/style|type|类型/i,'bx-types']];
 export const variableCard = (variable={}) => (VAR_CARD.find(([re])=>re.test(`${variable.key||''} ${variable.label||''}`))||[0,'sm-control'])[1];
@@ -321,13 +347,58 @@ export function ownName(text='', name='', other='') {
   return t.split(hold).join(other);
 }
 const NEXT_VARS = [['ph-friction-area','换一种 Bit（轴尖）'],['ph-inertia','调外圈配重'],['ph-com-height','换 Ratchet 高度'],['ph-wing-contact','改翼片数量'],['ph-launch-rpm','改发射转速']];
-export function templateExperiment({names=['A','B'], variable={}, prediction=null, metric={}, stats={}, trials=[]}={}) {
-  const verdict = experimentVerdict(stats), A = stats.A||{}, B = stats.B||{};
-  const me = `你的 ${names[0]||'陀螺'}`, from = variable.from ?? '原来', to = variable.to ?? '新设置', label = variable.label || '这个变量';
-  const n = Math.max(+A.trials||0, +B.trials||0, trials.length||0);
-  const winsTxt = `${label}为「${to}」时赢 ${B.wins??0}/${B.trials??n} 次，「${from}」时赢 ${A.wins??0}/${A.trials??n} 次`;
-  const timeTxt = A.avgTime!=null && B.avgTime!=null ? `，平均坚持 ${(+B.avgTime).toFixed(1)} 秒 vs ${(+A.avgTime).toFixed(1)} 秒` : '';
-  const conclusion = `${winsTxt}${timeTxt}。在这个模型里，${verdict==='B更好'?`改成「${to}」更好`:verdict==='A更好'?`原来的「${from}」更好`:'两种差不多'}。`;
+// ── Guided "原理讲解": textbook expectation vs THIS data (consistent with the code verdict) + a real-life analogy ──
+const TIP_ARM = {needle:.35, ball:.9, flat:2, rush:2.6}, TIP_ZH = {needle:'尖轴', ball:'圆轴', flat:'平轴', rush:'冲刺轴'};
+const LIFE = {
+  'ph-friction-area':'冰鞋在冰上滑得又久又远，运动鞋抓地强、能猛冲但停得快。',
+  'ph-inertia':'花样滑冰张开手臂转得慢、收紧手臂转得快。',
+  'ph-com-height':'不倒翁重心低，推一下又站回来；高高的积木塔一碰就倒。',
+  'ph-wing-contact':'拳头集中一点打出去更有力，手掌拍出去力量更分散。',
+  'ph-launch-rpm':'自行车骑得越快越稳，慢下来就开始晃。',
+  'ph-mass-tradeoff':'保龄球很重，撞瓶后还继续往前滚。',
+  'bx-types':'足球队里有前锋也有后卫，各有各的长处。',
+  'sm-control':'比较两种肥料时，只换肥料，阳光和水都要一样。',
+};
+// +1: textbook expects the changed bey (B) to keep spin better / be harder to beat; −1: worse; 0: unclear.
+export function textbookExpectation(variable={}, physics={}) {
+  const card = variableCard(variable), p = physics || {};
+  const d = (a, b) => (Number.isFinite(+a) && Number.isFinite(+b) && +a !== +b) ? Math.sign(+b - +a) : 0;
+  if (card==='ph-friction-area' && TIP_ARM[p.tipA] && TIP_ARM[p.tipB]) { const dir = -Math.sign(TIP_ARM[p.tipB]-TIP_ARM[p.tipA]);
+    return {dir, text:`课本预期：${TIP_ZH[p.tipA]}换成${TIP_ZH[p.tipB]}，碰地的摩擦力臂${dir>0?'变短':'变长'}，转速应该掉得${dir>0?'更慢、更持久':'更快，但更会跑、撞得更猛'}。`}; }
+  if (card==='ph-inertia' || (d(p.IzA,p.IzB) && card==='sm-control')) { const dir = d(p.IzA, p.IzB);
+    return {dir, text: dir ? `课本预期：转动惯量${dir>0?'变大':'变小'}（${(+p.IzA).toFixed?.(1)??p.IzA} → ${(+p.IzB).toFixed?.(1)??p.IzB}），陀螺应该${dir>0?'更难被弄停、更持久':'更容易掉转速'}。` : '课本预期：转动惯量几乎没变，差别应该不大。'}; }
+  if (card==='ph-com-height') { const dir = -d(p.heightA, p.heightB);
+    return {dir, text:`课本预期：Ratchet ${dir>0?'变矮':'变高'}，重心${dir>0?'更低、更稳':'更高、更容易被撞歪'}。`}; }
+  if (card==='ph-mass-tradeoff') { const dir = d(p.massA, p.massB);
+    return {dir, text:`课本预期：陀螺${dir>0?'变重':'变轻'}，被撞时速度变化${dir>0?'更小、更难被撞飞':'更大、更容易被撞飞'}。`}; }
+  if (card==='ph-launch-rpm') { const dir = d(variable.from, variable.to) || 1;
+    return {dir, text:`课本预期：发射转速${dir>0?'更高':'更低'}，角动量${dir>0?'更大，更稳更持久':'更小，更早转不动'}。`}; }
+  return {dir:0, text:`课本预期：${VAR_WHY[card] || '只改一个变量，看看结果会不会变。'}`};
+}
+const COMPETING = {
+  'ph-friction-area':'抓地强的轴尖虽然掉转快，但跑得猛、撞得狠，有时能先把对手撞出去',
+  'ph-inertia':'改配重时重量和刃的形状也一起变了，碰撞的方式会跟着变',
+  'ph-com-height':'刃的碰撞高度也变了，撞到对手的位置不一样',
+  'ph-mass-tradeoff':'更重的陀螺同样发射力转速会更低',
+  'ph-wing-contact':'翼片变了以后，碰撞的位置和角度都会改变',
+  'ph-launch-rpm':'转得快也跑得猛，更容易撞墙掉转',
+};
+export function experimentSteps({variable={}, stats={}, physics={}}, verdict) {
+  const card = variableCard(variable), exp = textbookExpectation(variable, physics), dm = decisiveMetric(stats, verdict);
+  const got = verdict==='B更好' ? 1 : verdict==='A更好' ? -1 : 0;
+  let why;
+  if (exp.dir && got===exp.dir) why = `${dm.short}——和课本预期一致。在这个模型里，${VAR_WHY[card] || '这个变量确实起了作用。'}`;
+  else if (!got) why = `${dm.short}。课本说应该有差别，但差别可能被碰撞的偶然性盖住了，建议多比几次。`;
+  else if (exp.dir) why = `${dm.short}，和课本相反！可能因为${COMPETING[card] || '碰撞位置有偶然性'}。只比了 ${(stats.A?.trials)||3} 次，建议多做几次。`;
+  else why = `${dm.short}。在这个模型里，${VAR_WHY[card] || '这个变量影响了结果。'}`;
+  return {expect: exp.text.slice(0,70), why: why.length>110 ? why.slice(0,109)+'…' : why, life: (LIFE[card] || LIFE['sm-control']).slice(0,44), textbookDir: exp.dir};
+}
+
+export function templateExperiment({names=['A','B'], variable={}, prediction=null, metric={}, stats={}, trials=[], verdict:given=null, physics={}}={}) {
+  const verdict = VERDICTS.includes(given) ? given : experimentVerdict(stats), A = stats.A||{}, B = stats.B||{};
+  const from = variable.from ?? '原来', to = variable.to ?? '新设置', label = variable.label || '这个变量';
+  const dm = decisiveMetric(stats, verdict);
+  const conclusion = `${dm.text}。在这个模型里，${verdict==='B更好'?`改成「${to}」更好`:verdict==='A更好'?`原来的「${from}」更好`:'两种差不多'}。`;
   const cardId = variableCard(variable);
   // Consistency across trials: did the player win in the same configurations each time?
   const bw = trials.filter(t=>t?.B?.winner===0).length, aw = trials.filter(t=>t?.A?.winner===0).length, m = trials.length;
@@ -337,11 +408,9 @@ export function templateExperiment({names=['A','B'], variable={}, prediction=nul
     : consistent ? `${m} 次结果都一样，说明这个差别很稳定，不是运气。`
     : clear ? `改成「${to}」${m} 次赢 ${bw} 次，原来赢 ${aw} 次——大多数时候都这样，不只是运气。`
     : `${m} 次里结果不太一样，碰撞很敏感，要多做几次才能看清规律。`;
-  const actual = verdict==='B更好'?'more':verdict==='A更好'?'less':'same';
-  const predictionFeedback = !prediction ? '下次先猜一猜，再看实验结果！'
-    : prediction===actual ? '你猜对了！科学家的直觉 👍' : '和你猜的不一样——这正是实验的意义！';
   const next = NEXT_VARS.find(([c])=>c!==cardId) || NEXT_VARS[0];
-  return {verdict, conclusion: conclusion.slice(0,90), why: VAR_WHY[cardId] || VAR_WHY['sm-control'], repeatLesson, predictionFeedback, cardId, nextIdea:`下次只${next[1]}，其他都不变，看看会怎样？`, fallback:true};
+  const steps = experimentSteps({variable, stats, physics}, verdict);
+  return {verdict, decisive:dm.key, steps, conclusion: conclusion.slice(0,100), why: VAR_WHY[cardId] || VAR_WHY['sm-control'], repeatLesson, predictionFeedback: predictionFeedbackText(prediction, verdict), cardId, nextIdea:`下次只${next[1]}，其他都不变，看看会怎样？`, fallback:true};
 }
 
 // ── AI 科学绘本 (flipbook) ── page shape shared by worker + client.

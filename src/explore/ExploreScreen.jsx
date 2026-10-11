@@ -223,7 +223,7 @@ function EventOverlay({ev,region,onFind,onMeet,onGeo,onAnswer,onGateDone,onDone,
   if(ev.type==='meet_blader'){const b=bladerById(ev.bladerId);return (
     <div className="ex-ov ex-meet" style={{'--bc':b?.color}}>
       <div className="ex-meet-band"><div className="ex-meet-lines"/><div className="ex-meet-face"><Portrait blader={b} size={220}/></div>
-        <div className="ex-meet-text"><div className="kicker">ENCOUNTER</div><div className="ex-meet-name">{b?.name}</div><div className="ex-meet-line">「{ev.line||b?.line}」</div></div></div>
+        <div className="ex-meet-text"><div className="kicker">ENCOUNTER</div><div className="ex-meet-name">{b?.name}</div><div className="ex-meet-line">「{String(ev.line||b?.line||'').replace(new RegExp(`^${b?.name||'^'}\\s*(说|喊|道)?\\s*[：:]\\s*`),'').replace(/^[「“"]+|[」”"]+$/g,'')}」</div></div></div>
       <div className="row center" style={{gap:16}}><button className="btn primary big" onClick={()=>onMeet(ev.bladerId,true)}>⚔️ 挑战！</button><button className="btn big" onClick={()=>onMeet(ev.bladerId,false)}>稍后再来</button></div>
       <div className="ex-get-hint">遇见过的陀螺手可以随时在右边的名单里再挑战</div>
     </div>);}
