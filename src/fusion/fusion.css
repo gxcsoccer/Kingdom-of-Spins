@@ -291,3 +291,5 @@ button.codex-tile:hover{transform:translate(-2px,-2px)}
 @media (max-width:1100px){.hc-krow-l{display:none}.hc-krow .hc-chip{font-size:10.5px;padding:1px 6px}}
 /* 闪光只扫卡片下半部分，不盖住 3D 陀螺（color-dodge 会把黑红染成绿色） */
 .hc-holo{-webkit-mask-image:linear-gradient(to bottom,transparent 0 46%,#000 58%);mask-image:linear-gradient(to bottom,transparent 0 46%,#000 58%)}
+.hc-art:not(.spinning) .hc-aura{animation-play-state:paused;opacity:.55}
+.hc-art{cursor:pointer}

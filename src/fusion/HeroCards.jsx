@@ -34,11 +34,20 @@ function Radar({bars}){
   );
 }
 
-function Hero3D({bey,delay}){
-  const rpmRef=useRef(0);
+// 默认静止（看清刃形、徽章、花纹）；鼠标移上去 / 点一下才转起来。揭晓时先转一下再慢慢停。
+function HoverArt({children}){
+  const [spin,setSpin]=useState(false);
+  // 鼠标：移上去转、移开停；触屏：点一下切换
+  return <div className={`hc-art ${spin?'spinning':''}`} onPointerEnter={e=>e.pointerType==='mouse'&&setSpin(true)} onPointerLeave={e=>e.pointerType==='mouse'&&setSpin(false)} onClick={e=>{if(e.nativeEvent.pointerType!=='mouse')setSpin(v=>!v);}}>{children(spin)}</div>;
+}
+function Hero3D({bey,delay,spinning}){
+  const rpmRef=useRef(0),target=useRef(0),spinRef=useRef(spinning);
+  spinRef.current=spinning;
   const [on,setOn]=useState(false); // mount after the flip-in so the 3D view measures its final size
   useEffect(()=>{const t=setTimeout(()=>setOn(true),delay);return()=>clearTimeout(t);},[delay]);
-  useEffect(()=>{let raf,t0;const t=setTimeout(()=>{t0=performance.now();const f=()=>{const k=Math.min(1,(performance.now()-t0)/1400);rpmRef.current=5200*(1-Math.pow(1-k,3));if(k<1)raf=requestAnimationFrame(f);};f();},delay);return()=>{clearTimeout(t);cancelAnimationFrame(raf);};},[delay]);
+  useEffect(()=>{const t1=setTimeout(()=>{target.current=5200;},delay),t2=setTimeout(()=>{if(!spinRef.current)target.current=0;},delay+1600);return()=>{clearTimeout(t1);clearTimeout(t2);};},[delay]);
+  useEffect(()=>{target.current=spinning?5200:0;},[spinning]);
+  useEffect(()=>{let raf,last=performance.now();const f=now=>{const dt=Math.min(.05,(now-last)/1000);last=now;const goal=target.current,k=goal>rpmRef.current?3.2:1.6;rpmRef.current+=(goal-rpmRef.current)*Math.min(1,k*dt);if(Math.abs(goal-rpmRef.current)<5)rpmRef.current=goal;raf=requestAnimationFrame(f);};raf=requestAnimationFrame(f);return()=>cancelAnimationFrame(raf);},[]);
   if(!on)return null;
   return <Suspense fallback={null}><BeyShowcase bey={bey} rpmRef={rpmRef} tilt={.5} zoom={1.02} background={false}/></Suspense>;
 }
@@ -64,7 +73,7 @@ export function HeroCard({bey,i=0,revealDelay=0,onPick,picking,kOpen=null,setKOp
           {bey.fusedBy==='template'&&<span className="hc-tag">公式方案</span>}
           <span className="hc-no">No.{String(i+1).padStart(3,'0')}</span>
         </div>
-        <div className="hc-art"><span className="hc-aura"/>{show3d&&<Hero3D bey={bey} delay={revealDelay+620}/>}</div>
+        <HoverArt>{spinning=><><span className="hc-aura"/>{show3d&&<Hero3D bey={bey} delay={revealDelay+620} spinning={spinning}/>}</>}</HoverArt>
         <div className="hc-name"><b>{bey.name}</b><small>{bey.zh}</small></div>
         {bey.look&&<div className="hc-look">✨ {lookWords(bey.look)}</div>}
         <div className="hc-move"><span>必杀技</span><b>{mv.name}</b>{mv.shout&&<em>「{mv.shout}」</em>}</div>
