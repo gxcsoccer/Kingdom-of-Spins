@@ -1,0 +1,75 @@
+/* Scene-scoped styles (art agent). Manga look: paper, ink, screentone, concentration lines. */
+.ks-battle, .ks-showcase { position: relative; overflow: hidden; background: #fbf8f1; }
+.ks-battle { width: 100%; height: 100%; min-height: 320px; }
+.ks-battle > canvas, .ks-battle > div > canvas { position: absolute; inset: 0; }
+.ks-battle-bg, .ks-showcase-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 55%, #fbf8f1 0 34%, transparent 62%),
+    repeating-conic-gradient(from 0deg at 50% 55%, #111 0deg .55deg, transparent .55deg 3.1deg, #111 3.1deg 3.4deg, transparent 3.4deg 5.3deg),
+    #fbf8f1;
+  opacity: .9;
+}
+.ks-battle-bg::after, .ks-showcase-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(17,17,17,.22) 1.2px, transparent 1.6px);
+  background-size: 7px 7px;
+  -webkit-mask-image: radial-gradient(circle at 50% 55%, transparent 40%, #000 85%);
+          mask-image: radial-gradient(circle at 50% 55%, transparent 40%, #000 85%);
+}
+
+.ks-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "PingFang SC", "Arial Black", sans-serif; }
+.ks-flash { position: absolute; inset: 0; background: #fff; animation: ks-flash .22s ease-out forwards; mix-blend-mode: normal; }
+@keyframes ks-flash { 0% { opacity: .85; } 100% { opacity: 0; } }
+
+.ks-impact { position: absolute; width: 0; height: 0; }
+.ks-burst {
+  position: absolute; left: 0; top: 0; width: 300px; height: 300px;
+  background: repeating-conic-gradient(#111 0deg 2deg, transparent 2deg 9deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 22%, #000 26%, #000 40%, transparent 62%);
+          mask-image: radial-gradient(circle, transparent 22%, #000 26%, #000 40%, transparent 62%);
+  animation: ks-burst .45s ease-out forwards;
+}
+@keyframes ks-burst { 0% { opacity: 1; } 100% { opacity: 0; filter: blur(1px); } }
+.ks-sfx {
+  position: absolute; left: 0; top: 0; white-space: nowrap; font-weight: 900; font-style: italic; letter-spacing: -.04em;
+  color: #fff; -webkit-text-stroke: 3px #111; paint-order: stroke fill;
+  text-shadow: 5px 5px 0 #111, 0 0 18px rgba(255, 212, 0, .55);
+  transform: translate(-50%, -120%) rotate(var(--rot)) scale(1);
+  animation: ks-sfx .9s cubic-bezier(.2, 1.6, .4, 1) forwards;
+}
+@keyframes ks-sfx {
+  0% { transform: translate(-50%, -120%) rotate(var(--rot)) scale(.2); opacity: 0; }
+  14% { transform: translate(-50%, -120%) rotate(var(--rot)) scale(1.25); opacity: 1; }
+  30% { transform: translate(-50%, -120%) rotate(var(--rot)) scale(1); }
+  75% { opacity: 1; }
+  100% { transform: translate(-50%, -150%) rotate(var(--rot)) scale(1.05); opacity: 0; }
+}
+
+.ks-finish { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: ks-finish-in .5s cubic-bezier(.2, 1.5, .4, 1) both; }
+.ks-finish-lines {
+  position: absolute; inset: -20%;
+  background: repeating-conic-gradient(from 0deg, rgba(17,17,17,.85) 0deg .7deg, transparent .7deg 4deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 26%, #000 60%);
+          mask-image: radial-gradient(circle, transparent 26%, #000 60%);
+  animation: ks-spin-slow 8s linear infinite;
+}
+@keyframes ks-spin-slow { to { transform: rotate(360deg); } }
+.ks-finish-en {
+  position: relative; font-family: "Arial Black", "Helvetica Neue", sans-serif; font-weight: 900; font-style: italic;
+  font-size: clamp(42px, 9vw, 120px); letter-spacing: -.03em; line-height: .95;
+  color: #ffd400; -webkit-text-stroke: 5px #111; paint-order: stroke fill;
+  text-shadow: 8px 8px 0 #111; transform: skew(-8deg) rotate(-4deg);
+}
+.ks-finish-xtreme .ks-finish-en { color: #ff2d4a; }
+.ks-finish-spin .ks-finish-en, .ks-finish-judge .ks-finish-en { color: #fff; }
+.ks-finish-zh {
+  position: relative; margin-top: 14px; padding: 8px 22px; background: #111; color: #fff; font-weight: 900;
+  font-size: clamp(16px, 2.4vw, 28px); transform: skew(-8deg) rotate(-2deg); box-shadow: 6px 6px 0 #ffd400;
+}
+.ks-finish-pts { color: #ffd400; margin-left: 8px; }
+@keyframes ks-finish-in { 0% { transform: scale(2.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+.ks-showcase { width: 100%; height: 100%; min-height: 120px; }
+.ks-showcase canvas { position: absolute !important; inset: 0; }
+.ks-showcase-bg { opacity: .55; }

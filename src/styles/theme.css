@@ -1,0 +1,92 @@
+/* Kingdom of Spins — manga (少年漫画) theme. Shared by all screens. */
+:root{
+  --paper:#fbf8f1; --paper-2:#f1ece0; --ink:#111; --ink-2:#2a2a2a; --mute:#6b6658;
+  --red:#ff2d4a; --yellow:#ffd400; --blue:#2f7bff; --teal:#14c9a5; --purple:#8a3cff;
+  --shadow:6px 6px 0 var(--ink); --shadow-sm:3px 3px 0 var(--ink);
+  --border:3px solid var(--ink); --border-thick:5px solid var(--ink);
+  --display:"Arial Black","Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --body:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+  --tone: radial-gradient(circle, rgba(17,17,17,.22) 1.1px, transparent 1.4px) 0 0/7px 7px;
+  --tone-light: radial-gradient(circle, rgba(17,17,17,.10) 1px, transparent 1.3px) 0 0/6px 6px;
+}
+*{box-sizing:border-box}
+html,body,#root{margin:0;height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+img{max-width:100%}
+
+/* Page backdrop: paper + light screentone + diagonal speed lines */
+.page{min-height:100%;position:relative;padding:24px clamp(16px,3vw,40px) 48px;background:
+  repeating-linear-gradient(-62deg, transparent 0 46px, rgba(17,17,17,.035) 46px 48px), var(--tone-light), var(--paper)}
+.page.dark{background:repeating-linear-gradient(-62deg,transparent 0 46px,rgba(255,255,255,.04) 46px 48px),#0d0d10;color:#fff}
+
+/* Manga panel */
+.panel{background:#fff;border:var(--border);box-shadow:var(--shadow);position:relative}
+.panel.tone{background:var(--tone-light),#fff}
+.panel.skew{transform:rotate(-1deg)}
+.panel.ink{background:var(--ink);color:#fff}
+.panel-title{font-family:var(--display);font-weight:900;letter-spacing:.02em;margin:0;line-height:1.05}
+
+/* Display text */
+.h-display{font-family:var(--display);font-weight:900;line-height:.95;letter-spacing:-.01em;margin:0;text-transform:uppercase}
+.h-outline{color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:5px 5px 0 var(--ink)}
+.h-red{color:var(--red);-webkit-text-stroke:2.5px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--ink)}
+.h-yellow{color:var(--yellow);-webkit-text-stroke:2.5px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--ink)}
+.sfx{font-family:var(--display);font-weight:900;font-style:italic;color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--ink);transform:rotate(-8deg);display:inline-block}
+.kicker{font-family:var(--display);font-size:12px;letter-spacing:.25em;text-transform:uppercase;font-weight:900}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border:var(--border);background:#fff;box-shadow:var(--shadow-sm);font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:.02em;transition:transform .08s,box-shadow .08s;user-select:none}
+.btn:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:var(--shadow-sm)}
+.btn.primary{background:var(--red);color:#fff;-webkit-text-stroke:.5px var(--ink)}
+.btn.yellow{background:var(--yellow)}
+.btn.ink{background:var(--ink);color:#fff;box-shadow:3px 3px 0 var(--red)}
+.btn.big{font-size:24px;padding:16px 34px}
+.btn.small{font-size:13px;padding:7px 12px;border-width:2px}
+.btn.ghost{background:transparent;box-shadow:none}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:2px solid var(--ink);background:#fff;font-weight:800;font-size:13px;border-radius:999px}
+.badge{display:inline-block;padding:2px 8px;border:2px solid var(--ink);font-size:12px;font-weight:900;background:var(--yellow)}
+.badge.official{background:#2f7bff;color:#fff}.badge.physics{background:#14c9a5;color:#111}.badge.design{background:#ff9bd2;color:#111}
+
+/* Layout helpers */
+.row{display:flex;gap:16px;align-items:center}.col{display:flex;flex-direction:column;gap:12px}
+.wrap{flex-wrap:wrap}.grow{flex:1}.center{justify-content:center}.between{justify-content:space-between}
+.grid{display:grid;gap:20px}
+.mt{margin-top:16px}.mt2{margin-top:28px}
+.muted{color:var(--mute)}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
+.coins{display:inline-flex;align-items:center;gap:6px;font-family:var(--display);font-weight:900;font-size:18px;padding:6px 14px;border:var(--border);background:var(--yellow);box-shadow:var(--shadow-sm)}
+
+/* Speech bubble */
+.bubble{position:relative;background:#fff;border:var(--border);border-radius:22px;padding:14px 18px;font-weight:700;line-height:1.5;box-shadow:var(--shadow-sm)}
+.bubble::after{content:"";position:absolute;left:28px;bottom:-16px;width:22px;height:22px;background:#fff;border-right:var(--border);border-bottom:var(--border);transform:skewX(35deg) rotate(45deg)}
+.bubble.right::after{left:auto;right:28px}
+
+/* Stat bars */
+.stat{display:grid;grid-template-columns:80px 1fr 44px;align-items:center;gap:8px;font-weight:800;font-size:13px}
+.stat .bar{height:12px;border:2px solid var(--ink);background:var(--tone-light),#fff;position:relative;overflow:hidden}
+.stat .bar>i{position:absolute;inset:0 auto 0 0;background:var(--c,var(--red));border-right:2px solid var(--ink)}
+
+/* Burst background (manga focus lines) */
+.burst{position:absolute;inset:0;pointer-events:none;background:repeating-conic-gradient(from 0deg at 50% 50%, rgba(17,17,17,.08) 0deg 2deg, transparent 2deg 9deg);mask-image:radial-gradient(circle at 50% 50%, transparent 18%, #000 70%)}
+
+/* Model honesty note */
+.model-note{font-size:12px;color:var(--mute);font-weight:700}
+.model-note::before{content:"⚙ ";}
+
+/* Animations */
+@keyframes pop{0%{transform:scale(.3) rotate(-12deg);opacity:0}60%{transform:scale(1.15) rotate(-6deg);opacity:1}100%{transform:scale(1) rotate(-8deg)}}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,2px)}50%{transform:translate(3px,-3px)}75%{transform:translate(-2px,-1px)}}
+@keyframes slidein{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes spinslow{to{transform:rotate(360deg)}}
+.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
+.slidein{animation:slidein .35s ease-out both}
+.shake{animation:shake .25s linear}
+
+/* Modal */
+.modal-back{position:fixed;inset:0;background:rgba(17,17,17,.55);display:grid;place-items:center;z-index:50;padding:20px}
+.modal{max-width:720px;width:100%;max-height:90vh;overflow:auto;padding:24px}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}

@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kingdom-of-spins",
+  "account_id": "6db2310bdcab56f5bdf834fb50ac05bc",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/ws/*"]
+  },
+  // Workers AI: `remote: true` makes `wrangler dev` call the real model.
+  "ai": { "binding": "AI", "remote": true },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "BattleRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BattleRoom"] }],
+  "observability": { "enabled": true }
+}
