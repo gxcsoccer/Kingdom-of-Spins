@@ -4,6 +4,7 @@ import {listKids, updateKid, deleteKid, loadSave, writeSave} from '../net/auth.j
 import {freshSave, useGame} from '../game/store.js';
 import {BLADERS} from '../game/story.js';
 import {deactivateKid} from '../game/sync.js';
+import {makeDemoSave} from '../game/demoSave.js';
 
 const AVATARS = ['1', '2', '3', '4'];
 const input = {border: 'var(--border)', padding: '8px 12px', font: 'inherit', fontWeight: 800};
@@ -42,6 +43,16 @@ function KidRow({kid, onChanged}) {
     const {error} = await writeSave(kid.id, freshSave());
     if (useGame.getState().activeKid?.id === kid.id) deactivateKid();
     setMsg(error ? '重置失败：' + error.message : '进度已重置'); setSave(freshSave());
+  }
+  // 演示用：一键写入“玩到一半”的进度（走正常的云存档；当前正在玩的档案也同步到本地）。
+  async function importDemo() {
+    if (!confirm(`导入演示存档会覆盖「${kid.nickname}」现在的全部进度（陀螺、队员、探索、金币、知识卡）。确定导入吗？`)) return;
+    const data = makeDemoSave({...save, profile: {...save?.profile, nickname: kid.nickname, avatar: kid.avatar || null, kidId: kid.id}});
+    setBusy(true);
+    const {error} = await writeSave(kid.id, data);
+    if (!error && useGame.getState().activeKid?.id === kid.id) useGame.getState().update(s => { for (const k of Object.keys(s)) delete s[k]; Object.assign(s, data); });
+    setBusy(false);
+    setMsg(error ? '导入失败：' + error.message : '演示存档已导入 ✓'); if (!error) setSave(data);
   }
   async function remove() {
     if (!confirm(`确定删除「${kid.nickname}」的档案和云存档吗？此操作不能撤销。`)) return;
@@ -85,6 +96,7 @@ function KidRow({kid, onChanged}) {
         </div>}
         <div className="row mt" style={{gap: 8}}>
           <button className="btn small" onClick={resetProgress}>重置进度</button>
+          <button className="btn small yellow" disabled={busy} onClick={importDemo}>🎬 导入演示存档</button>
           <button className="btn small" style={{color: 'var(--red)'}} onClick={remove}>删除档案</button>
         </div>
       </div>

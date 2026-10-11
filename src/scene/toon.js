@@ -180,7 +180,7 @@ export function blobShadowTexture() {
 export const lum = hex => { const h = String(hex || '#888888').replace('#', ''); const v = h.length === 3 ? h.split('').map(x => parseInt(x + x, 16)) : [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); return (.299 * v[0] + .587 * v[1] + .114 * v[2]) / 255; };
 const brightest = list => list.find(c => c && lum(c) > .42) || '#ffffff';
 // ---- vector emblem icons: bold solid silhouettes (±50 grid), readable at chip size ----
-const ICONS = {
+export const ICONS = {
   // dragon head facing right: two horns, open jaw
   dragon: g => { // side view: long snout, wide-open fanged jaw, horns swept back, spiky neck crest
     g.moveTo(-34, -10); g.lineTo(-50, -34); g.lineTo(-24, -22); g.lineTo(-38, -46); g.lineTo(-8, -26); g.lineTo(30, -22); g.lineTo(48, -14); g.lineTo(46, -6);
@@ -199,7 +199,7 @@ const ICONS = {
   // one big peak + a smaller one (snow cap drawn in DETAIL) — not a "W"
   mountain: g => { g.moveTo(-50, 36); g.lineTo(-10, -44); g.lineTo(12, -4); g.lineTo(24, -16); g.lineTo(50, 36); g.closePath(); },
 };
-const DETAIL = { // drawn in the light colour on top of the dark silhouette
+export const DETAIL = { // drawn in the light colour on top of the dark silhouette
   dragon: g => { g.moveTo(2, -16); g.lineTo(14, -14); g.lineTo(4, -10); g.closePath(); g.moveTo(22, -4); g.lineTo(26, 3); g.lineTo(30, -4); g.closePath(); g.moveTo(32, -5); g.lineTo(35, 1); g.lineTo(38, -5); g.closePath(); g.moveTo(24, 13); g.lineTo(28, 7); g.lineTo(32, 14); g.closePath(); },
   wolf: g => { g.moveTo(-18, -4); g.lineTo(-6, 2); g.lineTo(-16, 4); g.closePath(); g.moveTo(18, -4); g.lineTo(6, 2); g.lineTo(16, 4); g.closePath(); },
   tiger: g => { g.rect(-34, -14, 14, 5); g.rect(20, -14, 14, 5); g.rect(-36, 4, 14, 5); g.rect(22, 4, 14, 5); g.rect(-3, -28, 6, 14); },

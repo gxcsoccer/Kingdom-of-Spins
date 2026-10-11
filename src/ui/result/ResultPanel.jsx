@@ -14,7 +14,8 @@ import ExperimentLab from '../../lab/ExperimentLab.jsx';
 import ReplaySlot from '../ReplaySlot.jsx';
 import GuidedReview from './GuidedReview.jsx';
 import RpmChart from '../RpmChart.jsx';
-import BeyArt,{BeySvg} from '../BeyArt.jsx';
+import BeyArt from '../BeyArt.jsx';
+import LookSvg from './LookSvg.jsx';
 import {Portrait,Modal} from '../common.jsx';
 import {DoctorFace} from '../MapScreen.jsx';
 import * as sfx from '../../game/sfx.js';
@@ -143,7 +144,7 @@ function backToExplore(){const p=useGame.getState().params||{};useGame.getState(
 // standalone canvas' sizing), so designed beys use their look-aware 2D art here.
 function ResultBeyArt({bey,spin}){
   if(!(bey?.look||bey?.parents||bey?.fusedBy))return <BeyArt bey={bey} size={150} spin={spin}/>;
-  return <BeySvg bey={bey} size={150} spin={spin}/>;
+  return <LookSvg bey={bey} size={150} spin={spin}/>;
 }
 function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRecruit,recruited,blader,onRecruit,onNext}){
   const fromExp=fromExplore();
