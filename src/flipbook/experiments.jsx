@@ -109,23 +109,48 @@ export function MomentumLab({onDone}) {
 // ④ 进动：Ω = m·g·r / (I·ω)；转速越快画圈越慢；太慢就倒。
 export function PrecessionLab({onDone}) {
   const [rpm, setRpm] = useState(4000);
-  const [phi, setPhi] = useState(0);
-  const fall = rpm < 350, omega = rpm*Math.PI/30, Om = 0.042*9.81*0.012/(2.1e-5*omega);   // rad/s
-  useLoop(true, dt => { setPhi(p=>p + (fall ? 0 : Om*dt)); });
+  const st = useRef({phi:0, spin:0, wob:0, tilt:10}); const [, force] = useState(0);
+  const SPEEDUP = 4;   // 动画快放倍数（画面上写明）
+  const fall = rpm < 350, omega = rpm*Math.PI/30;
+  const Om = 0.042*9.81*0.012/(2.1e-5*omega);   // 进动角速度 rad/s = m·g·r / (I·ω)
+  // 越接近“站不稳”的转速，倾角和晃动越大；转得快时几乎竖直（“睡着的陀螺”）
+  const calm = Math.min(1, Math.max(0, (rpm-350)/2500));
+  const targetTilt = fall ? 75 : 6 + 34*(1-calm)**2, wobAmp = fall ? 0 : 1.5 + 9*(1-calm)**2;
+  useLoop(true, dt => { const s0 = st.current;
+    s0.tilt += (targetTilt - s0.tilt)*Math.min(1, dt*(fall?2.5:3));
+    if (!fall) { s0.phi += Om*dt*SPEEDUP; s0.wob += dt*(6 + 10*(1-calm)); }
+    s0.spin += Math.min(rpm/60, 5)*dt*2*Math.PI*(fall?0.2:1);
+    force(x=>x+1); });
   useEffect(()=>{ if (rpm<=800) onDone?.(); }, [rpm]);   // eslint-disable-line
-  const tilt = fall ? 70 : 15, cx = 100 + Math.sin(phi)*40*Math.sin(tilt*Math.PI/180)*2, cy = 40 + (fall ? 50 : 0);
+  const {phi, spin, wob, tilt} = st.current, th = (tilt + Math.sin(wob)*wobAmp)*Math.PI/180, L = 95;
+  const gx = 100, gy = 140, tx = gx + L*Math.sin(th)*Math.cos(phi), ty = gy - L*Math.cos(th) + L*Math.sin(th)*Math.sin(phi)*.35;
+  const dcx = gx + (tx-gx)*.62, dcy = gy + (ty-gy)*.62, lean = Math.atan2(tx-gx, gy-ty)*180/Math.PI;
+  const Lw = 18 + 52*Math.min(1, rpm/7000);   // 角动量箭头长度 ∝ 转速
+  const ax = (tx-gx)/L, ay = (ty-gy)/L, lx = tx + ax*Lw, ly = ty + ay*Lw;
+  const trailRx = L*Math.sin(tilt*Math.PI/180), dots = [0,1,2].map(k=>{const a = spin + k*2*Math.PI/3; return [Math.cos(a)*30, Math.sin(a)*8];});
   return (
     <div className="xp">
-      <svg viewBox="0 0 200 150" className="xp-prec">
-        <ellipse cx="100" cy="130" rx="70" ry="10" fill="#e9e3d4"/>
-        {!fall && <ellipse cx="100" cy="45" rx={40*Math.sin(tilt*Math.PI/180)*2} ry="8" fill="none" stroke="#8a3cff" strokeDasharray="4 4"/>}
-        <line x1="100" y1="128" x2={cx} y2={cy} stroke="#111" strokeWidth="4"/>
-        <ellipse cx={(100+cx)/2+ (cx-100)*.15} cy={(128+cy)/2 - 10} rx="32" ry="9" fill="#c6a8ff" stroke="#111" strokeWidth="3" transform={`rotate(${(cx-100)*.6} ${(100+cx)/2} ${(128+cy)/2-10})`}/>
-        {fall && <text x="100" y="30" textAnchor="middle" fontSize="16" fontWeight="900" fill="#ff2d4a">倒下啦！</text>}
+      <svg viewBox="0 0 200 165" className="xp-prec">
+        <defs><marker id="prArr" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#ff2d4a"/></marker>
+          <marker id="prArrG" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#2f7bff"/></marker></defs>
+        <ellipse cx={gx} cy={gy+2} rx="80" ry="12" fill="#e9e3d4"/>
+        {!fall && <ellipse cx={gx} cy={gy - L*Math.cos(tilt*Math.PI/180)} rx={Math.max(2,trailRx)} ry={Math.max(1,trailRx*.35)} fill="none" stroke="#8a3cff" strokeDasharray="4 4"/>}
+        <line x1={gx} y1={gy} x2={tx} y2={ty} stroke="#111" strokeWidth="4" strokeLinecap="round"/>
+        <g transform={`translate(${dcx} ${dcy}) rotate(${lean})`}>
+          <ellipse rx="32" ry="9" fill="#c6a8ff" stroke="#111" strokeWidth="3"/>
+          {dots.map(([x,y],i)=><circle key={i} cx={x} cy={y} r="3" fill="#111" opacity={y>0?1:.35}/>)}
+        </g>
+        {!fall && <line x1={tx} y1={ty} x2={lx} y2={ly} stroke="#ff2d4a" strokeWidth="3.5" markerEnd="url(#prArr)"/>}
+        {!fall && <text x={lx+4} y={ly} fontSize="8" fontWeight="900" fill="#ff2d4a">角动量</text>}
+        <line x1={dcx} y1={dcy} x2={dcx} y2={dcy+24} stroke="#2f7bff" strokeWidth="2.5" markerEnd="url(#prArrG)"/>
+        <text x={dcx+4} y={dcy+26} fontSize="8" fontWeight="900" fill="#2f7bff">重力</text>
+        {fall && <text x="100" y="26" textAnchor="middle" fontSize="16" fontWeight="900" fill="#ff2d4a">倒下啦！</text>}
+        {!fall && <text x="196" y="12" textAnchor="end" fontSize="7" fontWeight="800" fill="#888">画圈动画 ×{SPEEDUP} 快放</text>}
       </svg>
       <label className="xp-sliders one">转速 {rpm} 转/分<input type="range" min="200" max="7000" step="50" value={rpm} onChange={e=>setRpm(+e.target.value)}/></label>
-      <div className="xp-read big">{fall ? '转得太慢（低于 350 转），角动量太小，扛不住重力的推倒——倒了！' : `画一圈要 ${(2*Math.PI/Om).toFixed(1)} 秒 —— 转得越快，画圈越慢、越稳。`}</div>
-      <Note>小模型：进动角速度 = 重力力矩 ÷ 角动量；1000 转/分以下当作“倒下”。</Note>
+      <div className="xp-read big">{fall ? '转得太慢（低于 350 转），角动量太小，扛不住重力——倒了！'
+        : `红箭头（角动量）${rpm>4000?'很长':rpm>1500?'变短了':'很短'}：画一圈要 ${(2*Math.PI/Om).toFixed(1)} 秒，${calm>.7?'几乎竖直、很稳':calm>.3?'开始歪着晃':'晃得很厉害，快倒了'}。`}</div>
+      <Note>小模型：进动角速度 = 重力力矩 ÷ 角动量（转得越快，画圈越慢）；越接近站不稳的转速晃得越厉害，低于 350 转/分当作“倒下”（和游戏对战规则一致）。</Note>
     </div>
   );
 }
