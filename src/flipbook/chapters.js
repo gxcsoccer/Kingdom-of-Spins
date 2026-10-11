@@ -24,7 +24,7 @@ export const CHAPTERS = [
   },
   {
     id: 'friction', title: '轴尖的选择', question: '为什么尖轴转得久，平轴跑得快？', color: '#14c9a5', badge: '摩擦侦探',
-    cards: ['ph-friction-area', 'ph-needle', 'ph-flat', 'ph-rubber'], experiment: 'friction', quiz: 'ph-friction-area',
+    cards: ['ph-friction-area', 'ph-needle', 'ph-flat'], experiment: 'friction', quiz: 'ph-friction-area',
     pages: [
       {kind:'hook', title:'三种轴尖', text:['陀螺最下面碰地的地方叫轴尖。','有尖的、圆的、平的。','你猜，哪一种转得最久？'], guess:['尖轴','圆轴','平轴'], answer:0,
         prompt:'three battle spinning tops in a row on a smooth arena floor, close-up on their bottom tips touching the ground: the left has a sharp needle point, the middle has a small round ball tip, the right has a wide flat tip, a magnifying glass hovering over the tips'},
@@ -40,7 +40,7 @@ export const CHAPTERS = [
   },
   {
     id: 'momentum', title: '碰撞的较量', question: '为什么重的陀螺不容易被撞飞？', color: '#ff2d4a', badge: '碰撞专家',
-    cards: ['ph-momentum', 'ph-impulse', 'ph-energy-convert', 'ph-mass-tradeoff'], experiment: 'momentum', quiz: 'ph-momentum',
+    cards: ['ph-momentum', 'ph-impulse', 'ph-mass-tradeoff'], experiment: 'momentum', quiz: 'ph-momentum',
     pages: [
       {kind:'hook', title:'轻的撞重的', text:['一只轻陀螺，猛地撞向一只重陀螺。','撞完以后，谁会被弹得更远？'], guess:['轻的那只','重的那只','一样远'], answer:0,
         prompt:'a small light battle spinning top crashing into a big heavy metal battle spinning top inside a stadium bowl, impact star burst at the contact point, the small top bouncing back, sparks flying, dramatic speed lines'},
@@ -72,7 +72,7 @@ export const CHAPTERS = [
   },
   {
     id: 'tides', title: '月亮拉海水', question: '海水为什么每天涨落两次？', color: '#29b6ff', badge: '潮汐观察员',
-    cards: ['geo-tides', 'geo-coast', 'geo-compass'], experiment: 'tides', quiz: 'geo-tides',
+    cards: ['geo-tides'],   // 只列这一章真正讲到的卡：“翻开绘本”按它跳转 experiment: 'tides', quiz: 'geo-tides',
     pages: [
       {kind:'hook', title:'消失的小路', text:['早上，海边露出一条沙滩小路，能走到小岛上。','到了下午，小路不见了，小岛被海水围住！','你猜，是谁把海水拉来拉去？'], guess:['月亮','风','大鱼'], answer:0,
         prompt:'a small rocky island with a pointed-spire abbey connected to the shore by a wet sandy path at low tide, the same island in a small inset surrounded by sea at high tide with the path underwater, seagulls, bright sky'},
@@ -88,7 +88,7 @@ export const CHAPTERS = [
   },
   {
     id: 'altitude', title: '越高越冷', question: '为什么山越高越冷？', color: '#7cd8ff', badge: '登山探险家',
-    cards: ['geo-altitude-cold', 'geo-snowline', 'geo-contour'], experiment: 'altitude', quiz: 'geo-altitude-cold',
+    cards: ['geo-altitude-cold', 'geo-snowline'], experiment: 'altitude', quiz: 'geo-altitude-cold',
     pages: [
       {kind:'hook', title:'山脚和山顶', text:['山脚下穿短袖还嫌热，山顶却盖着厚厚的雪。','山顶明明离太阳更近一点……','你猜，为什么山顶反而更冷？'], guess:['空气越高越稀薄，保不住热','山顶离太阳更远','山顶风太小'], answer:0,
         prompt:'a tall mountain from base to summit: green forest and a warm sunny valley with a kid in a t-shirt at the bottom, meadows in the middle, and a snowy icy peak at the top with a climber in a thick jacket, clear sky'},
