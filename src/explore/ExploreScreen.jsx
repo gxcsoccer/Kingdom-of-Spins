@@ -3,7 +3,9 @@ import {useGame} from '../game/store.js';
 import {regionById,emptyExplore} from '../game/regions.js';
 import {BEYS} from '../game/beys.js';
 import {BLADERS} from '../game/story.js';
-import {getCard} from '../knowledge/cards.js';
+import {getCard,CARDS} from '../knowledge/cards.js';
+import {FLAVOR} from './flavor.js';
+import {bankGate,GATE_BANK} from '../ai/fallback.js';
 import KnowledgeCard from '../knowledge/KnowledgeCard.jsx';
 import {SCENES,sceneUrl,sceneByKey,START_SCENE} from '../game/scenes.js';
 import {openTargets,questClue,heat,targetName,compass,DIR_ARROW} from './quest.js';
@@ -41,11 +43,27 @@ function SceneImage({regionId,page}){
 }
 function TypeLine({text}){
   const [n,setN]=useState(0);
-  useEffect(()=>{setN(0);if(!text)return;const t=setInterval(()=>setN(k=>{if(k>=text.length){clearInterval(t);return k;}return k+1;}),35);return()=>clearInterval(t);},[text]);
+  useEffect(()=>{setN(0);if(!text)return;const t=setInterval(()=>setN(k=>{if(k>=text.length){clearInterval(t);return k;}return k+1;}),18);return()=>clearInterval(t);},[text]);
   return <>{text.slice(0,n)}<span className="ex-caret">{n<text.length?'▍':''}</span></>;
 }
-async function flavor(body){
-  try{const r=await fetch('/api/ai/explore/flavor',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});return await r.json();}catch{return null;}
+// 旁白来自预生成、审过的 FLAVOR（立刻出现、不会和线索矛盾）；知识卡和小考验由代码按场景决定。
+function flavor({regionId,scene,action,outcome,sinceGate,quizSeen,target,hintLevel}){
+  const sc=sceneByKey(regionId,scene),f=FLAVOR[regionId]?.[scene]||{},sp=action.type==='inspect'?f.spots?.[action.spot]:null;
+  const label=sc?.spots?.[action.spot]?.label;
+  const r={title:f.title||sc?.title,panel:f.panel||'',line:'',narration:'',events:[]};
+  if(outcome.type==='found'){r.line=`找到啦！${outcome.name} 就藏在「${label}」里！`;r.narration='好眼力！看看下一个任务吧。';}
+  else if(action.type==='inspect'){r.line=sp?.line||'';r.narration=sp?.narration||'';}
+  else r.narration=f.narration||'';
+  // 已经站在目标场景：博士立刻说清楚“就在这张图里”，不再提赶路。
+  if(target&&outcome.type!=='found'&&target.scene===scene){const spot=sc?.spots?.[target.spot]?.label;
+    r.narration=`${targetName(target)} 就在这张图里！${hintLevel>=1&&spot?`找找「${spot}」附近。`:'点点画里的东西找找看。'}`;}
+  if(action.type!=='inspect'&&f.geo)r.events.push({type:'geo_fact',cardId:f.geo});
+  if(action.type==='inspect'&&outcome.type!=='found'&&(sinceGate||0)>=5){
+    const pool=CARDS.filter(c=>c.layer==='geo'&&c.region===regionId).map(c=>c.id).filter(id=>GATE_BANK[id]);
+    const cardId=f.geo&&GATE_BANK[f.geo]?f.geo:pool[Math.floor(Math.random()*pool.length)];
+    const gate=cardId&&bankGate(cardId,'','博士的小考验！答对得 🪙10',quizSeen||[]);if(gate)r.events.push(gate);
+  }
+  return Promise.resolve(r);
 }
 
 /** 寻宝游戏：代码决定藏宝点、线索和冷热，AI 只写旁白。params: {regionId} */
@@ -96,7 +114,7 @@ export default function ExploreScreen(){
   function writeFlavor(action,outcome,pageId,extra={}){
     const {g}=G();setWriting(true);
     const t=openTargets(region.id,g.hidePlan||[],G().e.found,G().e.met,g.scene)[0];
-    flavor({regionId:region.id,scene:G().g.scene,action,outcome,clue:t?questClue(region.id,t,G().g.scene,0)?.text:'',memory:g.memory,sinceGate:g.sinceGate||0,quizSeen:getSeen().slice(-120),...extra}).then(r=>{
+    flavor({regionId:region.id,scene:G().g.scene,action,outcome,target:t,hintLevel:t?Math.min(2,g.hint?.[t.id]||0):0,sinceGate:g.sinceGate||0,quizSeen:getSeen().slice(-120),...extra}).then(r=>{
       if(!alive.current)return;setWriting(false);if(!r)return;
       upd(gg=>{const p=(gg.trail||[]).find(p=>p.id===pageId);if(p){if(action.type!=='inspect'&&r.title)p.title=r.title;if(r.panel&&action.type!=='inspect')p.panels=[{text:r.panel,kind:'caption'}];if(action.type==='inspect'&&r.line)p.line=r.line;}
         if(r.narration)gg.narration=r.narration;gg.memory=r.gmMemory||gg.memory;
@@ -138,7 +156,7 @@ export default function ExploreScreen(){
     upd(g=>{g.sinceFind=(g.sinceFind||0)+1;g.sinceGate=(g.sinceGate||0)+1;
       if(target&&here===target.scene){g.tries={...(g.tries||{}),[target.id]:((g.tries||{})[target.id]||0)+1};if(g.tries[target.id]>=3&&(g.hint?.[target.id]||0)<1)g.hint={...(g.hint||{}),[target.id]:1};}
       if(target&&g.sinceFind>=8)g.hint={...(g.hint||{}),[target.id]:2};
-      const p=(g.trail||[]).at(-1);if(p){p.tapped=label;p.line='';p.tried=[...new Set([...(p.tried||[]),spot])];}});
+      const p=(g.trail||[]).at(-1);if(p){p.tapped=label;p.line=`你仔细看了看「${label}」……`;p.tried=[...new Set([...(p.tried||[]),spot])];}});
     if(h)flash({kind:'heat',level:h.level,text:`👆「${label}」${h.text}`});
     sfx.beep?.(h?.level==='hot');
     writeFlavor({type:'inspect',spot},{type:'heat',level:h?.level},live.id);
@@ -184,7 +202,7 @@ export default function ExploreScreen(){
         <div className="ex-stage">
           {view&&<div className="fb-page ex-page" key={view.id}>
             <div className="ex-title-row"><h2>{view.title}</h2>{view.tapped&&viewIdx==null&&<span className="fb-tapped">👆 {view.tapped}</span>}</div>
-            <div className="ex-caption">{viewIdx!=null?<span className="ex-past">（回看中 · 点画面回到现在）</span>:view.line?<span>💬 {view.line}</span>:view.panels[0]?<TypeLine text={view.panels[0].text}/>:<span className="ex-writing">{writing?'✍️ 博士在写这里的故事…':'点画里的东西，仔细找找！'}</span>}</div>
+            <div className="ex-caption">{viewIdx!=null?<span className="ex-past">（回看中 · 点画面回到现在）</span>:view.line?<span>💬 {view.line}</span>:view.panels[0]?<TypeLine text={view.panels[0].text}/>:<span className="ex-writing">点画里的东西，仔细找找！</span>}</div>
             <div className="fb-art ex-art" onClick={onImageTap}>
               <SceneImage regionId={region.id} page={view}/>
               {viewIdx==null&&view.hotspots.map((h,i)=><div key={i} title={h.label} className={`fb-hot ${view.tried?.includes(i)?'tried':''}`} style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.2+i*.12}s`}}><i/><span>{view.tried?.includes(i)?'✓ ':''}{h.label}</span></div>)}
