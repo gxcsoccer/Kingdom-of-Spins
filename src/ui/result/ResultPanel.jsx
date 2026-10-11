@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {beyTitle} from '../beyName.js';
 import {useGame} from '../../game/store.js';
-import {FINISH_LABEL,FINISH_ZH} from '../../game/story.js';
+import {FINISH_LABEL,FINISH_ZH,BLADERS} from '../../game/story.js';
 import {commentary} from '../../ai/client.js';
 import * as aiClient from '../../ai/client.js';
 import {getCard} from '../../knowledge/cards.js';
@@ -285,15 +285,24 @@ function NextPage({won,ai,go,myBey}){
     <div className="rp-next">
       <div className="rp-next-doc">
         <DoctorFace mood={won?'excited':'thinking'} size={110}/>
-        <div className="bubble rp-next-bubble">{ai?.takeaway||(won?`漂亮！你的 ${myBey.name} 赢下了这一场。想想是哪个设计帮了大忙？`:`没关系！输了正好做实验：只改一个零件，再比一次看看。`)}</div>
+        <div className="bubble rp-next-bubble">{ai?.takeaway||(won?`漂亮！你的 ${beyTitle(myBey)} 赢下了这一场。想想是哪个设计帮了大忙？`:`没关系！输了正好做实验：只改一个零件，再比一次看看。`)}</div>
       </div>
-      <div className="rp-next-btns">
-        {fromExplore()?<button className="rp-bigbtn map" onClick={backToExplore}><span>🧭</span>回到探索</button>
-          :fromVersus()?<button className="rp-bigbtn map" onClick={()=>go('versus')}><span>⚔️</span>回到对战模式</button>
-          :<button className="rp-bigbtn map" onClick={()=>go('map')}><span>🗺️</span>回到地图</button>}
-        <button className="rp-bigbtn again" onClick={()=>go('battle',{...useGame.getState().params})}><span>⚔️</span>再战一次</button>
-        <button className="rp-bigbtn fuse" onClick={()=>go('fusion',{back:'map'})}><span>⚡</span>去融合工坊改造</button>
-      </div>
+      {/* 三个“目的地”漫画分格：用游戏里的真实美术，不用 emoji 方块；推荐的那一格盖章 */}
+      {(()=>{const p=useGame.getState().params||{},bl=p.bladerId&&BLADERS.find(b=>b.id===p.bladerId),reg=p.regionId||p.region;
+        const back=fromExplore()?{t:'回到探索',s:'继续寻宝，找下一个伙伴',img:`/art/regions/${reg||'harbor'}.jpg`,go:backToExplore}
+          :fromVersus()?{t:'回到对战模式',s:'换个对手，或者约朋友联机',img:'/art/bg/arena.jpg',go:()=>go('versus')}
+          :{t:'回到地图',s:'去别的地区冒险',img:'/art/bg/map.jpg',go:()=>go('map')};
+        const panels=[{k:'back',...back,tone:'#2f7bff'},
+          {k:'again',t:'再战一次',s:bl?`再挑战 ${bl.name}`:'同样的对手，再来一场',img:'/art/bg/arena.jpg',face:bl&&`/art/bladers/${bl.id}.png`,go:()=>go('battle',{...p}),tone:'#ff2d4a'},
+          {k:'fuse',t:'去融合工坊改造',s:'换一片刃，设计更强的陀螺',img:'/art/bg/lab.jpg',go:()=>go('fusion',{back:'map'}),tone:'#f2b632'}];
+        const rec=won?'back':'fuse';
+        return <div className="rp-dest">{panels.map((d,i)=><button key={d.k} className={`rp-dest-card ${d.k===rec?'rec':''}`} style={{'--tone':d.tone,'--d':`${i*.08}s`}} onClick={()=>{sfx.clang?.(.6);d.go();}}>
+          <span className="rp-dest-img" style={{backgroundImage:`url(${d.img})`}}/>
+          {d.face&&<img className="rp-dest-face" src={d.face} alt=""/>}
+          <span className="rp-dest-lines"/>
+          {d.k===rec&&<span className="rp-dest-stamp">推荐！</span>}
+          <span className="rp-dest-txt"><b>{d.t}</b><small>{d.s}</small></span>
+        </button>)}</div>;})()}
     </div>
   );
 }
