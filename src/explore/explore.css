@@ -107,6 +107,7 @@ button.ex-item:not(:disabled){cursor:pointer}
 .ex-item.now{outline:3px dashed var(--red);outline-offset:-3px}
 .ex2 .ex-items{grid-template-columns:repeat(3,1fr)}
 .ex2 .ex-toast{top:auto;bottom:14px}
+.ex-toast .ex-get-hint{margin-top:10px}
 .ex2 .mm{flex:none}
 .ex2 .ex-quest{padding:8px 10px}.ex2 .ex-quest .ex-item{padding:2px}
 .ex2 .ex-clues{flex:none}

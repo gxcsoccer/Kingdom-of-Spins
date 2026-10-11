@@ -56,7 +56,7 @@ export function questClue(regionId, target, here, hintLevel = 0) {
   const path = shortestPath(regionId, here, target.scene) || [];
   const dir = compass(regionId, here, target.scene), n = path.length - 1, next = sceneOf(regionId, path[1]);
   let text = `${name} 藏在你的「${dir}」边，大约要走 ${n} 站。`;
-  if (hintLevel >= 1 && next) text += `先往「${next.title}」走。`;
+  if (hintLevel >= 1 && next && !(hintLevel >= 2 && path[1] === target.scene)) text += `先往「${next.title}」走。`;
   if (hintLevel >= 2 && scene) text += `目的地是「${scene.title}」${spotLabel ? `，在「${spotLabel}」附近` : ''}。`;
   return {title: `找到${what}`, text, dir, steps: n, next: path[1], here: false};
 }

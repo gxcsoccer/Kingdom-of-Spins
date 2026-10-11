@@ -71,7 +71,7 @@ export default function ExploreScreen(){
   const startRun=useCallback(()=>{
     const {e}=G(),start=START_SCENE[region.id];
     const page=pageFor(region.id,start);
-    updateExplore(region.id,x=>{x.runs=(x.runs||0)+1;x.gm={v:2,scene:start,visited:[start],hidePlan:makePlan(region,x.found||[],x.met||[]),hint:{},tries:{},trail:[page],done:[],memory:'',narration:'看小地图右上角的指南针，上面是北！',sinceGate:0,sinceFind:0,pendingGate:null};});
+    updateExplore(region.id,x=>{x.runs=(x.runs||0)+1;x.steps=0;x.gm={v:2,scene:start,visited:[start],hidePlan:makePlan(region,x.found||[],x.met||[]),hint:{},tries:{},trail:[page],done:[],memory:'',narration:'看小地图右上角的指南针，上面是北！',sinceGate:0,sinceFind:0,pendingGate:null};});
     setQueue([]);setViewIdx(null);
     writeFlavor({type:'enter'},{type:'arrive'},page.id,{firstRun:(e.runs||0)===0});
   },[region.id]);// eslint-disable-line
@@ -100,7 +100,9 @@ export default function ExploreScreen(){
       upd(gg=>{const p=(gg.trail||[]).find(p=>p.id===pageId);if(p){if(action.type!=='inspect'&&r.title)p.title=r.title;if(r.panel&&action.type!=='inspect')p.panels=[{text:r.panel,kind:'caption'}];if(action.type==='inspect'&&r.line)p.line=r.line;}
         if(r.narration)gg.narration=r.narration;gg.memory=r.gmMemory||gg.memory;
         const gate=(r.events||[]).find(e=>e.type==='gate');if(gate){gg.pendingGate={quizId:gate.quizId,lead:gate.lead,q:gate.q,answer:gate.answer,explain:gate.explain,options:gate.options,cardId:gate.cardId};gg.sinceGate=0;}});
-      const evs=(r.events||[]).filter(e=>e.type==='gate'||e.type==='geo_fact');if(evs.length)setQueue(q=>[...q,...evs]);
+      // 已经拿到过的地理卡不再弹（AI 常常每一步都推同一张“越高越冷”）。
+      const owned=useGame.getState().save.cards||[];
+      const evs=(r.events||[]).filter(e=>e.type==='gate'||(e.type==='geo_fact'&&!owned.includes(e.cardId)));if(evs.length)setQueue(q=>[...q,...evs.filter(e=>e.type!=='geo_fact'||!q.some(x=>x.cardId===e.cardId))]);
     });
   }
   function flash(c){const key=Date.now();setChip({...c,key});setTimeout(()=>alive.current&&setChip(ch=>ch?.key===key?null:ch),2600);}
@@ -125,14 +127,14 @@ export default function ExploreScreen(){
     const hit=targets.find(t=>t.scene===here&&t.spot===spot);
     if(hit){
       const name=targetName(hit);
-      upd((g,x)=>{g.done=[...(g.done||[]),{id:hit.id,type:hit.type,name,where:sc.title}];g.sinceFind=0;x.steps=(x.steps||0)+1;});
+      upd((g,x)=>{g.done=[...(g.done||[]),{id:hit.id,type:hit.type,name,where:sc.title}];g.sinceFind=0;});
       const left=targets.length-1;
       setQueue(q=>[...q,hit.type==='bey'?{type:'find_bey',beyId:hit.id,text:`就在「${label}」里！`}:{type:'meet_blader',bladerId:hit.id,line:bladerById(hit.id)?.line},...(left===0?[{type:'complete'}]:[])]);
       writeFlavor({type:'inspect',spot},{type:'found',id:hit.id,name},live.id);
       return;
     }
     const h=heat(region.id,target,here,spot);
-    upd((g,x)=>{g.sinceFind=(g.sinceFind||0)+1;g.sinceGate=(g.sinceGate||0)+1;x.steps=(x.steps||0)+1;
+    upd(g=>{g.sinceFind=(g.sinceFind||0)+1;g.sinceGate=(g.sinceGate||0)+1;
       if(target&&here===target.scene){g.tries={...(g.tries||{}),[target.id]:((g.tries||{})[target.id]||0)+1};if(g.tries[target.id]>=3&&(g.hint?.[target.id]||0)<1)g.hint={...(g.hint||{}),[target.id]:1};}
       if(target&&g.sinceFind>=8)g.hint={...(g.hint||{}),[target.id]:2};
       const p=(g.trail||[]).at(-1);if(p){p.tapped=label;p.line='';}});
