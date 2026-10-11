@@ -3,7 +3,7 @@ import ReplaySlot from '../ReplaySlot.jsx';
 import {DoctorFace} from '../MapScreen.jsx';
 import {getCard} from '../../knowledge/cards.js';
 import {openFlipbook} from '../../flipbook/store.js';
-import {voiceLine} from '../../game/voiceClips.js';
+import {voiceLine,prefetchVoice} from '../../game/voiceClips.js';
 import * as sfx from '../../game/sfx.js';
 import {momentCard} from '../../ai/fallback.js';
 import {freshQuiz, markSeen} from '../../knowledge/quizSeen.js';
@@ -96,8 +96,12 @@ export default function GuidedReview({decisive,myBey,opp,moments,names,ai,unlock
   const run=useCallback(async()=>{
     const id=++st.current.run;st.current.paused=false;setPausedS(false);
     setOutro(false);setQuiz(null);setCaption(null);setCur(null);setCards([]);setCoinsWon(0);
+    // 博士要讲的台词提前送去生成配音（服务器缓存），轮到时直接播放
+    const warm=()=>{const am=aiRef.current?.moments||[];prefetchVoice(aiRef.current?.headline,...moments.flatMap(m=>{const x=am.find(y=>y.id===m.id);return [`第${NUM[m.n-1]}个关键时刻：${String(x?.title||titleOf(m)).replace(/[！!。.]+$/,"")}！`,x?.explain,x?.quiz?.q&&`先别急着看——考考你：${x.quiz.q}`];}));};
+    warm();
     if(!await say('准备好了吗？一起看录像！','excited',id))return;
     if(!aiRef.current){setLine(l=>({text:'博士在看录像…',mood:'thinking',key:l.key+1}));await waitAi(id);if(!alive(id))return;}
+    warm();
     const aiM=mid=>(aiRef.current?.moments||[]).find(x=>x.id===mid);
     if(aiRef.current?.headline&&!await say(aiRef.current.headline,'normal',id))return;
     for(const m of moments){
