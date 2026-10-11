@@ -17,7 +17,8 @@ self.onmessage=async({data:msg})=>{
       const at=t=>{const s=b.samples.find(x=>x.time>=t)||b.samples.at(-1);return s.bodies.map(x=>Math.abs(x.rpm));};
       postMessage({type:'simDone',id:msg.id,result:b.ended,stats:b.stats,rpm3:at(3),
         samples:b.samples.filter((_,i)=>i%6===0).map(s=>({time:s.time,rpm:s.bodies.map(x=>Math.abs(x.rpm))})),
-        hits:b.events.filter(e=>e.type==='collision').length});
+        hits:b.events.filter(e=>e.type==='collision').length,
+        full:msg.full?{samples:b.samples.map(slim),events:b.events}:null});
     }catch(e){postMessage({type:'simError',id:msg.id,message:String(e?.message||e)});}
     finally{b?.dispose?.();}
     return;

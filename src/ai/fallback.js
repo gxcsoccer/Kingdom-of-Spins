@@ -170,6 +170,44 @@ const MOMENT_CARD = {'first-hit':'ph-momentum', 'big-hit':'ph-energy-convert', '
 export const momentCard = m => m.kind==='finish' && (m.data?.reason==='spin'||m.data?.reason==='judge') ? 'ph-energy-loss' : (MOMENT_CARD[m.kind] || 'ph-momentum');
 const rpmDrop = (d={}, i) => d.rpmBefore && d.rpmAfter ? Math.abs(d.rpmBefore[i]) - Math.abs(d.rpmAfter[i]) : null;
 const fmtDrop = n => `约 ${(Math.round(Math.abs(n)/100)*100).toLocaleString('en-US')} 转`;
+// Per-kind anime announcer lines and "你猜？" quizzes. Physics matches our model: drag + tip friction
+// slowly drain spin, collisions convert spin into motion/wobble, the rail never adds energy.
+const DJ = {
+  'first-hit': w => `第一次交锋——火花四溅！`,
+  'big-hit': w => `出现了！全场最猛的一击——！`,
+  'spin-drop': w => `${w} 的转速在暴跌——撑住啊！`,
+  'dash': w => `${w} 咬住齿轨——X 冲刺！！`,
+  'finish': w => `胜负已分——${w} 站到了最后！`,
+};
+const QUIZ = {
+  'first-hit': {q:'撞完以后，谁更不容易被弹开？', options:['更重、刃更靠外的那只','更轻、更小的那只'], answer:0,
+    reveal:'动量 = 质量 × 速度。越重的陀螺，同样一撞速度变化越小，越难被弹开。', analogy:'保龄球撞球瓶：重的球继续往前，瓶子飞走了。'},
+  'big-hit': {q:'猛撞之后，转速为什么一下掉这么多？', options:['撞击给陀螺加了速','转动的能量变成了弹开和晃动'], answer:1,
+    reveal:'能量不会凭空消失：一部分转动变成了弹开的跑动和晃动，还有声音和热。', analogy:'碰碰车撞完，两辆车都弹开、变慢了。'},
+  'spin-drop': {q:'转速变低后，陀螺为什么开始晃？', options:['角动量变小，扛不住重力','陀螺累了想休息'], answer:0,
+    reveal:'转得快时角动量大，重力推不倒它；转慢了，角动量不够，轴就越晃越歪。', analogy:'自行车骑得快很稳，骑得太慢就开始左右晃。'},
+  'dash': {q:'冲刺的速度是从哪来的？', options:['场地推了它一把，多给了能量','它把自己的转动变成了往前冲'], answer:1,
+    reveal:'齿轮咬住齿轨，把转动变成前进。总能量没有增加，所以冲完转速会掉一些。', analogy:'轮子在地上一转，自行车就往前走。'},
+  'finish-spin': {q:'为什么它最后先停了下来？', options:['摩擦和碰撞一点点吃掉了转速','陀螺规定只能转 10 秒'], answer:0,
+    reveal:'轴尖摩擦、空气阻力和每次碰撞都在消耗转动能量，谁的能量先用完谁就倒下。', analogy:'桌上转硬币，越转越慢，最后“啪”地倒下。'},
+  'finish-over': {q:'为什么会被撞出场外？', options:['场地把它吸了出去','被撞时速度一下变得太大'], answer:1,
+    reveal:'被猛撞时得到很大的冲量，速度一下变大，就冲过了墙边的缺口。', analogy:'保龄球把球瓶撞得飞出了球道。'},
+};
+export function templateQuiz(m={}) {
+  const key = m.kind==='finish' ? ((m.data?.reason==='over'||m.data?.reason==='xtreme') ? 'finish-over' : 'finish-spin') : m.kind;
+  return {...(QUIZ[key] || QUIZ['big-hit'])};
+}
+export function sanitizeQuiz(raw, m) {
+  const t = templateQuiz(m);
+  if (!raw || typeof raw!=='object') return t;
+  const options = Array.isArray(raw.options) ? raw.options.map(o=>String(o).trim().slice(0,18)).filter(Boolean) : [];
+  if (options.length!==2 || ![0,1].includes(+raw.answer) || !raw.q || !raw.reveal) return t;
+  return {q:String(raw.q).slice(0,30), options, answer:+raw.answer, reveal:String(raw.reveal).slice(0,70), analogy:String(raw.analogy||t.analogy).slice(0,44)};
+}
+export const templateDJ = (m={}, names=['A','B']) => {
+  const who = m.kind==='finish' ? (m.data?.winner===1 ? (names[1]||'对手') : (names[0]||'你')) : (m.body===1 ? (names[1]||'对手') : (names[0]||'你'));
+  return (DJ[m.kind] || DJ['big-hit'])(who);
+};
 export function templateMoment(m={}, names=['A','B']) {
   const who = i => i===0 ? `你的 ${names[0]||'陀螺'}` : (names[1]||'对手');
   const d = m.data || {}, t = fmtT(m.time);
@@ -206,7 +244,7 @@ export function templateMoment(m={}, names=['A','B']) {
     default:
       title = '关键时刻'; explain = `${t}发生了关键变化。`;
   }
-  return {id:m.id, title, explain, cardId: momentCard(m)};
+  return {id:m.id, title, explain, cardId: momentCard(m), dj: templateDJ(m, names), quiz: templateQuiz(m)};
 }
 export function designTakeaway(summary={}, names=['A','B']) {
   const p = summary.parts?.[0] || {}, r = summary.result || {}, me = `你的 ${names[0]||'陀螺'}`;

@@ -23,7 +23,7 @@ export class Battle {
   sample(){const s=this.snapshot();if(!s.bodies.every(b=>[...b.p,...b.q,b.rpm].every(Number.isFinite)))throw new Error('non-finite state');this.samples.push(s);return s;}
   finish(winner,reason,detail){
     if(this.ended)return;
-    const points={xtreme:3,over:2,burst:2,spin:1,judge:1}[reason]??1;
+    const points=winner==null?0:({xtreme:3,over:2,burst:2,spin:1,judge:1}[reason]??1);
     this.ended={winner,reason,points,time:+this.time.toFixed(4),detail};
     this.record({type:'finish',winner,reason,points,detail});
   }
@@ -69,18 +69,22 @@ export class Battle {
         this.stats[i].maxSpeed=Math.max(this.stats[i].maxSpeed,Math.hypot(s.v[0],s.v[1]));
         if(r>ARENA.outRadius||s.p[2]<-.02){
           const pocket=pocketAt(Math.atan2(s.p[1],s.p[0]));
-          this.finish(1-i,pocket?.kind==='xtreme'?'xtreme':'over',{loser:i,pocket:pocket?.kind||'wall'});
+          this.finish(this.parts.length===1?null:1-i,pocket?.kind==='xtreme'?'xtreme':'over',{loser:i,pocket:pocket?.kind||'wall'});
         }
       }
       if(this.steps%interval===0){
         const snap=this.sample();
         if(!this.ended){
           const dead=snap.bodies.map(b=>Math.abs(b.rpm)<STOP_RPM||b.tilt>70);
+          // Solo spin test (hands-on lab): one top, ends when it stops or time runs out.
+          if(this.parts.length===1){if(dead[0])this.finish(null,'spin',{solo:true});else if(this.time>=this.config.maxTime)this.finish(null,'time',{solo:true,rpm:Math.round(Math.abs(snap.bodies[0].rpm))});}
+          else{
           if(dead[0]&&dead[1])this.finish(Math.abs(snap.bodies[0].rpm)>=Math.abs(snap.bodies[1].rpm)?0:1,'spin',{both:true});
           else if(dead[0]||dead[1])this.finish(dead[0]?1:0,'spin',{loser:dead[0]?0:1});
           else if(this.time>=this.config.maxTime){
             const a=Math.abs(snap.bodies[0].rpm),b=Math.abs(snap.bodies[1].rpm);
             this.finish(a>=b?0:1,'judge',{rpm:[Math.round(a),Math.round(b)]});
+          }
           }
         }
       }

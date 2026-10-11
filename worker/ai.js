@@ -3,7 +3,7 @@
 // (ANTHROPIC_API_KEY) → Workers AI (env.AI). Each step falls back to the next on error.
 import Anthropic from '@anthropic-ai/sdk';
 // Every route returns a deterministic template fallback when the model fails or times out.
-import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, templateMoments, templateMoment, momentCard, designTakeaway, templateExperiment, experimentVerdict, variableCard} from '../src/ai/fallback.js';
+import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard} from '../src/ai/fallback.js';
 import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 
@@ -61,6 +61,14 @@ async function callWorkersAI(env, {system, user, maxTokens}, ms) {
   const r = await withTimeout(env.AI.run(MODEL, {messages:[{role:'system', content:system}, {role:'user', content:user}], max_tokens:maxTokens, reasoning_effort:'low'}), ms);
   return contentOf(r);
 }
+const tagVia = (o, via) => Object.defineProperty(o, '__via', {value:via, enumerable:false});
+// Hard physics rules of OUR model, given to every explaining prompt so the model can't invert causality.
+export const MODEL_RULES = `本游戏物理模型的硬规则（不得违背）：
+1. 外圈配重%只表示刃的重量有多少放在外圈；两只陀螺谁的转动惯量大，只能看“对比事实”。
+2. X 冲刺：Bit 齿轮咬住齿轨，把转动变成往前冲；不会增加能量，冲刺后转速会下降。
+3. 碰撞：转动能量变成弹开、晃动、热和声音；撞完转速只会掉，不会涨。
+4. 停转：轴尖摩擦和空气阻力一直在慢慢消耗转速；转速低了角动量小，就会晃、会倒。
+5. 越重的陀螺被撞时速度变化越小（动量 = 质量 × 速度）。`;
 // One helper for every route. Returns parsed JSON (json:true) or text. Throws only if every provider failed.
 export async function llm(env, {system, user, images=[], maxTokens=800, json:wantJson=true, kind='fusion', claudeOnly=false}) {
   const ms = TIMEOUT_MS[kind] || 12000, errors = [];
@@ -69,7 +77,7 @@ export async function llm(env, {system, user, images=[], maxTokens=800, json:wan
     try {
       const text = await withTimeout(callClaude(c, {system, user, images, maxTokens}, ms), ms);
       const out = wantJson ? parseJSON(text) : text;
-      if (out) return out;
+      if (out) return wantJson ? tagVia(out, 'claude') : out;
       errors.push(`${c.via}: unparseable`);
     } catch (e) { errors.push(`${c.via}: ${e.message||e}`); }
   }
@@ -77,7 +85,7 @@ export async function llm(env, {system, user, images=[], maxTokens=800, json:wan
   try {
     const text = await callWorkersAI(env, {system, user, maxTokens: maxTokens+300}, ms);   // + room for gpt-oss reasoning tokens
     const out = wantJson ? parseJSON(text) : text;
-    if (out) return out;
+    if (out) return wantJson ? tagVia(out, 'workers-ai') : out;
     errors.push('workers-ai: unparseable');
   } catch (e) { errors.push(`workers-ai: ${e.message||e}`); }
   throw new Error(errors.join('; '));
@@ -217,26 +225,37 @@ async function moments(body, env) {
   const r = summary.result || {};
   const cmp = (k, label) => P.length===2 && P[0][k]!=null && P[1][k]!=null && P[0][k]!==P[1][k] ? `${label}更大的是 ${who(P[0][k]>P[1][k]?0:1)}` : null;
   const facts = [cmp('inertiaZ','转动惯量'), cmp('massG','总重'), cmp('ring','外圈配重')].filter(Boolean).join('；');
+  // Quizzes only from Claude (open models invert causality and are too slow for the extra output).
+  const wantQuiz = hasClaude(env);
   const user = `陀螺对战回放的关键时刻（真实模拟数据，理想化物理模型）。
 ${parts}
 对比事实（不得矛盾）：${facts||'无'}
+${MODEL_RULES}
 结果：${who(r.winner)} 获胜（${r.reason}）。
 关键时刻：
 ${list.map(line).join('\n')}
 知识卡：
 ${cardIds.map(id=>getCard(id)).filter(Boolean).map(c=>`- ${c.id} ${c.title}：${c.body}`).join('\n')}
-为每个时刻写：title（≤10字，热血漫画风，如“龙翼猛撞！”）；explain（≤55字：发生了什么+为什么，用小学生能懂的物理讲；最多引用 1~2 个数字，并照抄上面的格式（如“1.9 m/s”“约 1,300 转”），要解释含义，不要罗列；因果判断说“在这个模型里”，物理原因只能来自知识卡和对比事实）；cardId（从知识卡选）。
-玩家的陀螺叫“你的 ${names[0]}”。不要编造上面没有的事件。takeaway 一句话：把结果和“你的 ${names[0]}”的设计选择（配重/轴尖/翼片/高度）联系起来。
-只输出 JSON：{"headline":"≤14字","moments":[{"id":"","title":"","explain":"","cardId":""}],"takeaway":"≤50字"}`;
+读者是 10 岁小朋友。为每个时刻写：
+- title（≤10字，热血漫画风，如“龙翼猛撞！”）
+- explain（≤55字：发生了什么+为什么；最多引用 1~2 个数字，照抄上面的格式（如“1.9 m/s”“约 1,300 转”）并解释含义，不要罗列；因果判断说“在这个模型里”；物理原因只能来自知识卡和对比事实）
+- dj（≤24字，像动画里的陀螺比赛 DJ 一样喊出来，如“出现了！龙翼的逆风一击——！”）
+${wantQuiz ? `- quiz：一个“你猜？”问题，问这个时刻“为什么”会发生。q≤26字；options 恰好 2 个短选项（≤14字），一个对一个错，正确的随机放在第 0 或第 1 个；answer 是正确选项下标；reveal≤55字讲清正确原因（必须符合知识卡和对比事实）；analogy≤36字，用 10 岁孩子熟悉的生活例子打比方（花样滑冰收手臂、自行车骑快不倒、保龄球撞瓶、碰碰车、转硬币…）
+` : ''}- cardId（从知识卡选）
+玩家的陀螺叫“你的 ${names[0]}”。不要编造上面没有的事件。takeaway 一句话（≤45字）：把结果和“你的 ${names[0]}”的设计选择（配重/轴尖/翼片/高度）联系起来。
+只输出 JSON：{"headline":"≤14字","moments":[{"id":"","title":"","explain":"","dj":"",${wantQuiz?'"quiz":{"q":"","options":["",""],"answer":0,"reveal":"","analogy":""},':''}"cardId":""}],"takeaway":""}`;
   try {
-    const out = await runModel(env, [{role:'system', content:'你是热血漫画风的陀螺解说员兼科学老师。中文短句，诚实，只输出 JSON。'}, {role:'user', content:user}], 600, 'moments');
+    const out = await runModel(env, [{role:'system', content:'你是热血漫画风的陀螺解说员兼科学老师。中文短句，诚实，只输出 JSON。'}, {role:'user', content:user}], wantQuiz ? 1400 : 650, 'moments');
     const got = new Map((Array.isArray(out.moments)?out.moments:[]).map(m=>[String(m.id), m]));
     const merged = list.map(m=>{
       const t = templateMoment(m, names), o = got.get(String(m.id));
       if (!o) return t;
-      return {id:m.id, title:tidyNumbers(String(o.title||t.title)).slice(0,12), explain:ownName(tidyNumbers(String(o.explain||t.explain)), names[0]).slice(0,90), cardId:getCard(o.cardId)?o.cardId:t.cardId};
+      return {id:m.id, title:clip(tidyNumbers(String(o.title||t.title)),12), explain:clip(ownName(tidyNumbers(String(o.explain||t.explain)), names[0]),80),
+        cardId:getCard(o.cardId)?o.cardId:t.cardId, dj:clip(String(o.dj||t.dj),28),
+        // Smaller open models invert causality in quizzes; only trust Claude's, else the vetted template.
+        quiz: out.__via==='claude' ? sanitizeQuiz(o.quiz, m) : t.quiz};
     });
-    let takeaway = ownName(tidyNumbers(String(out.takeaway||'')), names[0]).slice(0,70);
+    let takeaway = clip(ownName(tidyNumbers(String(out.takeaway||'')), names[0]),60);
     if (!takeaway || !takeaway.includes('你的')) takeaway = designTakeaway(summary, names);
     return json({headline:String(out.headline||fallback().headline).slice(0,16), moments:merged, takeaway});
   } catch (e) {
@@ -266,13 +285,47 @@ ${row('B',B)}
 请用小学生能懂的话写：conclusion（≤50字，只引用胜场和平均用时两个数字，说“在这个模型里”）；why（≤70字，根据“物理事实”解释为什么改${variable.label}会这样）；repeatLesson（≤45字，根据每次结果说重复实验的意义）；predictionFeedback（≤35字，温暖，和孩子预测比较）；nextIdea（≤36字，建议下次只改另一个变量，比如轴尖/外圈配重/Ratchet 高度/翼片数/发射转速中的一个，不要和${variable.label}重复）。
 只输出 JSON：{"conclusion":"","why":"","repeatLesson":"","predictionFeedback":"","nextIdea":""}`;
   try {
-    const out = await runModel(env, [{role:'system', content:'你是陀螺王国的科学老师，带小学生做实验。中文短句，鼓励，诚实，只输出 JSON。'}, {role:'user', content:user}], 450, 'experiment');
+    const out = await runModel(env, [{role:'system', content:'你是陀螺王国的科学老师，带小学生做实验。中文短句，鼓励，诚实，只输出 JSON。'}, {role:'user', content:user}], 650, 'experiment');
     const pick = (k, max) => { const v = ownName(tidyNumbers(String(out[k]||'')).trim(), names[0]); return (v || base[k]).slice(0, max); };
     let conclusion = pick('conclusion', 80);
     if (!conclusion.includes('模型')) conclusion = conclusion.replace(/。?$/, '（在这个模型里）。');
     return json({verdict:base.verdict, conclusion, why:pick('why',110), repeatLesson:pick('repeatLesson',70), predictionFeedback:pick('predictionFeedback',50), cardId:base.cardId, nextIdea:pick('nextIdea',50)});
   } catch (e) {
     return json({...base, error:String(e.message||e)});
+  }
+}
+
+// Vision: a kid's drawing/photo of a dream bey → validated Bey. Claude only.
+async function sketch(body, env) {
+  if (!hasClaude(env)) return json({needKey:true, error:'需要家长开启高级 AI'}, 503);
+  const m = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.imageDataUrl||''));
+  if (!m) return json({error:'bad image'}, 400);
+  if (m[2].length > 5_500_000) return json({error:'image too large'}, 413);
+  const wish = String(body.wish||'').slice(0,120);
+  const kp = body.keepParts || {};
+  const base = {id:'sketch', name:'Sketch', ratchet:{height:kp.ratchet?.height ?? 60, prongs:kp.ratchet?.prongs ?? 3}, bit:kp.bit || 'ball'};
+  const cards = [getCard('ph-inertia'), getCard('ph-wing-contact'), getCard('ph-momentum'), getCard('ph-mass-tradeoff'), getCard('mt-metal'), getCard('bx-types'), getCard('gd-ideal-model')].filter(Boolean);
+  const system = `你是陀螺王国的“融合博士”。小朋友（约 10 岁）画了一只梦想陀螺，你要把画变成游戏里能用的 Blade 设计。中文，短句，热血漫画风，诚实。只输出 JSON。`;
+  const user = `看这张画${wish?`，小朋友说：“${wish}”`:''}。
+把画里的特征翻译成 Blade 参数（只能用这些范围）：wings 翼片数 2|3|4（数画里的刃/角/翅膀，取最接近的）；reach 刃半径 0.022~0.030 米（刃伸得越远越大）；ring 外圈配重 20~85%（画里外圈厚重/有金属感就高）；mass 刃重 24~40 克；style attack|defense|stamina|balance（尖刺多→attack，厚圆→defense，圆滑对称→stamina，其他→balance）。
+颜色从画里取：primary 主色、secondary 副色、accent 点缀色（#RRGGBB）。Ratchet ${base.ratchet.prongs}-${base.ratchet.height} 和 Bit ${base.bit} 保持不变。
+specialMove：给它起一个必杀技，name≤8字，shout≤16字（动画里喊招式那样）。
+why≤60字：说出你从画里看到了什么（“我看到你画了 4 片尖尖的翅膀…”），以及这对物理表现意味着什么。
+cards：从下面选 1~2 张最相关的知识卡 id：
+${cards.map(c=>`- ${c.id} ${c.title}：${c.body}`).join('\n')}
+不要声称它在现实中一定强；游戏里的表现由理想化物理模型计算。
+只输出 JSON：{"name":"英文名","zh":"中文昵称≤6字","style":"","wings":3,"reach":0.027,"ring":70,"mass":34,"colors":{"primary":"#","secondary":"#","accent":"#"},"lore":"≤30字","specialMove":{"name":"","shout":""},"why":"","tradeoff":"≤30字","cards":[""]}`;
+  try {
+    const out = await llm(env, {system, user, images:[{mediaType:m[1], data:m[2]}], maxTokens:1200, kind:'sketch', claudeOnly:true});
+    const bey = sanitizeCandidate(out, [base], 0, 'sketch');
+    bey.parents = []; delete bey.keptFrom; bey.drawn = true;
+    const sm = out.specialMove || {};
+    bey.specialMove = {name:String(sm.name||'必杀旋风').slice(0,10), shout:String(sm.shout||'旋转吧——！').slice(0,20)};
+    if (!out.zh) bey.zh = '梦想陀螺';
+    if (!out.lore) bey.lore = '从小画家的画里诞生的陀螺。';
+    return json({bey});
+  } catch (e) {
+    return json({error:String(e.message||e)}, 502);
   }
 }
 
@@ -308,12 +361,14 @@ export async function handle(request, env) {
     if (path.endsWith('/ask')) return json(templateAsk(body.question));
     if (path.endsWith('/moments')) return json(templateMoments(body.summary||{}, body.moments||[], body.names));
     if (path.endsWith('/experiment')) return json(templateExperiment(body));
+    if (path.endsWith('/sketch')) return json({needKey:true, error:'需要家长开启高级 AI'}, 503);
   }
   if (path.endsWith('/fusion/chat')) return fusionChat(body, env);
   if (path.endsWith('/commentary')) return commentary(body, env);
   if (path.endsWith('/ask')) return ask(body, env);
   if (path.endsWith('/moments')) return moments(body, env);
   if (path.endsWith('/experiment')) return experiment(body, env);
+  if (path.endsWith('/sketch')) return sketch(body, env);
   return json({error:'not found'}, 404);
 }
 export {CARDS};

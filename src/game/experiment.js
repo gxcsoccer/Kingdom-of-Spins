@@ -42,8 +42,8 @@ export async function runExperiment({mine,opp,launches,key,value,onProgress}){
   for(let k=0;k<TRIALS;k++){
     const L=trialLaunches(launches,k);
     const LB=VARIABLES[key].launch?[{...L[0],rpm:value},L[1]]:L;
-    jobs.push(sim({beys:[mine,opp],launches:L,maxTime:EXP_MAX_TIME}).then(r=>{onProgress?.(++done/total);return {k,arm:'A',r};}));
-    jobs.push(sim({beys:[B,opp],launches:LB,maxTime:EXP_MAX_TIME}).then(r=>{onProgress?.(++done/total);return {k,arm:'B',r};}));
+    jobs.push(sim({beys:[mine,opp],launches:L,maxTime:EXP_MAX_TIME,full:k===0}).then(r=>{onProgress?.(++done/total);return {k,arm:'A',r};}));
+    jobs.push(sim({beys:[B,opp],launches:LB,maxTime:EXP_MAX_TIME,full:k===0}).then(r=>{onProgress?.(++done/total);return {k,arm:'B',r};}));
   }
   const out=await Promise.all(jobs);
   const trials=Array.from({length:TRIALS},(_,k)=>{const t={};for(const o of out.filter(o=>o.k===k))t[o.arm]=o.r;return t;});

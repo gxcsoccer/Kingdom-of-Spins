@@ -58,3 +58,32 @@ export async function explainExperiment(input) {
     throw new Error('empty');
   } catch { return templateExperiment(input); }
 }
+
+// Names the game screens call: aiClient.moments({...}) / ai.experiment(payload).
+export const moments = ({summary, moments: list, names}) => explainMoments(summary, list, names);
+export const experiment = payload => explainExperiment(payload);
+
+// Kid's drawing/photo → {bey} | {needKey:true} | {error}. Claude-only on the server.
+export async function sketch({imageDataUrl, wish='', keepParts=null}) {
+  const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(), 30000);
+  try {
+    const r = await fetch('/api/ai/sketch', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({imageDataUrl, wish, keepParts}), signal:ctl.signal});
+    const out = await r.json().catch(()=>({}));
+    if (r.status===503 || out.needKey) return {needKey:true};
+    if (!r.ok || !out.bey) return {error: out.error || ('HTTP '+r.status)};
+    return out;
+  } catch (e) { return {error: e.name==='AbortError' ? 'timeout' : String(e.message||e)}; }
+  finally { clearTimeout(timer); }
+}
+
+// Downscale an image File to a ≤maxSide JPEG data URL (keeps uploads small for the vision call).
+export async function fileToDataUrl(file, maxSide=1024, quality=.85) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej)=>{ const i = new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+    const k = Math.min(1, maxSide/Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', quality);
+  } finally { URL.revokeObjectURL(url); }
+}

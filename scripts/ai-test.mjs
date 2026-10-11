@@ -35,3 +35,8 @@ const EXP = {names:['Dragoon','Mist Fish'], variable:{key:'bit',label:'轴尖',f
 if (which==='moments') await call('/api/ai/moments', {summary:SUM, moments:MOMENTS, names:['Dragoon','Mist Fish']});
 if (which==='experiment') await call('/api/ai/experiment', EXP);
 if (which==='fallback2') { await call('/api/ai/moments', {summary:SUM, moments:MOMENTS, names:['Dragoon','Mist Fish']}, {}); await call('/api/ai/experiment', EXP, {}); }
+if (which==='sketch') {
+  // Tiny generated PNG (solid colour) just to exercise the route shape; real drawings work the same.
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  await call('/api/ai/sketch', {imageDataUrl:'data:image/png;base64,'+png, wish:'四片翅膀的火龙'}, {...env, ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY, AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY});
+}
