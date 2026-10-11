@@ -5,7 +5,8 @@ import {DurableObject} from 'cloudflare:workers';
 export const ROOM_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const POINTS = {xtreme: 3, over: 2, burst: 2, spin: 1, judge: 1};
 export const TARGET = 3;   // 5 局 3 胜: rounds to win
-const RESULT_WAIT_MS = 20_000;       // after the first result, wait this long for the other one
+const RESULT_WAIT_MS = 20_000;
+const GO_LEAD_MS = 3500, LAUNCH_WINDOW_MS = 10_000, START_LEAD_MS = 1200; // synced round start (arm → go)       // after the first result, wait this long for the other one
 const IDLE_EXPIRE_MS = 2 * 3600_000; // empty rooms are wiped after 2 h
 
 const fresh = code => ({code, created: Date.now(), status: 'waiting', players: [], score: [0, 0], round: 1, match: null, last: null, champion: null});
@@ -48,7 +49,8 @@ export class BattleRoom extends DurableObject {
     const r = this.room, online = this.connectedSlots();
     return {
       code: r.code, status: r.status, score: r.score, round: r.round, target: TARGET, champion: r.champion, last: r.last,
-      players: r.players.map((p, i) => ({slot: i, nickname: p.nickname, bey: p.bey, ready: p.ready, connected: online.has(i)})),
+      players: r.players.map((p, i) => ({slot: i, nickname: p.nickname, bey: p.bey, ready: p.ready, armed: !!p.armed, connected: online.has(i)})),
+      go: r.go || null,
       match: r.match ? {matchId: r.match.matchId, round: r.match.round, seed: r.match.seed, beys: r.match.beys, launches: r.match.launches, reported: [0, 1].filter(i => r.match.results[i])} : null,
     };
   }
@@ -63,6 +65,7 @@ export class BattleRoom extends DurableObject {
     try { msg = JSON.parse(typeof raw === 'string' ? raw : new TextDecoder().decode(raw)); } catch { return this.send(ws, {type: 'error', message: 'bad json'}); }
     const r = this.room;
     if (msg.type === 'join') return this.onJoin(ws, msg);
+    if (msg.type === 'clock') return this.send(ws, {type: 'clock', t: msg.t, now: Date.now()});
     const slot = this.slotOf(ws);
     if (slot < 0) return this.send(ws, {type: 'error', code: 'not-joined', message: '请先加入房间'});
     const me = r.players[slot];
@@ -74,13 +77,29 @@ export class BattleRoom extends DurableObject {
       me.launch = sanitizeLaunch(msg.launch); me.ready = true;
       if (msg.bey && typeof msg.bey === 'object') me.bey = msg.bey;
       if (r.players.length === 2 && r.players.every(p => p.ready && p.bey)) return this.lockAndStart();
+    } else if (msg.type === 'arm') {
+      // Both kids pressed 准备好了 → everyone plays the countdown from the same server instant.
+      if (r.status !== 'waiting' || r.go) return;
+      me.armed = true;
+      if (r.players.length === 2 && r.players.every(p => p.armed)) {
+        const at = Date.now() + GO_LEAD_MS;
+        r.go = {round: r.round, at, deadline: at + LAUNCH_WINDOW_MS};
+        await this.save();
+        this.broadcastState();
+        return this.broadcast({type: 'go', ...r.go});
+      }
+    } else if (msg.type === 'pull') {
+      // Live slingshot power: relayed to the other kid only, never stored.
+      const power = Math.max(0, Math.min(1, Number(msg.power) || 0));
+      for (const other of this.sockets()) if (this.slotOf(other) >= 0 && this.slotOf(other) !== slot) this.send(other, {type: 'pull', slot, power});
+      return;
     } else if (msg.type === 'unready' && r.status === 'waiting') {
       me.ready = false;
     } else if (msg.type === 'result') {
       return this.onResult(slot, msg);
     } else if (msg.type === 'rematch' && r.status === 'done') {
-      Object.assign(r, {status: 'waiting', score: [0, 0], round: 1, match: null, last: null, champion: null});
-      r.players.forEach(p => { p.ready = false; p.launch = null; });
+      Object.assign(r, {status: 'waiting', score: [0, 0], round: 1, match: null, last: null, champion: null, go: null});
+      r.players.forEach(p => { p.ready = false; p.launch = null; p.armed = false; });
     } else if (msg.type === 'leave') {
       return this.onLeave(ws, slot);
     } else {
@@ -108,17 +127,19 @@ export class BattleRoom extends DurableObject {
     ws.serializeAttachment({slot, pid});
     await this.save();
     await this.ctx.storage.setAlarm(Date.now() + IDLE_EXPIRE_MS);
-    this.send(ws, {type: 'joined', slot, code: r.code});
+    this.send(ws, {type: 'joined', slot, code: r.code, serverNow: Date.now()});
     this.broadcastState();
     // Re-send an in-flight match so a reconnecting client can (re)simulate it.
     if (r.status === 'locked' && r.match) this.send(ws, {type: 'start', ...startPayload(r.match)});
+    else if (r.status === 'waiting' && r.go) this.send(ws, {type: 'go', ...r.go});
   }
 
   async lockAndStart() {
     const r = this.room;
     const seed = crypto.getRandomValues(new Uint32Array(1))[0];
     r.status = 'locked';
-    r.match = {matchId: crypto.randomUUID(), round: r.round, seed, beys: r.players.map(p => p.bey), launches: r.players.map(p => p.launch), results: {}, deadline: null};
+    r.match = {matchId: crypto.randomUUID(), round: r.round, seed, beys: r.players.map(p => p.bey), launches: r.players.map(p => p.launch), results: {}, deadline: null, at: Date.now() + START_LEAD_MS};
+    r.go = null;
     await this.save();
     this.broadcastState();
     this.broadcast({type: 'start', ...startPayload(r.match)});
@@ -147,7 +168,8 @@ export class BattleRoom extends DurableObject {
     const matchOver = r.score[chosen.winner] >= TARGET;
     r.last = {matchId: m.matchId, round: m.round, winner: chosen.winner, reason: chosen.reason, points, time: chosen.time, mismatch, timedOut, reported: [0, 1].filter(i => m.results[i])};
     r.match = null;
-    r.players.forEach(p => { p.ready = false; p.launch = null; });
+    r.players.forEach(p => { p.ready = false; p.launch = null; p.armed = false; });
+    r.go = null;
     if (matchOver) { r.status = 'done'; r.champion = chosen.winner; } else { r.status = 'waiting'; r.round += 1; }
     await this.save();
     await this.ctx.storage.setAlarm(Date.now() + IDLE_EXPIRE_MS);
@@ -160,6 +182,7 @@ export class BattleRoom extends DurableObject {
     // Only free the seat when nothing is in progress; otherwise keep it for reconnection.
     if (r.status === 'waiting' && r.score[0] + r.score[1] === 0) {
       r.players.splice(slot, 1);
+      r.go = null; r.players.forEach(p => { p.armed = false; });
       for (const other of this.sockets()) { const s = this.slotOf(other); if (s > slot) other.serializeAttachment({...other.deserializeAttachment(), slot: s - 1}); }
     }
     ws.serializeAttachment(null);
@@ -185,7 +208,7 @@ export class BattleRoom extends DurableObject {
   }
 }
 
-function startPayload(m) { return {matchId: m.matchId, round: m.round, seed: m.seed, beys: m.beys, launches: m.launches}; }
+function startPayload(m) { return {matchId: m.matchId, round: m.round, seed: m.seed, beys: m.beys, launches: m.launches, at: m.at}; }
 
 function sanitizeLaunch(l = {}) {
   const num = (v, lo, hi, d) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };

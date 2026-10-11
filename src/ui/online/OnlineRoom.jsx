@@ -10,7 +10,7 @@ import {createBattle} from '../../game/battlePlayer.js';
 import BattleScene from '../../scene/BattleScene.jsx';
 import BeyArt from '../BeyArt.jsx';
 import {beyTitle} from '../beyName.js';
-import LaunchSequence from '../LaunchSequence.jsx';
+import LaunchSequence,{VsSplash} from '../LaunchSequence.jsx';
 import PauseMenu from '../PauseMenu.jsx';
 import {Hud} from '../BattleScreen.jsx';
 import * as sfx from '../../game/sfx.js';
@@ -57,6 +57,12 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
   const [player,setPlayer]=useState(null);
   const [finals,setFinals]=useState({}); // matchId → final
   const [vsSeen,setVsSeen]=useState(false);
+  const [goInfo,setGoInfo]=useState(null);   // {round, at, deadline} in local ms — the synced countdown + launch window
+  const [oppPull,setOppPull]=useState(0);
+  const [startAt,setStartAt]=useState(0);
+  const [autoFired,setAutoFired]=useState(false);
+  const [now,setNow]=useState(Date.now());
+  const lastPull=useRef(0);
   const api=useRef(null), slotRef=useRef(-1), matchRef=useRef(null), resumeRef=useRef(false), pauseRef=useRef(false);
 
   useEffect(()=>()=>{api.current?.leave();},[]); // navigating away = leaving (the seat survives only a refresh)
@@ -77,6 +83,8 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
         else if(e.code!=='locked')console.warn('[room]',e);
       },
       onConnection:setConn,
+      onGo:g=>{setGoInfo({round:g.round,at:h.toLocal(g.at),deadline:h.toLocal(g.deadline)});setOppPull(0);setAutoFired(false);setLaunched(false);setPlayer(null);setPhase('launch');},
+      onPull:m=>{if(m.slot!==slotRef.current)setOppPull(m.power);},
     });
     api.current=h;
   };
@@ -103,7 +111,11 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
     // Report as soon as the physics is done (not when playback ends) so a local pause never stalls the other kid.
     p.onDone(pl=>{const r=pl.result;api.current?.sendResult({matchId:m.matchId,winner:r.winner,reason:r.reason,time:r.time});});
     pauseRef.current=false;
-    setPlayer(p);setLaunched(false);setPhase('fight');p.start();sfx.spinHum(true);
+    // Both browsers start playback at the same server instant (m.at); legacy servers send no `at` → start now.
+    const at=m.at?api.current?.toLocal(m.at)??Date.now():Date.now(), wait=Math.max(0,Math.min(3000,at-Date.now()));
+    setStartAt(Date.now()+wait);
+    setPlayer(p);setLaunched(false);setPhase('fight');
+    setTimeout(()=>{p.start();sfx.spinHum(true);},wait);
   }
 
   // Playback finished → hold 2.6 s (unpaused) on the finish banner → round banner.
@@ -123,14 +135,19 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
     if(!room||!resumeRef.current||slot<0)return;
     resumeRef.current=false;
     if(room.status==='done'){setPhase('champ');return;}
-    if(room.status==='waiting'&&(room.round>1||score[0]+score[1]>0)){setVsSeen(true);setPhase('launch');setLaunched(!!me?.ready);}
-    else if(room.status==='waiting'&&me?.ready){setVsSeen(true);setPhase('launch');setLaunched(true);}
+    if(room.status==='waiting'&&me?.ready){setVsSeen(true);setPhase('launch');setLaunched(true);}
+    else if(room.status==='waiting'&&(room.round>1||score[0]+score[1]>0))setVsSeen(true); // waits in the room for 准备好了 (or the re-sent 'go')
   },[room,slot]);// eslint-disable-line
 
   const curFinal=player?finals[player.meta.matchId]:null;
   // While this round is still playing locally, don't spoil it: the server score may already include it.
   const hudScore=phase==='fight'&&curFinal?curFinal.score.map((v,i)=>i===curFinal.winner?v-1:v):score;
-  const afterBanner=()=>{if(!curFinal)return;setPlayer(null);if(curFinal.matchOver)setPhase('champ');else{setLaunched(false);setPhase('launch');}};
+  // 准备好了: tell the room (synced servers answer with 'go' once both kids are armed); legacy servers: start locally.
+  const arm=()=>{sfx.beep(true);if(api.current?.synced)api.current.arm();else{setGoInfo({round:room?.round||1,at:Date.now(),deadline:null});setLaunched(false);setPlayer(null);setPhase('launch');}};
+  const afterBanner=()=>{if(!curFinal)return;if(curFinal.matchOver){setPlayer(null);setPhase('champ');}else if(!me?.armed)arm();};
+  const ticking=phase==='launch'||(phase==='fight'&&now<startAt);
+  useEffect(()=>{if(!ticking)return;const iv=setInterval(()=>setNow(Date.now()),100);return()=>clearInterval(iv);},[ticking]);
+  const onPower=pw=>{const t=Date.now();if(t-lastPull.current>=150||pw===0){lastPull.current=t;api.current?.pull(+pw.toFixed(2));}};
 
   if(!code)return <Lobby {...{myBey,nickname,avatar,error,busy,create,join,onExit}}/>;
 
@@ -145,26 +162,28 @@ export default function OnlineRoom({myBey,onExit,initialCode=null,ns=''}){
 
   return (
     <div className="page dark battle-page ol-page">
-      {phase==='room'&&<WaitRoom {...{code,room,slot,me,other,conn,myBey,leave}} onGo={()=>{sfx.clang(1);setPhase('launch');}}/>}
+      {phase==='room'&&<WaitRoom {...{code,room,slot,me,other,conn,myBey,leave}} onGo={arm}/>}
       {showStage&&<>
         <Hud player={hudPlayer} names={ord.map(i=>i===slot?`${names[i]}（你）`:names[i])} beys={ord.map(i=>beys[i])} score={ord.map(i=>hudScore[i])} target={target} color={beys[ord[1]]?.colors?.primary||'#f2b632'} round={player?.meta?.round||room?.round||1}/>
         <div className="battle-stage">
           <PauseMenu onPause={on=>{pauseRef.current=on;if(phase==='fight'&&player)player.setPaused(on);if(on)sfx.spinHum(false);else if(phase==='fight'&&player&&!player.finished)sfx.spinHum(true);}} onExit={leave}/>
           <BattleScene player={player||idleOf(beys)} flip={flip} frameloop={player?'always':'demand'} style={{position:'absolute',inset:0}}/>
-          {phase==='launch'&&!launched&&other&&<LaunchSequence key={`r${room?.round}`}
+          {phase==='launch'&&goInfo&&now<goInfo.at&&<Countdown at={goInfo.at} now={now} first={!vsSeen&&(room?.round||1)===1} me={{name:nickname,avatar}} other={other} myBey={myBey}/>}
+          {phase==='launch'&&!launched&&other&&(!goInfo||now>=goInfo.at)&&<LaunchSequence key={`r${room?.round}`} autoFireAt={goInfo?.deadline||undefined} onPower={onPower}
             me={{name:nickname,avatar}} opp={{name:other.nickname,bey:other.bey||myBey,color:other.bey?.colors?.primary||'#f2b632',avatar:avatarOf(other.bey?.owner?.avatar)}}
             beys={[{...myBey,uid:myBey.uid||'me'}]} beyUid={myBey.uid||'me'} setBeyUid={()=>{}}
-            first={!vsSeen&&(room?.round||1)===1} lastRound={room?.last&&room.status==='waiting'?room.last:null}
+            first={false} lastRound={room?.last&&room.status==='waiting'?room.last:null}
             lastLabel={room?.last?`上一局：${FINISH_LABEL[room.last.reason]} · ${room.players?.[room.last.winner]?.nickname||''} 赢下这局　比分 ${score[0]} : ${score[1]}`:''} onPredict={()=>setVsSeen(true)}
-            onLaunch={l=>{setVsSeen(true);setLaunched(true);api.current?.ready({rpm:l.rpm,speed:l.speed,aim:l.aim,tilt:l.tilt},beyMsg);}}/>}
-          {phase==='launch'&&!launched&&other?.ready&&<div className="ol-oppready">✓ {other.nickname} 已经发射好了！</div>}
-          {phase==='launch'&&launched&&<WaitOpp me={me} other={other} myBey={myBey} offline={oppOffline}/>}
-          {phase==='banner'&&<RoundBanner final={curFinal} slot={slot} room={room} round={player?.meta?.round} onNext={afterBanner}/>}
-          {oppOffline&&phase!=='launch'&&<div className="ol-offline">📡 {other.nickname} 掉线了，等待重连…</div>}
+            onLaunch={l=>{setVsSeen(true);setLaunched(true);if(goInfo?.deadline&&Date.now()>=goInfo.deadline+800)setAutoFired(true);api.current?.pull(1);api.current?.ready({rpm:l.rpm,speed:l.speed,aim:l.aim,tilt:l.tilt},beyMsg);}}/>}
+          {phase==='launch'&&!launched&&goInfo&&now>=goInfo.at&&<LaunchHud goInfo={goInfo} now={now} other={other} pull={oppPull}/>}
+          {phase==='launch'&&launched&&<WaitOpp me={me} other={other} myBey={myBey} offline={oppOffline} pull={oppPull} autoFired={autoFired}/>}
+          {phase==='fight'&&now<startAt&&<div className="ol-ready-go" key={startAt}>READY…<b>GO!</b></div>}
+          {phase==='banner'&&<RoundBanner final={curFinal} slot={slot} room={room} round={player?.meta?.round} onNext={afterBanner} armed={!!me?.armed} other={other}/>}
+          {oppOffline&&!(phase==='launch'&&launched)&&<div className="ol-offline">📡 {other.nickname} 掉线了，等待重连…</div>}
           {conn==='reconnecting'&&<div className="ol-offline me">📡 网络断了，正在重新连接…</div>}
         </div>
       </>}
-      {phase==='champ'&&<Champion {...{room,slot,leave}} onRematch={()=>{sfx.beep(true);if(room?.status==='done')api.current?.rematch();setFinals({});setVsSeen(false);setPlayer(null);setLaunched(false);setPhase('room');}}/>}
+      {phase==='champ'&&<Champion {...{room,slot,leave}} onRematch={()=>{sfx.beep(true);if(room?.status==='done')api.current?.rematch();setFinals({});setVsSeen(false);setPlayer(null);setLaunched(false);setGoInfo(null);setPhase('room');}}/>}
     </div>
   );
 }
@@ -238,7 +257,7 @@ function WaitRoom({code,room,slot,me,other,conn,myBey,leave,onGo}){
       <Avatar avatar={mine?avatarOf(p.bey?.owner?.avatar)||avatarOf(useGame.getState().save.profile?.avatar):avatarOf(p.bey?.owner?.avatar)} bey={bey} size={104}/>
       <b className="ol-pname">{p.nickname}</b>
       <div className="ol-pbey">{bey&&<BeyArt bey={bey} size={96}/>}<span>{bey?beyTitle(bey):'—'}</span></div>
-      <div className={`ol-pstate ${off?'off':p.ready?'ready':'on'}`}>{off?'📡 等待重连…':p.ready?'✓ 已发射，等你！':'● 已连接'}</div>
+      <div className={`ol-pstate ${off?'off':p.armed||p.ready?'ready':'on'}`}>{off?'📡 等待重连…':p.ready?'✓ 已发射，等你！':p.armed?'✓ 准备好了！':'● 已连接'}</div>
     </div>;
   };
   const left=room?.players?.find(p=>p.slot===slot), right=room?.players?.find(p=>p.slot!==slot);
@@ -265,7 +284,8 @@ function WaitRoom({code,room,slot,me,other,conn,myBey,leave,onGo}){
         {card(right,1,false)}
       </div>
       <div className="ol-go-row">
-        {canGo?<button className="btn primary big ol-go" onClick={onGo}>⚡ 开战！5 局 3 胜</button>
+        {canGo&&me?.armed?<div className="ol-go-wait armed">✓ 你准备好了 · 等 {other.nickname} 点「准备好了」<span className="ol-ell"><i>.</i><i>.</i><i>.</i></span></div>
+          :canGo?<button className="btn primary big ol-go" onClick={onGo}>⚡ 准备好了！（5 局 3 胜）</button>
           :<div className="ol-go-wait">{other?`等 ${other.nickname} 重新连上…`:'朋友进来后就能开战'}</div>}
       </div>
     </div>
@@ -273,33 +293,61 @@ function WaitRoom({code,room,slot,me,other,conn,myBey,leave,onGo}){
 }
 
 // ================= After my launch: waiting for the other kid =================
-function WaitOpp({me,other,myBey,offline}){
+function WaitOpp({me,other,myBey,offline,pull,autoFired}){
   return (
     <div className="ol-waitopp">
       <div className="ol-wo-lines"/>
       <div className="ol-wo-mine">
         <BeyArt bey={myBey} size={150}/>
-        <div className="ol-wo-stamp">已锁定！</div>
+        <div className="ol-wo-stamp">{autoFired?'时间到，自动发射！':'已锁定！'}</div>
       </div>
       <div className="ol-wo-center">
         <div className="ol-wo-spin"><BeyArt bey={other?.bey||myBey} size={190}/></div>
         <div className="ol-wo-text">{offline?<>📡 {other?.nickname} 掉线了<br/><small>等待重连…</small></>:<>{other?.nickname||'对手'} 正在发射<span className="ol-ell"><i>.</i><i>.</i><i>.</i></span></>}</div>
+        {!offline&&other&&!other.ready&&<OppPull other={other} pull={pull}/>}
         <div className="ol-wo-sub">两边都发射好，比赛就会同时开始</div>
       </div>
     </div>
   );
 }
 
+// ================= Synced countdown (VS splash on round 1, then 3·2·1) =================
+function Countdown({at,now,first,me,other,myBey}){
+  const left=Math.ceil((at-now)/1000);
+  const prev=useRef(null);
+  useEffect(()=>{if(left!==prev.current&&left<=3&&left>0)sfx.beep(left===1);prev.current=left;},[left]);
+  return (
+    <div className="ol-count">
+      {first&&other?<div className="ol-count-vs"><VsSplash me={me} opp={{name:other.nickname,bey:other.bey||myBey,color:other.bey?.colors?.primary||'#f2b632',avatar:avatarOf(other.bey?.owner?.avatar)}} myBey={myBey} onPick={()=>{}}/></div>
+        :<div className="ol-count-bg"/>}
+      {left<=3&&left>0&&<div className="ol-count-n" key={left}>{left}</div>}
+      <div className="ol-count-t">两边同时开始 · 准备拉发射器！</div>
+    </div>
+  );
+}
+// Shared 10 s launch window + the other kid's live pull.
+function LaunchHud({goInfo,now,other,pull}){
+  if(!goInfo.deadline)return other?.ready?<div className="ol-oppready">✓ {other.nickname} 已经发射好了！</div>:null;
+  const left=Math.max(0,Math.ceil((goInfo.deadline-now)/1000));
+  return <div className="ol-lhud">
+    <div className={`ol-timer ${left<=3?'hot':''}`}>⏱ <b>{left}</b> 秒</div>
+    {other&&(other.ready?<div className="ol-oppull done">✓ {other.nickname} 已发射</div>:<OppPull other={other} pull={pull}/>)}
+  </div>;
+}
+function OppPull({other,pull}){
+  return <div className="ol-oppull"><span>{other.nickname} 正在拉… {Math.round(pull*100)}%</span><i><em style={{width:`${Math.round(pull*100)}%`}}/></i></div>;
+}
+
 // ================= Round banner =================
-function RoundBanner({final,slot,room,round,onNext}){
+function RoundBanner({final,slot,room,round,onNext,armed,other}){
   const won=final&&final.winner===slot;
-  useEffect(()=>{if(!final)return;sfx.clang(1);const t=setTimeout(onNext,4200);return()=>clearTimeout(t);},[final]);// eslint-disable-line
+  useEffect(()=>{if(final)sfx.clang(1);},[final]);
   if(!final)return <div className="ol-banner wait"><div className="ol-wo-text">等对手的比赛结果<span className="ol-ell"><i>.</i><i>.</i><i>.</i></span></div></div>;
   const score=final.score||room?.score||[0,0], target=room?.target||3;
   const pips=i=><div className="ol-pips">{Array.from({length:target},(_,k)=><i key={k} className={k<score[i]?'on':''}/>)}</div>;
   const name=i=>room?.players?.[i]?.nickname||'';
   return (
-    <div className={`ol-banner ${won?'win':'lose'}`} onClick={onNext}>
+    <div className={`ol-banner ${won?'win':'lose'}`}>
       <div className="ol-banner-ribbon">
         <div className="ol-banner-k">第 {final.round||round} 局</div>
         <div className="ol-banner-h">{won?'你赢了这局！':`${name(final.winner)} 赢了这局`}</div>
@@ -310,7 +358,11 @@ function RoundBanner({final,slot,room,round,onNext}){
         <div className="ol-score-num">{score[0]}<span>:</span>{score[1]}</div>
         <div className={`ol-score-side ${slot===1?'me':''}`}><b>{name(1)}</b>{pips(1)}</div>
       </div>
-      <div className="ol-banner-t">{target*2-1} 局 {target} 胜 · {final.matchOver?'比赛结束！':'点一下继续'}</div>
+      <div className="ol-banner-t">{target*2-1} 局 {target} 胜{final.matchOver?' · 比赛结束！':''}</div>
+      {final.matchOver?<button className="btn primary big ol-next" onClick={onNext}>看冠军 ▶</button>
+        :armed?<div className="ol-next-wait">✓ 你准备好了 · {other?.armed?'马上开始！':`等 ${other?.nickname||'对手'} 准备…`}</div>
+        :<button className="btn primary big ol-next" onClick={onNext}>下一局 · 准备好了！</button>}
+      {!final.matchOver&&other&&<div className={`ol-next-opp ${other.armed?'on':''}`}>{other.armed?`✓ ${other.nickname} 已经准备好了`:`${other.nickname} 还在看结果…`}</div>}
       {final.mismatch&&<div className="ol-mismatch">两台设备算出的结果有一点点不同，这局按房主的结果算</div>}
     </div>
   );

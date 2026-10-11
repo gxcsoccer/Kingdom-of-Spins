@@ -38,7 +38,7 @@ function BeyPic({bey,size}){
 }
 
 // ---------- 1. VS splash: diagonal panels slam in, VS stamp, impact frame, taunt, prediction cards
-function VsSplash({me,opp,myBey,onPick}){
+export function VsSplash({me,opp,myBey,onPick}){
   const [skip,setSkip]=useState(false),[said,setSaid]=useState(false);
   useEffect(()=>{
     sfx.whoosh();
@@ -117,7 +117,9 @@ const auraOf=L=>!L?'#29b6ff':L.over?'#ff2d4a':L.power>.82?'#ffd400':'#29b6ff';
 const routeOf=L=>Math.abs(L.aim)>.6?'绕场游走':Math.abs(L.aim)>.25?'斜线切入':'正面冲撞';
 
 // ---------- 3. 3D slingshot launch
-function Slingshot({myBey,oppBey,onLaunch,avatar}){
+// Optional (online): autoFireAt = local ms when the shared launch window closes (fires with the current pull, or a medium default);
+// onPower(0..1) reports the live pull so it can be shown to the other kid.
+function Slingshot({myBey,oppBey,onLaunch,avatar,autoFireAt,onPower}){
   const stateRef=useRef({pull:null,power:0,dir:null,over:false,aura:'#29b6ff',launched:null,shake:0});
   const [pull,setPull]=useState(null);
   const [launched,setLaunched]=useState(false),[cut,setCut]=useState(false);
@@ -128,7 +130,7 @@ function Slingshot({myBey,oppBey,onLaunch,avatar}){
   const update=pl=>{
     const l=pl?slingToLaunch(pl):null, p=pl?Math.min(1.15,Math.hypot(pl.x,pl.y)/MAX_PULL):0;
     Object.assign(stateRef.current,{pull:pl,power:p,dir:l?.dir||null,over:!!l?.over,aura:auraOf(l),shake:l?.over?.025:p>.82?.008:0});
-    setPull(pl);
+    setPull(pl);onPower?.(Math.min(1,p));
   };
   const fire=launch=>{
     if(launched)return;
@@ -142,6 +144,13 @@ function Slingshot({myBey,oppBey,onLaunch,avatar}){
   const onRelease=pl=>{if(launched)return;if(Math.hypot(pl.x,pl.y)<8){chargeTone(null);update(null);return;}fire(slingToLaunch(pl));};
 
   useEffect(()=>()=>{rec.current?.stop();audio.current?.stop?.();chargeTone(null);},[]);
+  const fireRef=useRef(fire);fireRef.current=fire;
+  useEffect(()=>{
+    if(!autoFireAt)return;
+    const t=setTimeout(()=>{const pl=stateRef.current.pull;
+      fireRef.current(slingToLaunch(pl&&Math.hypot(pl.x,pl.y)>=8?pl:{x:-MAX_PULL*.6*.85,y:-MAX_PULL*.6*.45}));},Math.max(0,autoFireAt-Date.now()));
+    return()=>clearTimeout(t);
+  },[autoFireAt]);
   async function toggleMic(){
     if(mic){rec.current?.stop();audio.current?.stop?.();setMic(false);return;}
     setMic(true);setHeard('');peak.current=0;
@@ -271,7 +280,7 @@ function MateLaunch({mate,myBey,oppBey,onLaunch,makeLaunch,me,team,pilot,onPick,
 }
 
 /** Full pre-round flow. first round: VS splash (+prediction) → pick bey → slingshot. Later rounds: straight to slingshot (with a bey switch). */
-export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastRound,onPredict,onLaunch,lastLabel,team=[],pilot=null,onPilot,makeMateLaunch}){
+export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastRound,onPredict,onLaunch,lastLabel,team=[],pilot=null,onPilot,makeMateLaunch,autoFireAt,onPower}){
   const [step,setStep]=useState(first?'vs':'launch');
   const myBey=beys.find(b=>b.uid===beyUid)||beys[0];
   return (
@@ -282,7 +291,7 @@ export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastR
       {step==='launch'&&(()=>{const mate=pilot&&team.find(t=>t.id===pilot);
         if(mate)return <MateLaunch key={'m'+mate.id+myBey.uid} mate={mate} myBey={myBey} oppBey={opp.bey} onLaunch={onLaunch} makeLaunch={()=>makeMateLaunch(mate)} me={me} team={team} pilot={pilot} onPick={onPilot} beys={beys} onSwitch={()=>setStep('pick')}/>;
         return <>
-          <Slingshot key={myBey.uid} myBey={myBey} oppBey={opp.bey} onLaunch={onLaunch} avatar={me.avatar}/>
+          <Slingshot key={myBey.uid} myBey={myBey} oppBey={opp.bey} onLaunch={onLaunch} avatar={me.avatar} autoFireAt={autoFireAt} onPower={onPower}/>
           {team.length>0&&<TeamPicker me={me} team={team} pilot={pilot} onPick={onPilot}/>}
           {beys.length>1&&<button className="ls-switch" onClick={()=>setStep('pick')}>🔁 换陀螺（{beyTitle(myBey)}）</button>}
         </>;})()}
