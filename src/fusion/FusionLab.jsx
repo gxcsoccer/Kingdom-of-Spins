@@ -9,8 +9,11 @@ import BeyArt, {BeySvg} from '../ui/BeyArt.jsx';
 import {TIPS} from '../physics/model.js';
 import {beyStats} from '../game/stats.js';
 import './fusion.css';
+import HeroCards from './HeroCards.jsx';
 
 const WISHES = ['转得超级久 🌀', '把对手撞飞 💥', '稳如泰山，撞不动 🛡️', '又快又猛 ⚡'];
+// Inspiration chips fill the input (the kid keeps typing); the AI maps them into the look.
+const INSPIRE = [['🐉 龙爪','像龙爪一样的刃'],['⚡ 闪电','闪电花纹'],['💎 水晶','蓝白水晶外壳'],['🔥 火焰','黑红配色加火焰花纹']];
 const PREDICTIONS = ['能把对手撞飞！', '会比对手转得更久', '可能会被撞出去…', '不知道，做实验看看！'];
 const isQuestion = t => /[？?]$|为什么|什么是|怎么|是什么|会不会/.test(t.trim());
 const PARAM_ROWS = [
@@ -160,7 +163,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
 
   function startChat() {
     setStep('chat');
-    setLog([{role:'assistant', content:`${parents[0].name} + ${parents[1].name}……合体名字就叫 ${name}！告诉我，你想要一只什么样的陀螺？`}]);
+    setLog([{role:'assistant', content:`${parents[0].name} + ${parents[1].name}……合体名字就叫 ${name}！说说你想要的样子和本领：颜色、形状、图案、像什么动物都行——比如「黑红配色、龙爪一样的刃、闪电花纹、超级攻击」！`}]);
     onUnlock?.(['gd-fusion-blade-only','bx-three-parts']);
   }
   function save() {
@@ -218,31 +221,42 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
             <Doctor mood={sk.busy?'think':'talk'}/>
             <div className="bubble grow">把你画的梦想陀螺拍给我看！我会数一数它有几片刃、哪里最重、是什么颜色，把它变成真的能上场的 <b>Blade</b>。</div>
           </div>
+          {!sk.result && (
           <div className="sketch-grid mt2">
-            <div className="panel sketch-drop" onClick={()=>fileRef.current?.click()}>
-              {sk.img ? <img src={sk.img} alt="你的画"/> : <div className="sketch-empty"><span style={{fontSize:56}}>📷</span><b>拍照 / 选一张画</b><span className="muted">画在纸上就行，越清楚越好</span></div>}
-              <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={onPickImage}/>
-            </div>
-            <div className="col">
-              <label className="kicker">想对博士说点什么？（可以不填）</label>
-              <input className="sketch-wish" value={sk.wish} onChange={e=>setSk(s=>({...s, wish:e.target.value}))} placeholder="比如：它是一条会喷火的龙！" maxLength={60}/>
-              {collection.length>0 && <>
-                <label className="kicker mt">用谁的 Ratchet 和 Bit？</label>
-                <div className="row wrap" style={{gap:8}}>{collection.slice(0,8).map((b,i)=>(
-                  <button key={b.id} className={`btn small ${sk.keep===i?'ink':''}`} onClick={()=>setSk(s=>({...s, keep:i}))}>{b.name} · {b.ratchet?.prongs}-{b.ratchet?.height} · {TIPS[b.bit]?.label?.split(' ')[0]}</button>
-                ))}</div>
-              </>}
-              <div className="row mt" style={{gap:10}}>
-                <button className="btn" onClick={()=>setStep('pick')}>◀ 返回</button>
-                <button className="btn primary big" disabled={!sk.img||sk.busy} onClick={runSketch}>{sk.busy?'博士在看画…':'让博士看看！⚡'}</button>
+              <div className="panel sketch-drop" onClick={()=>fileRef.current?.click()}>
+                {sk.img ? <img src={sk.img} alt="你的画"/> : <div className="sketch-empty"><span style={{fontSize:56}}>📷</span><b>拍照 / 选一张画</b><span className="muted">画在纸上就行，越清楚越好</span></div>}
+                <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={onPickImage}/>
               </div>
-              {sk.msg && <div className="bubble mt">{sk.msg}</div>}
+              <div className="col">
+                <label className="kicker">想对博士说点什么？（可以不填）</label>
+                <input className="sketch-wish" value={sk.wish} onChange={e=>setSk(s=>({...s, wish:e.target.value}))} placeholder="比如：它是一条会喷火的龙！" maxLength={60}/>
+                {collection.length>0 && <>
+                  <label className="kicker mt">用谁的 Ratchet 和 Bit？</label>
+                  <div className="row wrap" style={{gap:8}}>{collection.slice(0,8).map((b,i)=>(
+                    <button key={b.id} className={`btn small ${sk.keep===i?'ink':''}`} onClick={()=>setSk(s=>({...s, keep:i}))}>{b.name} · {b.ratchet?.prongs}-{b.ratchet?.height} · {TIPS[b.bit]?.label?.split(' ')[0]}</button>
+                  ))}</div>
+                </>}
+                <div className="row mt" style={{gap:10}}>
+                  <button className="btn" onClick={()=>setStep('pick')}>◀ 返回</button>
+                  <button className="btn primary big" disabled={!sk.img||sk.busy} onClick={runSketch}>{sk.busy?'博士在看画…':'让博士看看！⚡'}</button>
+                </div>
+                {sk.msg && <div className="bubble mt">{sk.msg}</div>}
+              </div>
             </div>
-          </div>
+          )}
           {sk.result && (
-            <div className="cand-zone mt2">
-              <h2 className="h-display h-yellow" style={{fontSize:30}}>你的画变成了……</h2>
-              <div className="cand-grid mt" style={{maxWidth:420}}><CandidateCard bey={sk.result} parents={[]} renderBey={renderBey} onPick={b=>{setChosen(b);setStep('predict');}}/></div>
+            <div className="sk-result mt">
+              <div className="sk-result-l">
+                {sk.img && <img src={sk.img} alt="你的画"/>}
+                {sk.msg && <div className="bubble">{sk.msg}</div>}
+                <div className="row" style={{gap:10}}>
+                  <button className="btn" onClick={()=>setSk(s=>({...s, result:null}))}>◀ 重新画</button>
+                </div>
+              </div>
+              <div className="cand-zone">
+                <h2 className="h-display h-yellow" style={{fontSize:28,margin:0}}>你的画变成了……</h2>
+                <HeroCards candidates={[sk.result]} parents={[]} introImg={sk.img} onPick={b=>{setChosen(b);setStep('predict');}}/>
+              </div>
             </div>
           )}
         </section>
@@ -305,9 +319,10 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
               <div ref={logEnd}/>
             </div>
             {log.length<=1 && !busy && <div className="row wrap opts" style={{padding:'0 14px'}}>{WISHES.map(w=><button key={w} className="btn small yellow" onClick={()=>send(w)}>{w}</button>)}</div>}
+            {!busy && <div className="row wrap opts inspire" style={{padding:'0 14px'}}><span className="inspire-l">灵感：</span>{INSPIRE.map(([k,t])=><button key={k} type="button" className="btn small" onClick={()=>setInput(v=>v.includes(t)?v:(v?`${v}，${t}`:t))}>{k}</button>)}</div>}
             <form className="chat-input" onSubmit={e=>{e.preventDefault();send(input);}}>
               {ttsSupported && <button type="button" className="btn small" title={voiceOn?'博士说话：开':'博士说话：关'} onClick={toggleVoice}>{voiceOn?'🔊':'🔇'}</button>}
-              <input value={input} onChange={e=>setInput(e.target.value)} placeholder={mic.listening?'我在听…松开就发送':candidates.length?'还想改？或者问博士一个问题…':'说说你想要的陀螺…'} maxLength={120} disabled={busy}/>
+              <input value={input} onChange={e=>setInput(e.target.value)} placeholder={mic.listening?'我在听…松开就发送':candidates.length?'还想改？比如“换成金色”“刃再尖一点”，或者问博士问题…':'说说颜色、形状、图案：黑红配色、龙爪一样的刃、闪电花纹……'} maxLength={120} disabled={busy}/>
               {mic.supported && <button type="button" className={`btn mic ${mic.listening?'on':''}`} disabled={busy} title="按住说话"
                 onPointerDown={e=>{e.preventDefault();e.currentTarget.setPointerCapture?.(e.pointerId);mic.start();}} onPointerUp={mic.stop} onPointerCancel={mic.stop} onContextMenu={e=>e.preventDefault()}>🎤</button>}
               <button className="btn primary" disabled={busy||!input.trim()}>发送</button>
@@ -319,7 +334,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
                 <h2 className="h-display h-yellow" style={{fontSize:30}}>融合方案</h2>
                 <span className="model-note">数值来自理想化物理模型，对战结果只代表这个模型</span>
               </div>
-              <div className="cand-grid mt">{candidates.map(c=><CandidateCard key={c.id} bey={c} parents={parents} renderBey={renderBey} onPick={b=>{setChosen(b);setStep('predict');}}/>)}</div>
+              <HeroCards candidates={candidates} parents={parents} onPick={b=>{setChosen(b);setStep('predict');}}/>
             </div>
           )}
         </section>

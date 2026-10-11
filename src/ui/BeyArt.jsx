@@ -5,12 +5,14 @@ import {useState,createContext,useContext,lazy,Suspense} from 'react';
 export const BeyArt3D=createContext(false);
 const BeyShowcase=lazy(()=>import('../scene/BeyShowcase.jsx'));
 import {specFromBey,wingOutline} from '../physics/model.js';
+import {normLook,visualOutline} from '../scene/look.js';
 
 // Top-view manga icon of a bey, generated from the same wing outline as the physics hull.
 // Uses /art/beys/<id>.png if the user supplied one.
 export function BeySvg({bey,size=160,spin=false}){
   const spec=specFromBey(bey), k=1/.032*46, c=bey.colors||{};
-  const wings=Array.from({length:spec.wings},(_,i)=>wingOutline(spec,i).map(([x,y])=>`${(x*k).toFixed(2)},${(-y*k).toFixed(2)}`).join(' '));
+  const look=normLook(bey.look);
+  const wings=Array.from({length:spec.wings},(_,i)=>(look?visualOutline(spec,i,look.shape):wingOutline(spec,i)).map(([x,y])=>`${(x*k).toFixed(2)},${(-y*k).toFixed(2)}`).join(' '));
   const initial=(bey.name||'?').replace(/[^A-Za-z]/g,'').slice(0,1)||'★';
   return (
     <svg viewBox="-50 -50 100 100" width={size} height={size} style={spin?{animation:'spinslow 1.2s linear infinite'}:undefined} aria-label={bey.name}>
@@ -44,7 +46,7 @@ export default function BeyArt({bey,size=160,spin}){
   // Story variants (e.g. 'raiga-dragoon') reuse their base bey's art; fused beys use the generated icon.
   const ids=[bey.id,String(bey.id||'').split('-').pop()].filter((v,i,a)=>v&&a.indexOf(v)===i);
   const idx=failed===false?0:failed;
-  if(!bey.parents&&idx<ids.length)return <img key={ids[idx]} src={`/art/beys/${ids[idx]}.png`} width={size} height={size} alt={bey.name} style={{objectFit:'contain',display:'block'}} onError={()=>setFailed(idx+1)}/>;
+  if(!bey.parents&&!bey.look&&idx<ids.length)return <img key={ids[idx]} src={`/art/beys/${ids[idx]}.png`} width={size} height={size} alt={bey.name} style={{objectFit:'contain',display:'block'}} onError={()=>setFailed(idx+1)}/>;
   return <BeySvg bey={bey} size={size} spin={spin}/>;
 }
 

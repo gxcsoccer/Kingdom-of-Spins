@@ -4,7 +4,7 @@ import {specFromBey, STYLES} from '../physics/model.js';
 import {CARDS, getCard, relevantCards} from '../knowledge/cards.js';
 
 export const STYLE_ZH = {attack:'攻击型', defense:'防御型', stamina:'持久型', balance:'平衡型'};
-const HEX = /^#[0-9a-f]{6}$/i;
+const HEX = /^#[0-9a-f]{6}$/i;   // colors must be #rrggbb
 // Strip inline card ids like (ph-inertia) the model sometimes echoes into prose.
 const clean = v => v.replace(/[（(]?\b(?:bx|ph|mt|sm|gd)-[a-z0-9-]+\b[)）]?/g,'').replace(/\s{2,}/g,' ').trim();
 const str = (v, max, d='') => (typeof v==='string' && clean(v) ? clean(v).slice(0, max) : d);
@@ -30,6 +30,62 @@ export function keptParts(parents, keepParent=0) {
   return {ratchet: {height: p.ratchet?.height ?? 60, prongs: p.ratchet?.prongs ?? 3}, bit: p.bit || 'ball'};
 }
 function shortHash(s) { let h=2166136261; for (const ch of s) { h^=ch.charCodeAt(0); h=Math.imul(h,16777619); } return (h>>>0).toString(36).slice(0,6); }
+
+// ── Look (appearance only — never changes physics) ──
+export const LOOK_ENUMS = {
+  shape:['blade','claw','fang','wing','flame','shield'], finish:['toon','metal','crystal','neon'],
+  emblem:['dragon','wolf','eagle','shark','tiger','phoenix','lightning','flame','star','wave','mountain','letter'],
+  pattern:['none','stripes','flames','bolts','dots'],
+};
+const STYLE_LOOK = {attack:{shape:'blade',finish:'metal',emblem:'dragon',pattern:'flames'}, defense:{shape:'shield',finish:'metal',emblem:'mountain',pattern:'stripes'},
+  stamina:{shape:'wing',finish:'crystal',emblem:'wave',pattern:'dots'}, balance:{shape:'fang',finish:'toon',emblem:'star',pattern:'bolts'}};
+export function sanitizeLook(raw, fallback) {
+  const f = fallback || STYLE_LOOK.balance, r = raw && typeof raw==='object' ? raw : {};
+  const pick = k => LOOK_ENUMS[k].includes(r[k]) ? r[k] : f[k];
+  return {shape:pick('shape'), finish:pick('finish'), emblem:pick('emblem'), pattern:pick('pattern')};
+}
+// Kid's words → appearance hints. Colors are "first mentioned = primary".
+const COLOR_WORDS = [['黑','#16161a'],['红','#e8202a'],['蓝','#2f7bff'],['白','#f5f7fa'],['金','#f2b632'],['银','#c9ced6'],['紫','#8a3cff'],['绿','#14c9a5'],['橙','#ff7a1a'],['粉','#ff5bd0'],['黄','#ffd400'],['青','#16c4d9'],['灰','#7d8794']];
+const LOOK_WORDS = {
+  shape:[['爪','claw'],['獠牙','fang'],['牙','fang'],['翅膀','wing'],['翼','wing'],['羽','wing'],['火焰','flame'],['盾','shield'],['刀','blade'],['剑','blade'],['刃','blade']],
+  finish:[['金属','metal'],['钢','metal'],['铁','metal'],['水晶','crystal'],['冰','crystal'],['钻石','crystal'],['宝石','crystal'],['霓虹','neon'],['发光','neon'],['荧光','neon'],['夜光','neon']],
+  emblem:[['凤凰','phoenix'],['龙','dragon'],['狼','wolf'],['鹰','eagle'],['鲨','shark'],['虎','tiger'],['闪电','lightning'],['雷','lightning'],['火','flame'],['星','star'],['浪','wave'],['海','wave'],['水','wave'],['山','mountain'],['字母','letter']],
+  pattern:[['条纹','stripes'],['火焰纹','flames'],['火焰花纹','flames'],['闪电纹','bolts'],['闪电花纹','bolts'],['闪电','bolts'],['波点','dots'],['圆点','dots'],['点点','dots']],
+};
+export function wishLook(text='') {
+  let t = String(text); const out = {}, notes = [];
+  // Order matters: finishes first, and a matched word is blanked so 「水晶」 doesn't also read as 「水」 (wave).
+  for (const k of ['finish','pattern','shape','emblem']) for (const [w, v] of LOOK_WORDS[k]) if (t.includes(w)) { out[k] = v; notes.push(`「${w}」`); if (k==='finish') t = t.split(w).join('□'); break; }
+  if (/金属/.test(String(text)) && !/金色/.test(String(text))) t = t.split('金').join('□');
+  if (out.emblem==='phoenix' && !out.shape) out.shape = 'wing';
+  if (out.emblem==='dragon' && !out.shape && /爪/.test(t)) out.shape = 'claw';
+  const colors = COLOR_WORDS.filter(([w])=>t.includes(w)).map(([w,h])=>({w,h})).sort((x,y)=>t.indexOf(x.w)-t.indexOf(y.w));
+  if (colors.length) notes.unshift(`「${colors.map(c=>c.w).join('')}」配色`);
+  const wings = /(两|二|2)\s*片/.test(t) ? 2 : /(三|3)\s*片/.test(t) ? 3 : /(四|4)\s*片/.test(t) ? 4 : null;
+  return {look: out, colors: colors.map(c=>c.h), colorWords: colors.map(c=>c.w), wings, notes};
+}
+const SHIFT = (arr, v, k) => arr[(arr.indexOf(v) + k) % arr.length];
+// Make the 3 candidates visibly different: at least 2 of {shape, emblem, primary color} differ pairwise.
+export function diversifyLooks(cands) {
+  const seen = [];
+  cands.forEach((c, i) => {
+    for (let guard=0; guard<6; guard++) {
+      const clash = seen.find(o => [o.look.shape===c.look.shape, o.look.emblem===c.look.emblem, o.colors.primary.toLowerCase()===c.colors.primary.toLowerCase()].filter(Boolean).length >= 2);
+      if (!clash) break;
+      if (clash.look.shape===c.look.shape) c.look = {...c.look, shape: SHIFT(LOOK_ENUMS.shape, c.look.shape, 1+i)};
+      else c.look = {...c.look, emblem: SHIFT(LOOK_ENUMS.emblem.slice(0,11), c.look.emblem==='letter'?'star':c.look.emblem, 2+i)};
+      if (guard>=2) c.colors = {...c.colors, primary: COLOR_WORDS[(COLOR_WORDS.findIndex(([,h])=>h===c.colors.primary)+3+i+COLOR_WORDS.length)%COLOR_WORDS.length][1]};
+    }
+    seen.push(c);
+  });
+  return cands;
+}
+const EMBLEM_ZH = {dragon:'龙',wolf:'狼',eagle:'鹰',shark:'鲨',tiger:'虎',phoenix:'凤凰',lightning:'雷霆',flame:'烈焰',star:'星辰',wave:'怒涛',mountain:'山岳',letter:'印记'};
+const MOVE_TAIL = {attack:['爆裂斩','冲锋破'],defense:['铁壁阵','不动盾'],stamina:['永旋舞','回旋风'],balance:['疾风击','流转刃']};
+export const specialMoveFor = (look, style, i=0) => {
+  const e = EMBLEM_ZH[look?.emblem] || '旋风', t = (MOVE_TAIL[style]||MOVE_TAIL.balance)[i%2];
+  return {name:`${e}${t}`.slice(0,8), shout:`${e}之力——${t}！`.slice(0,16)};
+};
 
 export function sanitizeCandidate(raw={}, parents=[], keepParent=0, fusedBy='ai') {
   const [a={}, b={}] = parents;
@@ -57,6 +113,10 @@ export function sanitizeCandidate(raw={}, parents=[], keepParent=0, fusedBy='ai'
     prediction: str(raw.prediction, 60, ''),
     parents: [a.id, b.id].filter(Boolean), keptFrom: (parents[keepParent===1?1:0]||{}).id, fusedBy,
     knowledge: cardIds.map(id=>{const c=getCard(id);return {id:c.id,title:c.title,body:c.body,layer:c.layer};}),
+    look: sanitizeLook(raw.look, STYLE_LOOK[blade.style]),
+    lookNote: str(raw.lookNote, 60, ''),
+    specialMove: raw.specialMove && typeof raw.specialMove==='object' && raw.specialMove.name
+      ? {name:str(raw.specialMove.name,10,'必杀旋风'), shout:str(raw.specialMove.shout,20,'旋转吧——！')} : null,
   };
 }
 function defaultCardFor(blade) {
@@ -101,19 +161,28 @@ export function templateCandidates(parents=[], wish='', keepParent=0) {
   const [a={}, b={}] = parents;
   const avg = k => ((a.blade?.[k] ?? TARGET.balance[k]) + (b.blade?.[k] ?? TARGET.balance[k])) / 2;
   const order = [...new Set([...wishStyles(wish), a.blade?.style, b.blade?.style, 'balance', 'attack', 'stamina'].filter(s=>STYLES.includes(s)))].slice(0,3);
-  const base = fusionName(a,b);
-  return order.map((style,i) => {
+  const base = fusionName(a,b), wl = wishLook(wish);
+  const palettes = [
+    {primary:wl.colors[0]||a.colors?.primary, secondary:wl.colors[1]||b.colors?.secondary, accent:wl.colors[2]||b.colors?.accent},
+    {primary:wl.colors[1]||b.colors?.primary, secondary:wl.colors[0]||a.colors?.secondary, accent:a.colors?.accent},
+    {primary:a.colors?.accent, secondary:'#ffffff', accent:wl.colors[0]||b.colors?.primary},
+  ];
+  const cands = order.map((style,i) => {
     const t = TARGET[style], mix = (k)=>avg(k)*.4 + t[k]*.6;
-    return sanitizeCandidate({
+    // Candidate 1 follows the kid's words fully; the others keep some of it and vary the rest.
+    const look = i===0 ? {...STYLE_LOOK[style], ...wl.look} : i===1 ? {...STYLE_LOOK[style], finish: wl.look.finish||STYLE_LOOK[style].finish, pattern: wl.look.pattern||STYLE_LOOK[style].pattern} : {...STYLE_LOOK[style], emblem: wl.look.emblem||STYLE_LOOK[style].emblem};
+    const c = sanitizeCandidate({
       name: i===0 ? base : `${base} ${['','II','X'][i]}`.trim(), zh: VERSION_ZH[style],
-      style, wings: t.wings, reach: mix('reach'), ring: mix('ring'), mass: mix('mass'),
-      colors: i===0 ? {primary:a.colors?.primary, secondary:b.colors?.secondary, accent:b.colors?.accent}
-            : i===1 ? {primary:b.colors?.primary, secondary:a.colors?.secondary, accent:a.colors?.accent}
-            : {primary:a.colors?.accent, secondary:'#ffffff', accent:b.colors?.primary},
+      style, wings: i===0 && wl.wings ? wl.wings : t.wings, reach: mix('reach'), ring: mix('ring'), mass: mix('mass'),
+      colors: palettes[i], look,
+      lookNote: i===0 && wl.notes.length ? `你说了${wl.notes.slice(0,4).join('、')} → 都画进了外观` : '',
       why: t.why, tradeoff: t.tradeoff, cards: t.cards,
       lore: `${a.name||'A'} 和 ${b.name||'B'} 的刃合体，走${STYLE_ZH[style]}路线。`,
     }, parents, keepParent, 'template');
+    c.specialMove = specialMoveFor(c.look, style, i);
+    return c;
   });
+  return diversifyLooks(cands);
 }
 export function templateFusion({parents=[], wish='', history=[], keepParent=0}) {
   if (needsClarify(wish, history)) return {...CLARIFY, fallback:true};

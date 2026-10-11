@@ -4,7 +4,7 @@
 // 3) Workers AI gpt-oss-120b → 4) deterministic template (in each route). Each step falls back on error.
 import Anthropic from '@anthropic-ai/sdk';
 // Every route returns a deterministic template fallback when the model fails or times out.
-import {sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, decisiveMetric, contradictsVerdict, textbookExpectation, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE, bankGate, GATE_BANK} from '../src/ai/fallback.js';
+import {wishLook, diversifyLooks, specialMoveFor, sanitizeLook, LOOK_ENUMS, sanitizeCandidate, templateFusion, templateCommentary, templateAsk, fusionName, keptParts, needsClarify, STYLE_ZH, CLARIFY, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, variableFacts, ownName, decisiveMetric, contradictsVerdict, textbookExpectation, templateMoments, templateMoment, momentCard, templateQuiz, sanitizeQuiz, templateDJ, sanitizeCandidate as _sc, designTakeaway, templateExperiment, experimentVerdict, variableCard, sanitizePage, templateFlipPage, templateFlipTap, FLIP_STYLE, bankGate, GATE_BANK} from '../src/ai/fallback.js';
 import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 import {regionById} from '../src/game/regions.js';
@@ -174,14 +174,17 @@ async function fusionChat(body, env) {
 默认融合名：${fusionName(parents[0], parents[1])}
 对话记录：${history.map(h=>`${h.role==='user'?'孩子':'博士'}：${h.content||h.question||''}`).join(' / ') || '（无）'}
 孩子现在说：“${wish || '（没说）'}”
+孩子描述的外观（系统从原话里识别，第一个候选必须全部用上）：${(()=>{const wl=wishLook(allWish);return [wl.colorWords.length?`颜色 ${wl.colorWords.join('、')}`:'',...Object.entries(wl.look).map(([k,v])=>`${k}=${v}`)].filter(Boolean).join('；')||'没说外观，由你自由发挥'})()}
 可引用的知识卡：
 ${cardLines(cards)}
 
 ${askedBefore || !needsClarify(allWish, []) ? '孩子的想法已经够清楚了，现在必须给出候选。' : '如果孩子的愿望太模糊（没说想要攻击、持久、防守还是平衡），先问一个简短问题；否则直接给候选。'}
 输出格式二选一：
 A（追问）：{"mode":"ask","reply":"一句回应","question":"一个简短问题","options":["选项1","选项2","选项3"]}
-B（候选）：{"mode":"candidates","reply":"一句兴奋的开场","candidates":[{"name":"英文融合名","zh":"中文昵称≤6字","style":"attack|defense|stamina|balance","wings":3,"reach":0.027,"ring":70,"mass":34,"colors":{"primary":"#RRGGBB","secondary":"#RRGGBB","accent":"#RRGGBB"},"lore":"一句设定≤30字","why":"为什么这样设计，讲出物理原因≤45字","tradeoff":"代价是什么≤30字","prediction":"对战中可能出现的表现≤30字","cards":["卡片id"]}]}
-候选给 2~3 个，彼此取舍明显不同，第一个最贴合孩子愿望。`;
+B（候选）：{"mode":"candidates","reply":"一句兴奋的开场","candidates":[{"name":"英文融合名","zh":"中文昵称≤6字","style":"attack|defense|stamina|balance","wings":3,"reach":0.027,"ring":70,"mass":34,"colors":{"primary":"#RRGGBB","secondary":"#RRGGBB","accent":"#RRGGBB"},"look":{"shape":"claw","finish":"metal","emblem":"dragon","pattern":"flames"},"lookNote":"你说要像龙爪 → 爪形刃","specialMove":{"name":"≤8字","shout":"≤16字"},"lore":"一句设定≤30字","why":"为什么这样设计，讲出物理原因≤45字","tradeoff":"代价是什么≤30字","prediction":"对战中可能出现的表现≤30字","cards":["卡片id"]}]}
+外观 look 只决定样子，不改变物理（wings/reach 等仍按物理取舍定；孩子说“三片刀刃”这类话时 wings 要跟着改）。look 只能用这些值：shape ${LOOK_ENUMS.shape.join('|')}；finish ${LOOK_ENUMS.finish.join('|')}；emblem ${LOOK_ENUMS.emblem.join('|')}；pattern ${LOOK_ENUMS.pattern.join('|')}。colors 用 #RRGGBB，孩子说的颜色要用上（第一个说的颜色做 primary）。
+lookNote：一句中文，说明哪个设计来自孩子的哪句话（没说外观就说你为什么这样设计）。specialMove：结合 emblem 起一个超酷的必杀技名字和喊招。
+候选给 3 个，彼此取舍明显不同；第一个最贴合孩子愿望（外观全部照孩子说的）；另外两个也要保留孩子说的一部分，但 shape、emblem、配色至少两项要和其他候选不一样。`;
   try {
     const out = await runModel(env, [{role:'system', content:COACH}, {role:'user', content:user}]);
     if (out.mode==='ask' && !askedBefore && out.question) {
@@ -189,11 +192,20 @@ B（候选）：{"mode":"candidates","reply":"一句兴奋的开场","candidates
       return json({reply:String(out.reply||CLARIFY.reply).slice(0,60), question:String(out.question).slice(0,60), options: options.length>=2?options:CLARIFY.options, via:out.__via});
     }
     const raw = Array.isArray(out.candidates) ? out.candidates.slice(0,3) : [];
-    const candidates = raw.map(c=>sanitizeCandidate(c, parents, keepParent, 'ai'));
+    const wl = wishLook(allWish);
+    const candidates = raw.map((c,i)=>{
+      const x = sanitizeCandidate(c, parents, keepParent, 'ai');
+      // The first design must honour everything the kid described (code-enforced, not just prompted).
+      if (i===0) { x.look = {...x.look, ...wl.look}; if (wl.colors[0]) x.colors = {...x.colors, primary:wl.colors[0], ...(wl.colors[1]?{secondary:wl.colors[1]}:{})}; if (wl.wings) x.blade = {...x.blade, wings:wl.wings}; }
+      if (!x.specialMove) x.specialMove = specialMoveFor(x.look, x.type, i);
+      if (!x.lookNote && i===0 && wl.notes.length) x.lookNote = `你说了${wl.notes.slice(0,4).join('、')} → 都画进了外观`;
+      return x;
+    });
     // De-duplicate ids (same params+name) and top up with templates if the model gave too few.
     const seen = new Set(), uniq = candidates.filter(c=>!seen.has(c.id) && seen.add(c.id));
     const names = new Set(); uniq.forEach((c,i)=>{ if (names.has(c.name)) c.name = `${c.name} ${['II','X','Z'][i-1]||i}`; names.add(c.name); });
-    if (uniq.length<2) for (const t of templateFusion({parents, wish:allWish, history:[{role:'assistant',question:'x'}], keepParent}).candidates||[]) if (uniq.length<2 && !seen.has(t.id)) { seen.add(t.id); uniq.push(t); }
+    if (uniq.length<3) for (const t of templateFusion({parents, wish:allWish, history:[{role:'assistant',question:'x'}], keepParent}).candidates||[]) if (uniq.length<3 && !seen.has(t.id)) { seen.add(t.id); uniq.push(t); }
+    diversifyLooks(uniq);
     return json({reply:String(out.reply||'融合完成！看看这几个方案！').slice(0,60), candidates:uniq, via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
     return json({...fallback(), error:String(e.message||e)});
@@ -365,18 +377,20 @@ async function sketch(body, env) {
   const user = `看这张画${wish?`，小朋友说：“${wish}”`:''}。
 把画里的特征翻译成 Blade 参数（只能用这些范围）：wings 翼片数 2|3|4（数画里的刃/角/翅膀，取最接近的）；reach 刃半径 0.022~0.030 米（刃伸得越远越大）；ring 外圈配重 20~85%（画里外圈厚重/有金属感就高）；mass 刃重 24~40 克；style attack|defense|stamina|balance（尖刺多→attack，厚圆→defense，圆滑对称→stamina，其他→balance）。
 颜色从画里取：primary 主色、secondary 副色、accent 点缀色（#RRGGBB）。Ratchet ${base.ratchet.prongs}-${base.ratchet.height} 和 Bit ${base.bit} 保持不变。
-specialMove：给它起一个必杀技，name≤8字，shout≤16字（动画里喊招式那样）。
+specialMove：给它起一个必杀技（结合 emblem），name≤8字，shout≤16字（动画里喊招式那样）。
+look：从画里看出的外观，只能用这些值：shape ${LOOK_ENUMS.shape.join('|')}；finish ${LOOK_ENUMS.finish.join('|')}；emblem ${LOOK_ENUMS.emblem.join('|')}；pattern ${LOOK_ENUMS.pattern.join('|')}。lookNote：一句中文说明你从画里看到什么、对应哪个外观。
 why≤60字：说出你从画里看到了什么（“我看到你画了 4 片尖尖的翅膀…”），以及这对物理表现意味着什么。
 cards：从下面选 1~2 张最相关的知识卡 id：
 ${cards.map(c=>`- ${c.id} ${c.title}：${c.body}`).join('\n')}
 不要声称它在现实中一定强；游戏里的表现由理想化物理模型计算。
-只输出 JSON：{"name":"英文名","zh":"中文昵称≤6字","style":"","wings":3,"reach":0.027,"ring":70,"mass":34,"colors":{"primary":"#","secondary":"#","accent":"#"},"lore":"≤30字","specialMove":{"name":"","shout":""},"why":"","tradeoff":"≤30字","cards":[""]}`;
+只输出 JSON：{"name":"英文名","zh":"中文昵称≤6字","style":"","wings":3,"reach":0.027,"ring":70,"mass":34,"colors":{"primary":"#","secondary":"#","accent":"#"},"lore":"≤30字","look":{"shape":"","finish":"","emblem":"","pattern":""},"lookNote":"","specialMove":{"name":"","shout":""},"why":"","tradeoff":"≤30字","cards":[""]}`;
   try {
     const out = await llm(env, {system, user, images:[{mediaType:m[1], data:m[2]}], maxTokens:1200, kind:'sketch', claudeOnly:true});
     const bey = sanitizeCandidate(out, [base], 0, 'sketch');
     bey.parents = []; delete bey.keptFrom; bey.drawn = true;
     const sm = out.specialMove || {};
-    bey.specialMove = {name:String(sm.name||'必杀旋风').slice(0,10), shout:String(sm.shout||'旋转吧——！').slice(0,20)};
+    const smf = specialMoveFor(bey.look, bey.type);
+    bey.specialMove = {name:String(sm.name||smf.name).slice(0,10), shout:String(sm.shout||smf.shout).slice(0,20)};
     if (!out.zh) bey.zh = '梦想陀螺';
     if (!out.lore) bey.lore = '从小画家的画里诞生的陀螺。';
     return json({bey, via:out.__via, aiNote:out.__note||undefined});
@@ -563,7 +577,7 @@ async function exploreFlavor(body, env) {
   const spot = Number.isInteger(+a.spot) ? sc.spots[+a.spot] : null;
   const what = a.type==='inspect' ? `孩子仔细查看了「${spot?.label||'某处'}」。` : a.type==='move' ? `孩子从「${sceneByKey(region.id,a.from)?.title||'别处'}」走到了「${sc.title}」。` : `孩子刚来到${region.name}的「${sc.title}」${body.firstRun?'（第一次来）':''}。`;
   const res = o.type==='found' ? `结果（已决定）：在这里${BEYS[o.id]?'找到了陀螺':'遇见了陀螺手'}「${o.name}」！写出发现的一刻。`
-    : o.type==='heat' ? `结果（已决定）：这里没有要找的东西（${o.level==='hot'?'不过目标就在这个地方的别处':o.level==='warm'?'目标就在旁边的地方':'目标还很远'}）。只描写这个东西本身，可以顺带讲一点和它有关的真实知识，不要说找到了什么。${o.level==='hot'?'目标就在这个画面里：绝对不要叫孩子“去别处/离开/去别的地方找”，可以鼓励他再看看画里别的东西。':''}方向、去哪里由系统提示负责，line 和 narration 都不要自己给方向或路线。`
+    : o.type==='heat' ? `结果（已决定）：这里没有要找的东西（${o.level==='hot'?'不过目标就在这个地方的别处':o.level==='warm'?'目标就在旁边的地方':'目标还很远'}）。只描写这个东西本身，可以顺带讲一点和它有关的真实知识，不要说找到了什么。${o.level==='hot'?'目标就在这个画面里：绝对不要叫孩子“去别处/离开/去别的地方找”，可以鼓励他再看看画里别的东西。':''}方向、去哪里由系统提示负责，line 和 narration 都不要自己给方向或路线。这次没找到：不要用“好眼力/找到了/就是它/它躲在…”这类听起来像找到了目标的说法，写这个东西本身（例如“海葵会把触手缩起来躲太阳”）。`
     : '描写到达时看到的景象。';
   const geo = CARDS.filter(c=>c.layer==='geo' && c.region===region.id);
   const proto = prototypeOf(region.id);
