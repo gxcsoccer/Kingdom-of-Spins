@@ -260,7 +260,8 @@ function MateLaunch({mate,myBey,oppBey,onLaunch,makeLaunch,me,team,pilot,onPick,
         <div className="ls-cutin-band main">
           <div className="ls-cutin-lines"/>
           <div className="mt-cut-face"><img src={`/art/bladers/${mate.id}.png`} alt=""/></div>
-          <div className="mt-cut-text"><small>{mate.name}：</small>{sk.name}！{syn&&<em>默契 +5%</em>}</div>
+          <div className="mt-cut-text2"><span className="mt-cut-name">{mate.name}</span><span className="mt-cut-main">{sk.name}！</span></div>
+          {syn&&<div className="mt-cut-stamp"><b>默契</b><span>+5%</span></div>}
         </div>
         <div className="ls-cutin-band thin b"/>
         <div className="ls-cutin-flash"/>

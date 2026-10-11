@@ -222,3 +222,12 @@
 .mt-card{top:auto;bottom:66px;transform:none;animation-name:mtCardIn2}
 @keyframes mtCardIn2{0%{transform:translateX(60px);opacity:0}100%{transform:none;opacity:1}}
 .ls-launch.mate ~ .ls-last,.ls:has(.ls-launch.mate) .ls-last{left:58%}
+/* teammate cut-in text: name leads the shout (GO SHOOT level), synergy as a stamp */
+.mt-cut-text2{position:absolute;left:44%;top:50%;transform:translateY(-50%) skewY(9deg) rotate(-6deg);display:flex;flex-direction:column;align-items:flex-start;line-height:.95;animation:ls-shout 2.3s cubic-bezier(.2,1.6,.4,1) both;white-space:nowrap}
+.mt-cut-name{font-family:"STKaiti","Kaiti SC","KaiTi",var(--display),serif;font-weight:900;font-size:clamp(40px,6vw,86px);color:#fff;-webkit-text-stroke:7px #000;paint-order:stroke fill;text-shadow:7px 7px 0 var(--c);margin:0 0 4px 6px}
+.mt-cut-main{font-family:var(--display),"Arial Black",sans-serif;font-weight:900;font-style:italic;font-size:clamp(56px,8.6vw,132px);color:#ffd400;-webkit-text-stroke:8px #000;paint-order:stroke fill;text-shadow:10px 10px 0 #ff2d4a}
+.mt-cut-stamp{position:absolute;right:20%;top:12%;width:clamp(96px,11vw,150px);aspect-ratio:1;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#fff;border:7px double #d2102c;color:#d2102c;box-shadow:0 0 0 4px #fff,6px 6px 0 4px #000;transform:skewY(9deg) rotate(14deg);animation:mtStamp .45s .75s cubic-bezier(.2,1.8,.4,1) both}
+.mt-cut-stamp b{font-family:"STKaiti","Kaiti SC","KaiTi",serif;font-size:clamp(26px,3vw,40px);line-height:1}
+.mt-cut-stamp span{font-family:"Arial Black",sans-serif;font-size:clamp(20px,2.4vw,32px);line-height:1}
+@keyframes mtStamp{0%{transform:skewY(9deg) rotate(14deg) scale(3);opacity:0}100%{transform:skewY(9deg) rotate(14deg) scale(1);opacity:1}}

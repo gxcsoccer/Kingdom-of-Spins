@@ -27,7 +27,7 @@ function hint(save){
 // Positions in % of the 1536×1024 (3:2) world map art. pin = landmark, card = where the badge floats.
 const REGION_POS={
   harbor:{pin:[12.5,65],card:[13,40]},    // red-roof harbour town + lighthouse
-  thunder:{pin:[34.5,16],card:[60,14]},   // blue spiral tower; card over the open sea
+  thunder:{pin:[34.5,16],card:[60,21]},   // blue spiral tower; card over the open sea
   volcano:{pin:[89,12],card:[84,46]},     // dragon castle; card over the lava fields
 };
 const REGION_FOG={thunder:[[14,16],[30,10],[40,25],[24,30],[8,34],[46,14]],volcano:[[74,30],[85,20],[90,9],[84,46],[93,58],[77,60],[96,36],[71,46]]};
@@ -62,6 +62,32 @@ function BeyChip({id,lit}){
   return <span className={`wm-beychip ${lit?'lit':''}`} title={lit?BEYS[id]?.name:'？？？'}><img src={`/art/beys/${id}.png`} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></span>;
 }
 
+// One clear status plate per region (same layout everywhere): what's done, what unlocks it, what to do next.
+function regionState(r,save,locked){
+  const p=prog(save,r), beat=r.bladers.filter(id=>save.defeated.includes(id)).length;
+  const treasure=`寻宝 ${p.found>=r.beys.length?'✓':`${p.found}/${r.beys.length}`}`;
+  if(r.unlock?.team){ // volcano: team gate, exploration not built yet
+    const n=Math.min(3,save.team.length), open=save.demo||n>=r.unlock.team;
+    return open?{tone:'hot',icon:'🔥',main:'可以挑战超级职业！',stats:`打败 ${beat}/${r.bladers.length}`,go:'挑战 ▶',note:'探索地图即将开放'}
+      :{tone:'lock',icon:'🔒',main:'队伍满 3 人解锁',now:`现在 ${n}/3`,dots:[n,3],note:'探索地图即将开放'};
+  }
+  if(locked&&r.unlock?.beys){const n=Math.min(r.unlock.beys,save.collection.length);
+    return {tone:'lock',icon:'🔒',main:`收集 ${r.unlock.beys} 只陀螺解锁`,now:`现在 ${n}/${r.unlock.beys}`,dots:[n,r.unlock.beys]};}
+  const mates=(r.recruitable||[]).filter(id=>save.team.some(t=>t.bladerId===id)).length;
+  const stats=r.recruitable?.length?`${treasure} · 队员 ${mates}/${r.recruitable.length}`:`${treasure} · 打败 ${beat}/${r.bladers.length}`;
+  const done=p.found>=r.beys.length&&beat>=r.bladers.length;
+  return {tone:done?'done':'open',icon:done?'🏅':'🧭',main:done?'全部完成！':'可以探险',stats,go:'进入探险 ▶'};
+}
+function RegionState({st}){
+  return <span className={`wm-state ${st.tone}`}>
+    <span className="wm-state-main"><i>{st.icon}</i>{st.main}</span>
+    {st.dots&&<span className="wm-state-dots">{Array.from({length:st.dots[1]},(_,k)=><b key={k} className={k<st.dots[0]?'on':''}/>)}<em>{st.now}</em></span>}
+    {st.stats&&<span className="wm-state-stats">{st.stats}</span>}
+    {st.go&&<span className="wm-state-go">{st.go}</span>}
+    {st.note&&<small className="wm-state-note">{st.note}</small>}
+  </span>;
+}
+
 function RegionBadge({r,save,locked,onClick}){
   const pos=REGION_POS[r.id], p=prog(save,r);
   return (
@@ -75,10 +101,7 @@ function RegionBadge({r,save,locked,onClick}){
         <span className="wm-region-sub">{r.en} · {r.landform}</span>
         <span className="wm-region-row"><em>陀螺 {p.found}/{r.beys.length}</em>{r.beys.map(id=><BeyChip key={id} id={id} lit={p.foundSet.has(id)}/>)}</span>
         <span className="wm-region-row"><em>{r.recruitable?.length?'队员':'对手'} {p.met}/{r.bladers.length}</em>{r.bladers.map(id=><Face key={id} id={id} lit={p.metSet.has(id)}/>)}</span>
-        {r.comingSoon&&<span className="wm-region-soon">即将开放</span>}
-        {locked&&r.unlock&&<span className="wm-region-lock">🔒 {r.unlock.label}</span>}
-        {!locked&&!r.comingSoon&&<span className="wm-region-go">进入探险 ▶</span>}
-        {r.comingSoon&&<span className="wm-region-go alt">直接挑战 ▶</span>}
+        <RegionState st={regionState(r,save,locked)}/>
       </button>
     </>
   );

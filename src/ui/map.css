@@ -217,3 +217,21 @@
 .fog-volcano .wm-fog{background:radial-gradient(ellipse at 50% 50%,rgba(70,62,66,.93) 0 42%,rgba(70,62,66,.8) 56%,rgba(70,62,66,0) 72%)}
 .fog-volcano .wm-fog::after{background:radial-gradient(rgba(0,0,0,.45) 1.3px,transparent 1.8px) 0 0/7px 7px}
 .wm-enter .wm-burst{opacity:.16!important;mix-blend-mode:normal}.wm-enter-name{text-shadow:10px 10px 0 var(--c),0 0 30px rgba(0,0,0,.35)}
+/* ===== region status plate (one style for all regions) ===== */
+.wm-region-soon,.wm-region-lock,.wm-region-go{display:none!important}
+.wm-state{align-self:stretch;margin-top:4px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;padding:5px 8px;border:3px solid #111;background:#fff;box-shadow:3px 3px 0 #111;transform:skew(-4deg)}
+.wm-state-main{grid-column:1/-1;display:flex;align-items:center;gap:6px;font-weight:900;font-size:calc(var(--fs)*1.05);line-height:1.2}
+.wm-state-main i{font-style:normal;font-size:1.2em}
+.wm-state-dots{display:flex;gap:4px}
+.wm-state-dots b{width:12px;height:12px;border-radius:50%;border:2px solid #111;background:#fff}
+.wm-state-dots b.on{background:#ffd400}
+.wm-state-stats{font-size:calc(var(--fs)*.9);font-weight:800;color:#333}
+.wm-state-go{grid-column:2;grid-row:2;justify-self:end;background:var(--c);color:#fff;font-weight:900;font-size:var(--fs);padding:1px 10px;border:2px solid #111;box-shadow:2px 2px 0 #111;animation:wm-gopulse 1.4s ease-in-out infinite}
+.wm-state-note{grid-column:1/-1;font-size:calc(var(--fs)*.78);font-weight:800;color:#777}
+.wm-state.lock{background:#efece4}.wm-state.lock .wm-state-main{color:#333}
+.wm-state.hot{background:linear-gradient(90deg,#fff3a6,#ffd0b0)}.wm-state.hot .wm-state-main{color:#c8102e}
+.wm-state.done{background:#e6fff6}
+.wm-region.locked.soon .wm-state{cursor:pointer}
+.wm-state-main{white-space:nowrap}
+.wm-state-dots{align-items:center}
+.wm-state-dots em{font-style:normal;font-weight:900;font-size:calc(var(--fs)*.95);margin-left:4px}
