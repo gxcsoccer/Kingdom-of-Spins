@@ -125,7 +125,7 @@ export default function BattleScreen(){
   );
 }
 
-function Hud({player,names,beys,score,target,color,round}){
+export function Hud({player,names,beys,score,target,color,round}){
   const [st,setSt]=useState(null);
   useEffect(()=>{if(!player)return;let raf;const f=()=>{const cur=player.getState(player.clock);setSt(cur);if(cur&&!player.paused)sfx.spinRpm(cur.bodies[0]?.rpm,cur.bodies[1]?.rpm);raf=requestAnimationFrame(f);};f();return()=>cancelAnimationFrame(raf);},[player]);
   const side=(i)=>{const b=st?.bodies?.[i],rpm=Math.max(0,Math.abs(b?.rpm||0));return (
