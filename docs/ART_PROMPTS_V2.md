@@ -1,113 +1,112 @@
-# Kingdom of Spins — Art Prompts v2
+# 陀螺王国 · 美术需求提示词 v2
 
-**Why v2:** the v1 map is a monochrome Chinese ink-wash landscape with an empty centre, while the characters are full-colour Japanese anime, so the two styles clash. The map also shows nothing related to spinning tops. v2 settles on one style (**full-colour Japanese shonen anime game art**) and fixes the map layout with exact coordinates, so the code can place hotspots on the right landmarks.
+**为什么要改：** v1 的地图是黑白中国水墨山水，中间大片留白，人物却是彩色日式动画，两种画风放在一起很违和；地图上也看不出任何和陀螺有关的东西。v2 统一成**全彩日式少年动画游戏风**，并给地图定好每个地标的准确坐标，方便代码把热点放在对应建筑上。
 
-Keep from v1: the 10 blader portraits, the 3 doctor portraits, 4 avatars, logo, beys and emblems. They already match the v2 style. Redo: the **world map** (P0), the **3 location backgrounds** (P1), and add the **map landmark icons** (P1).
-
----
-
-## 0. Style bible (prepend to EVERY prompt)
-
-```
-STYLE: Japanese shonen anime game key art, like a modern spinning-top battle anime / monster-collecting RPG overworld.
-Full colour cel shading (2–3 tone steps), bold clean black ink outlines (thicker on silhouettes, thinner inside),
-small printed screentone dots ONLY inside shadows, crisp highlights, bright sunny daytime, saturated but harmonious palette.
-Palette anchors: ink #111111, paper #FBF8F1, hero red #FF2D4A, lightning yellow #FFD400, sky cyan #29B6FF, grass green #3DD68C.
-Lighting from top-left. Clean, readable shapes for kids aged 8–12. Energetic, adventurous, friendly.
-NOT Chinese ink-wash painting, NOT monochrome/greyscale, NOT watercolor, NOT photorealistic, NOT 3D render, NOT pixel art.
-No text, no letters, no numbers, no logos, no watermark, no UI, no frames or borders.
-All designs original; no resemblance to any existing franchise characters, logos or toys.
-```
+**保留不动：** 10 个对手立绘、融合博士 3 张、玩家头像 4 张、Logo、陀螺立绘、徽章，这些已经符合 v2 风格。
+**需要重画或新增：** 世界地图（P0）、3 张场景背景（P1）、新增地图地标图标（P1）。
 
 ---
 
-## 1. P0 · World map — `bg/map.jpg`, 2560×1440 (16:9), JPG
-
-The map is the main screen, so every landmark must be at its coordinate. **(x%, y%) is measured from the top-left corner.** The code places a round character medallion about 7% wide at each blader coordinate, so keep the ground around those points readable: no busy detail under them, and no key building directly behind them.
+## 0. 统一画风（每条提示词开头都加上这一段）
 
 ```
-[STYLE BIBLE]
-SUBJECT: A bird's-eye 3/4 top-down illustrated fantasy world map of "the Kingdom of Spins" — an island kingdom where
-everything is themed around battle spinning tops. Sunny ocean around a large main island plus small islets. Roads glow
-faintly gold and wind through the regions in a progression path (bottom-left → left mountains → right peaks → top-right castle).
-Every region is visually distinct and themed around tops: stadium bowls carved into hills, top-shaped rooftops, spiral
-towers, gear-and-ratchet bridges, launcher-shaped monuments.
-
-LANDMARKS AT EXACT POSITIONS (percent of width, height from top-left):
-- CENTRE (50%, 45%): the Grand Stadium — a huge colosseum with a giant bowl-shaped battle arena seen from above, a bright
-  yellow-and-black hazard ring inside the bowl, three gaps in the outer wall, banners, crowds as tiny dots. The visual heart
-  of the map; it fills the middle (no empty space).
-- STARTER VILLAGE, bottom-left (8–30%, 68–92%): cozy red-roofed houses, a small grassy practice stadium, a harbour with boats.
-  Leave clear ground spots at (11%, 74%), (19%, 86%), (27%, 77%) for three medallions.
-- PRO MOUNTAINS, left/upper-left (6–36%, 14–56%): three themed pro arenas on cliffs —
-  * Thunder Tower at (12%, 28%): blue spiral tower with lightning rods, electric blue accents.
-  * Ice Crystal Arena at (31%, 20%): frozen lake stadium with cyan crystals.
-  * Iron Fortress at (13%, 51%): grey metal fortress with giant gears and rivets, orange warning lights.
-- SUPER-PRO PEAKS, right (64–94%, 16–70%): three dramatic arenas on high peaks —
-  * Shadow Ninja Temple at (89%, 63%): purple bamboo forest with a hidden pagoda, purple mist.
-  * Volcano Arena at (85%, 40%): stadium inside a volcano rim with red-orange lava glow.
-  * Star Observatory at (72%, 18%): futuristic pink-and-white observatory dome with holographic rings.
-- DRAGON CASTLE, top-right (84–98%, 4–28%), castle centre at (91%, 15%): a menacing red-black castle on a crag shaped like a
-  coiled dragon, red dragon statues, storm clouds and lightning around it only (the rest of the map stays sunny).
-- SERVICE PLACES on the central-south coast (keep these as small, clear building icons on the ground):
-  * Fusion Lab at (47%, 74%): white dome lab with a glowing yellow lightning furnace and antenna.
-  * Blind-Box Shop at (36%, 70%): colourful market stall with a giant mystery capsule box on the roof.
-  * Battle Dojo at (58%, 70%): Japanese dojo building with a small arena in its courtyard.
-  * Library at (53%, 87%): round scroll-roofed library on a small islet.
-  * Home Base at (66%, 85%): treehouse base with a backpack-shaped tent.
-- Faint dotted gold path connecting, in order: village → Iron Fortress → Thunder Tower → Ice Crystal Arena → (across the
-  Grand Stadium bridge) → Star Observatory → Volcano Arena → Shadow Temple → Dragon Castle.
-COMPOSITION: whole island visible edge to edge, ocean margins about 3%, no labels, no text, no compass rose with letters.
+【画风】日式少年动画游戏主视觉，类似现代陀螺对战动画、收集养成类 RPG 的大地图风格。
+全彩赛璐璐上色（2–3 阶明暗），清晰有力的黑色描边（轮廓粗、内部细），网点只用在阴影里，高光干净，
+阳光明媚的白天，色彩饱和但和谐。
+主色锚点：墨黑 #111111、纸白 #FBF8F1、热血红 #FF2D4A、闪电黄 #FFD400、天空青 #29B6FF、草绿 #3DD68C。
+光源统一从左上方来。造型简洁易读，面向 8–12 岁孩子，热血、冒险、友好。
+不要中国水墨画风，不要黑白或灰度，不要水彩，不要写实照片感，不要 3D 渲染，不要像素风。
+画面里不要出现任何文字、字母、数字、Logo、水印、界面元素、边框。
+全部为原创设计，不要和任何现有作品的角色、Logo、玩具相似。
 ```
-
-> Tip: if your tool supports it, generate at 2560×1440 directly. Otherwise generate at 16:9 and upscale. After it comes back, check that the landmarks land on the coordinates above. If any are off by more than 3%, tell me the new coordinates and I'll update the code.
 
 ---
 
-## 2. P1 · Map landmark icons — `places/<id>.png`, 512×512 transparent PNG
+## 1. P0 · 世界地图 —— `bg/map.jpg`，2560×1440（16:9），JPG
 
-These are used as tappable "building" buttons on the map and as headers on the character and shop pages. **Isolated cutout, standing on a small round patch of ground, 3/4 view, transparent background.**
+地图是游戏主界面，每个地标都必须落在指定坐标上。**坐标 (x%, y%) 从左上角开始算。** 每个对手坐标处，代码会放一个约 7% 宽的圆形头像，所以这些点周围的地面要干净，不要有复杂细节或重要建筑压在下面。
 
-| File | Subject |
+```
+【画风】（同上）
+【内容】一张鸟瞰 3/4 俯视角的奇幻世界地图——"陀螺王国"，一个岛屿王国，所有东西都围绕对战陀螺来设计。
+四周是阳光下的大海，一座大主岛加几座小岛。一条微微发金光的道路蜿蜒穿过各个区域，按游戏进度走向：
+左下 → 左侧山区 → 右侧高峰 → 右上城堡。
+每个区域风格鲜明，都和陀螺有关：山坡上挖出的碗形对战场、陀螺形状的屋顶、螺旋塔、齿轮和棘轮造型的桥、发射器形状的纪念碑。
+
+【地标及准确位置】（宽度百分比, 高度百分比，从左上角算）
+- 正中央 (50%, 45%)：王国大赛场——一座巨大的斗技场，俯视能看到中间巨大的碗形对战台，
+  碗里有一圈醒目的黄黑警示条纹，外墙有三个缺口，四周有旗帜，观众画成小点。它是整张地图的视觉中心，把中间填满（不要留白）。
+- 新手村，左下 (8–30%, 68–92%)：温馨的红屋顶小房子、一个草地上的小练习场、带小船的港口。
+  在 (11%, 74%)、(19%, 86%)、(27%, 77%) 这三处留出干净的空地，用来放三个普通对手的头像。
+- 职业山区，左侧偏上 (6–36%, 14–56%)：悬崖上的三座职业对手主题赛场——
+  * 雷霆塔 (12%, 28%)：蓝色螺旋高塔，顶上有避雷针，电光蓝点缀（雷牙）。
+  * 冰晶赛场 (31%, 20%)：结冰湖面上的赛场，周围是青色冰晶（冰见）。
+  * 钢铁要塞 (13%, 51%)：灰色金属要塞，巨大齿轮和铆钉，橙色警示灯（岩城）。
+- 超级职业高峰，右侧 (64–94%, 16–70%)：高峰上的三座壮观赛场——
+  * 影之忍者寺 (89%, 63%)：紫色竹林里隐藏的宝塔，紫色雾气（影）。
+  * 火山赛场 (85%, 40%)：建在火山口边缘的赛场，红橙色熔岩光（焰）。
+  * 星辰天文台 (72%, 18%)：未来感的粉白色天文台圆顶，周围有全息光环（诺瓦）。
+- 龙之城堡，右上 (84–98%, 4–28%)，城堡中心在 (91%, 15%)：建在盘龙形状山崖上的红黑色城堡，红色龙雕像，
+  只有城堡周围有暴风云和闪电（地图其他地方保持晴朗）（最终 Boss 龙王）。
+- 功能建筑，在中南部海岸（画成地面上小而清楚的建筑）：
+  * 融合实验室 (47%, 74%)：白色圆顶实验室，有发光的黄色闪电熔炉和天线。
+  * 盲盒商店 (36%, 70%)：色彩缤纷的集市摊位，屋顶上有一个巨大的神秘扭蛋盒。
+  * 对战道场 (58%, 70%)：日式道场建筑，院子里有一个小对战台。
+  * 图书馆 (53%, 87%)：小岛上的圆形图书馆，屋顶是卷轴形状。
+  * 秘密基地 (66%, 85%)：树屋基地，旁边有一个背包形状的帐篷。
+- 一条淡淡的金色虚线小路，按顺序连接：新手村 → 钢铁要塞 → 雷霆塔 → 冰晶赛场 →（经过大赛场的桥）
+  → 星辰天文台 → 火山赛场 → 影之忍者寺 → 龙之城堡。
+【构图】整座岛完整可见，四周留约 3% 的海面边距；不要任何标注、文字，不要带字母的指南针。
+```
+
+> 提示：如果工具支持，直接生成 2560×1440；不支持就生成 16:9 后再放大。生成后请对照上面的坐标检查各地标位置，偏差超过 3% 的告诉我新坐标，我在代码里调整。
+
+---
+
+## 2. P1 · 地图地标图标 —— `places/<id>.png`，512×512 透明背景 PNG
+
+这些图标用作地图上可以点的“建筑按钮”，也会放在角色页和商店页的页眉。**单独抠图，立在一小块圆形地面上，3/4 视角，背景透明。**
+
+| 文件名 | 内容 |
 |---|---|
-| `places/shop.png` | Blind-box shop stall with a giant mystery capsule box (red/yellow, a question-mark shape made of light, no letters) |
-| `places/lab.png` | Fusion lab dome with a glowing yellow lightning furnace, antenna, tiny doctor silhouette in the doorway |
-| `places/dojo.png` | Japanese battle dojo with a small bowl stadium in front, red banners (blank) |
-| `places/library.png` | Round library with a scroll-shaped roof, glowing books floating |
-| `places/home.png` | Treehouse base with a backpack-shaped tent and a launcher hanging on a hook |
-| `places/arena-thunder.png` | Raiga's Thunder Tower arena (blue lightning) |
-| `places/arena-ice.png` | Hyomi's Ice Crystal Arena (cyan crystals) |
-| `places/arena-iron.png` | Iwaki's Iron Fortress (grey gears, orange lights) |
-| `places/arena-shadow.png` | Shadow's Ninja Temple (purple bamboo, mist) |
-| `places/arena-volcano.png` | Blaze's Volcano Arena (lava glow) |
-| `places/arena-star.png` | Nova's Star Observatory (pink holo rings) |
-| `places/castle.png` | Ryuoh's Dragon Castle (red-black, dragon statues, storm aura) |
+| `places/shop.png` | 盲盒商店摊位，顶上一个巨大的神秘扭蛋盒（红黄配色，用光线组成问号形状，不要写字） |
+| `places/lab.png` | 融合实验室圆顶，发光的黄色闪电熔炉、天线，门口有一个小小的博士剪影 |
+| `places/dojo.png` | 日式对战道场，门前一个碗形小对战台，红色旗帜（不写字） |
+| `places/library.png` | 圆形图书馆，卷轴形屋顶，周围漂浮着发光的书 |
+| `places/home.png` | 树屋基地，背包形状的帐篷，钩子上挂着一个发射器 |
+| `places/arena-thunder.png` | 雷牙的雷霆塔赛场（蓝色闪电） |
+| `places/arena-ice.png` | 冰见的冰晶赛场（青色冰晶） |
+| `places/arena-iron.png` | 岩城的钢铁要塞（灰色齿轮、橙色灯） |
+| `places/arena-shadow.png` | 影的忍者寺（紫色竹林、雾气） |
+| `places/arena-volcano.png` | 焰的火山赛场（熔岩光） |
+| `places/arena-star.png` | 诺瓦的星辰天文台（粉色全息光环） |
+| `places/castle.png` | 龙王的龙之城堡（红黑配色、龙雕像、风暴气场） |
 
-Common prompt suffix:
+每条都加上这段后缀：
 ```
-[STYLE BIBLE] Isolated game map landmark icon, 3/4 top-down view, standing on a small round patch of ground,
-centred, 8% transparent padding, genuine alpha transparency, readable at 96 px, no text.
+【画风】（同上）单独的游戏地图地标图标，3/4 俯视角，立在一小块圆形地面上，居中，四周留 8% 透明边距，
+真实透明通道，缩小到 96 像素也能看清，不要文字。
 ```
 
 ---
 
-## 3. P1 · Location backgrounds — `bg/arena.jpg`, `bg/lab.jpg`, `bg/shop.jpg`, 2560×1440 JPG
+## 3. P1 · 场景背景 —— `bg/arena.jpg`、`bg/lab.jpg`、`bg/shop.jpg`，2560×1440 JPG
 
-These sit behind UI panels. The v1 versions are monochrome with a pure-white centre. v2 should be in **colour**, with the centre about 25% brighter and less detailed so the UI stays readable, while keeping a real scene behind it, not a white hole.
+这几张会放在界面面板后面。v1 是黑白的，中间一片纯白。v2 要**彩色**，中间区域亮一些（约 25%）、细节少一些，保证界面文字看得清，但要有真实的场景，不能是一个白洞。
 
-- `bg/arena.jpg`: `[STYLE BIBLE] Inside the Grand Stadium at night: packed cheering crowd as stylised shapes, spotlights, giant screens (blank), the battle bowl lit in the middle distance, confetti, dramatic rim light. Centre area softly bright and low-detail.`
-- `bg/lab.jpg`: `[STYLE BIBLE] Inside the Fusion Lab: workbenches with spinning-top parts, glowing yellow fusion furnace, holographic blueprint panels (no text), robot arms, tool walls, warm-white light. Centre area softly bright and low-detail.`
-- `bg/shop.jpg`: `[STYLE BIBLE] Inside the blind-box shop: shelves of colourful mystery capsules and top parts, hanging lanterns, a glowing capsule machine, cheerful shopkeeper corner. Centre area softly bright and low-detail.`
-
----
-
-## 4. Optional fixes to existing assets
-
-- `beys/dragoon.png` and `beys/bossdragoon.png`: the in-game physics model has **3 blades**, but the art shows 4–5. If you redo them, prompt "exactly three blade wings, 120° apart".
-- Character portraits: no change needed, they already match.
+- `bg/arena.jpg`：`【画风】（同上）夜晚的王国大赛场内部：坐满欢呼的观众（画成简化的造型）、聚光灯、巨大屏幕（屏幕上不写字）、远处中间被照亮的对战碗、彩带、强烈的轮廓光。画面中间柔和明亮、细节少。`
+- `bg/lab.jpg`：`【画风】（同上）融合实验室内部：放着陀螺零件的工作台、发光的黄色融合熔炉、全息设计图面板（不写字）、机械臂、挂满工具的墙，暖白色灯光。画面中间柔和明亮、细节少。`
+- `bg/shop.jpg`：`【画风】（同上）盲盒商店内部：摆满彩色神秘扭蛋和陀螺零件的货架、悬挂的灯笼、发光的扭蛋机、热情的店主角落。画面中间柔和明亮、细节少。`
 
 ---
 
-## Delivery
+## 4. 可选：修正现有素材
 
-Use the same file names as v1 (plus the new `places/`), put them under `public/art/` (or in `art-delivery/<date>/public/art/`), and tell me when they're ready. I'll compress them, check the coordinates, and wire up the map landmark icons and colour backgrounds.
+- `beys/dragoon.png` 和 `beys/bossdragoon.png`：游戏里的物理模型是 **3 片翼**，现在的图画成了 4–5 片。如果重画，提示词加上“正好三片刀翼，间隔 120 度”。
+- 角色立绘不用改，风格已经一致。
+
+---
+
+## 交付方式
+
+文件名和 v1 保持一致（新增 `places/` 目录），放到 `public/art/` 或 `art-delivery/<日期>/public/art/` 下，告诉我一声即可。我会负责压缩、检查坐标，并把地图地标图标和彩色背景接进游戏。
