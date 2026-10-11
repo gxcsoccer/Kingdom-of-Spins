@@ -122,3 +122,101 @@
 .lab-dual-h{color:#fff;margin-bottom:8px;font-size:20px}
 .lab-dual-h small{font-size:12px;color:#ccc;margin-left:8px;font-weight:800}
 .dr-fin.end{border-left:0;border-right:3px dashed #111;padding-left:0;padding-right:4px;transform:translateX(-100%)}
+
+/* ================= one-screen lab (question → tweak → results) ================= */
+.rp-scroll:has(.lab-fit){overflow:hidden;display:flex;flex-direction:column}
+.lab-fit{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:10px 14px 12px;overflow:hidden}
+.lab-fit .lab-head{margin:0;gap:10px 14px;align-items:center;flex:none}
+.lab-title{font-size:24px}
+.lab-steps{display:flex;gap:4px}
+.lab-steps i{font-style:normal;font-weight:900;font-size:12px;padding:3px 10px;border:2px solid #555;color:#888;transform:skew(-8deg)}
+.lab-steps i.on{background:#ffd400;color:#111;border-color:#ffd400}.lab-steps i.past{color:#ddd;border-color:#ddd}
+.lab-chips{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.lab-chip{font-size:12px;font-weight:800;padding:3px 9px;border:2px solid #fff;color:#fff;white-space:nowrap}
+.lab-chip b{color:#ffd400}.lab-chip.c1{border-color:#ffd400}
+.lab-body{flex:1;min-height:0;display:grid;gap:14px}
+.lab-h{font-family:var(--display);font-weight:900;font-size:22px;color:#fff;margin-bottom:8px}
+.lab-h small{font-family:system-ui;font-size:13px;color:#bbb;margin-left:10px;font-weight:800}
+.lab-h.sm{font-size:17px;color:#111;margin:0}
+.lab-tip{font-size:12px;font-weight:800;color:#777}
+/* step 1 */
+.lab-ask{grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr)}
+.lab-ask-main{display:flex;flex-direction:column;min-height:0}
+.wb-qs{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px}
+.wb-q{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:6px;padding:14px 18px;font:inherit;text-align:left;cursor:pointer;color:#111;
+  background:radial-gradient(rgba(17,17,17,.1) 1px,transparent 1.5px) 0 0/6px 6px,#fff;border:4px solid #111;box-shadow:7px 7px 0 #ffd400,7px 7px 0 3px #000;transform:skew(-3deg);transition:transform .14s,background .14s;animation:wb-qin .35s calc(var(--i)*.06s) cubic-bezier(.2,1.5,.4,1) both}
+.wb-q:hover,.wb-q:focus-visible{transform:skew(-3deg) translateY(-6px) scale(1.02);background:#fffbe0}
+.wb-q:active{transform:skew(-3deg) translate(4px,4px)}
+.wb-q-icon{font-size:clamp(46px,8vh,76px);line-height:1;filter:drop-shadow(3px 3px 0 rgba(0,0,0,.25))}
+.wb-q-text{font-family:var(--display);font-weight:900;font-size:clamp(18px,2.6vh,26px);line-height:1.25}
+.wb-q-hint{font-size:12px;font-weight:800;color:#666}
+@keyframes wb-qin{0%{opacity:0;transform:skew(-3deg) translateY(30px) scale(.9)}100%{opacity:1}}
+.wb-rule{display:flex;flex-direction:column;gap:10px;background:#fbf8f1;color:#111;border:4px solid #111;box-shadow:6px 6px 0 #ff2d4a;padding:12px;min-height:0}
+.wb-rule-top{display:flex;gap:8px;align-items:flex-start}
+.wb-rule-say{position:relative;background:#fff;border:3px solid #111;border-radius:18px;padding:8px 12px;font-weight:800;font-size:14px;line-height:1.55}
+.wb-rule-say b{color:#d2102c}
+.wb-rule-comic{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wb-rule-panel{border:3px solid #111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px;text-align:center;background:#fff}
+.wb-rule-panel.bad{background:radial-gradient(rgba(17,17,17,.18) 1px,transparent 1.5px) 0 0/5px 5px,#eee}
+.wb-rule-panel.good{background:repeating-conic-gradient(from 0deg at 50% 45%,#fff3a6 0 4deg,#fff 4deg 10deg)}
+.wb-rule-parts{font-size:26px;font-weight:900}.wb-rule-parts i{font-style:normal}
+.wb-rule-q{font-family:var(--display);font-weight:900;font-size:22px}
+.wb-rule-panel.bad .wb-rule-q{color:#777}.wb-rule-panel.good .wb-rule-q{color:#d2102c}
+.wb-rule-panel small{font-size:11px;font-weight:800}
+/* step 2 */
+.lab-tweak{grid-template-columns:minmax(0,1fr) 250px}
+.wb-one{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;min-height:0}
+.wb-one .wb-card{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.wb-ctl{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.wb-ctl-bit .wb-tray{grid-template-columns:1fr 1fr}
+.wb-ctl-bit .wb-slot{margin:0;font-size:14px}
+.wb-ctl-ring .wb-disc{width:min(240px,50%)}
+.wb-ctl-height{flex-direction:row;align-items:center;justify-content:center;gap:18px}
+.wb-ctl-wings{align-items:center}
+.wb-ctl-wings .wb-wings{justify-content:center}.wb-ctl-wings .wb-wing svg{width:84px;height:84px}
+.wb-height-tip{font-size:13px;font-weight:700;line-height:1.6;background:var(--paper-2,#f2ede2);border:2px dashed #111;padding:8px 10px;max-width:280px}
+.wb-one .wb-preview{flex:1;height:auto;min-height:0}
+.wb-ba{display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:900}
+.wb-ba-chip{flex:1;display:flex;flex-direction:column;border:3px solid #111;padding:4px 8px;font-size:13px;background:#fff;min-width:0}
+.wb-ba-chip small{font-size:10px;color:#666}
+.wb-ba-chip.a{background:#e6efff}.wb-ba-chip.b{background:#eee;color:#888}.wb-ba-chip.b.on{background:#ffd400;color:#111;animation:wb-snap .4s}
+.lab-side{display:flex;flex-direction:column;gap:8px;background:#fff;color:#111;border:3px solid #111;box-shadow:5px 5px 0 #ffd400;padding:12px;min-height:0}
+.lab-q{font-family:var(--display);font-weight:900;font-size:15px;line-height:1.35;background:#fffbe0;border:2px solid #111;padding:6px 8px}
+.lab-preds{display:flex;flex-direction:column;gap:6px}
+.lab-pred-btn{font:inherit;font-weight:900;font-size:15px;text-align:left;padding:8px 10px;border:3px solid #111;background:#fff;box-shadow:3px 3px 0 #111;cursor:pointer}
+.lab-pred-btn.on{background:#111;color:#ffd400}
+.lab-run{margin-top:auto;font:inherit;font-weight:900;font-size:20px;padding:12px;border:4px solid #111;background:#ff2d4a;color:#fff;box-shadow:5px 5px 0 #111;cursor:pointer;transform:skew(-6deg)}
+.lab-run:disabled{background:#bbb;cursor:not-allowed}
+.lab-run.sm{font-size:16px;padding:8px 14px;margin:0}
+.lab-back{font:inherit;font-weight:800;font-size:13px;border:none;background:none;text-decoration:underline;cursor:pointer;color:#444}
+.lab-running{display:flex;align-items:center;gap:20px;background:#fff;color:#111;border:3px solid #111;padding:24px}
+.lab-running .lab-h{color:#111}
+/* step 3 results */
+.lab-done{grid-template-columns:minmax(0,1fr) 330px}
+.lab-done .lab-dual{display:flex;flex-direction:column;min-height:0;margin:0}
+.lab-dual-h{font-family:var(--display);font-weight:900;font-size:18px;color:#fff;margin-bottom:6px}
+.lab-dual-h small{font-size:12px;color:#bbb;margin-left:8px}
+.lab-done .dr{flex:1;min-height:0;display:flex;flex-direction:column}
+.lab-done .dr-row{flex:1;min-height:0}
+.lab-done .dr-side{display:flex;flex-direction:column;min-height:0}
+.lab-done .dr-stage{flex:1;height:auto;min-height:0}
+.lab-done .dr-bar{padding:6px 10px 8px}.lab-done .dr-bar .ks-rv-buttons{margin-bottom:6px}
+.lab-res{gap:6px;overflow:hidden}
+.lab-verdict{font-family:var(--display);font-weight:900;font-size:24px;text-align:center;padding:4px;border:3px solid #111;background:#ffd400;transform:skew(-6deg)}
+.lab-verdict.v-A{background:#cfe0ff}
+.lab-table.sm th,.lab-table.sm td{padding:4px 6px;font-size:13px}
+.lab-tabs{display:flex;gap:4px}
+.lab-tabs button{flex:1;font:inherit;font-weight:900;font-size:12px;padding:4px;border:2px solid #111;background:#fff;cursor:pointer}
+.lab-tabs button.on{background:#111;color:#ffd400}
+.lab-tabbody{flex:1;min-height:0;overflow:hidden;font-size:13px;line-height:1.5}
+.lab-doc{display:flex;flex-direction:column;gap:5px}
+.lab-doc-row{display:flex;gap:6px;align-items:flex-start}
+.lab-doc .lab-concl{font-size:14px}
+.lab-doc .lab-repeat{padding:4px 8px}
+.lab-res-foot{display:flex;align-items:center;gap:8px}
+.lab-model{font-size:10px;font-weight:700;color:#888;line-height:1.3}
+.lab-tabbody figure{margin:0}
+@media (max-width:1100px){.lab-tweak{grid-template-columns:minmax(0,1fr) 220px}.lab-done{grid-template-columns:minmax(0,1fr) 290px}.lab-chips{display:none}}
+.lab-body{grid-template-rows:minmax(0,1fr)}
+.wb-one .wb-card{grid-area:auto;align-self:stretch}
+.wb-one .wb-control h4{flex:none}

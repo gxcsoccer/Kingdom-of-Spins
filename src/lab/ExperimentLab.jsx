@@ -62,7 +62,7 @@ export default function ExperimentLab({mine,opp,launches,names,suggest,onReward,
     <div className="lab lab-fit">
       <div className="lab-head">
         <span className="h-display h-yellow lab-title">🔬 科学实验室</span>
-        <span className="lab-steps">{['你想知道什么？','动手改一改','预测 · 看结果'].map((t,i)=><i key={i} className={i+1===stepN?'on':i+1<stepN?'done':''}>{['①','②','③'][i]} {t}</i>)}</span>
+        <span className="lab-steps">{['你想知道什么？','动手改一改','预测 · 看结果'].map((t,i)=><i key={i} className={i+1===stepN?'on':i+1<stepN?'past':''}>{['①','②','③'][i]} {t}</i>)}</span>
         {phase!=='done'&&chips}
       </div>
       {phase==='setup'&&!varKey&&<div className="lab-body lab-ask">

@@ -1,5 +1,5 @@
 import { useRef, useSyncExternalStore, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { View, PerspectiveCamera } from '@react-three/drei';
 import BeyModel from './BeyModel.jsx';
 import './scene.css';
@@ -28,6 +28,8 @@ export function ShowcaseCanvas() {
 
 function ShowcaseContent({ bey, spinning, rpm, rpmRef, tilt, zoom }) {
   const g = useRef();
+  const aspect = useThree(st => st.size.width / Math.max(1, st.size.height));
+  const dist = 1.32 / zoom * Math.max(1, .95 / aspect); // tall panels: back off so the bey isn't cropped
   useFrame(({ clock }) => {
     if (!g.current) return;
     const t = clock.elapsedTime;
@@ -36,7 +38,7 @@ function ShowcaseContent({ bey, spinning, rpm, rpmRef, tilt, zoom }) {
   });
   return (
     <>
-      <PerspectiveCamera makeDefault position={[0, .3, 1.32 / zoom]} fov={30} onUpdate={c => c.lookAt(0, -.03, 0)} />
+      <PerspectiveCamera makeDefault position={[0, .3 * dist / (1.32 / zoom), dist]} fov={30} onUpdate={c => c.lookAt(0, -.03, 0)} />
       <ambientLight intensity={.85} />
       <directionalLight position={[1.5, 3, 2]} intensity={1.7} />
       <directionalLight position={[-2, .5, -1]} intensity={.6} color="#bcd4ff" />
