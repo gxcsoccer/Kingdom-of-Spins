@@ -59,6 +59,7 @@ export default function ExploreScreen(){
   const [writing,setWriting]=useState(false);
   const [voice,setVoice]=useState(false);
   const [archive,setArchive]=useState(false);
+  const [tapFx,setTapFx]=useState(null);
   const [viewIdx,setViewIdx]=useState(null);     // filmstrip browsing (null = live)
   const blocking=queue.some(e=>e.type!=='geo_fact');   // knowledge toasts never block play
   const alive=useRef(true);
@@ -137,7 +138,7 @@ export default function ExploreScreen(){
     upd(g=>{g.sinceFind=(g.sinceFind||0)+1;g.sinceGate=(g.sinceGate||0)+1;
       if(target&&here===target.scene){g.tries={...(g.tries||{}),[target.id]:((g.tries||{})[target.id]||0)+1};if(g.tries[target.id]>=3&&(g.hint?.[target.id]||0)<1)g.hint={...(g.hint||{}),[target.id]:1};}
       if(target&&g.sinceFind>=8)g.hint={...(g.hint||{}),[target.id]:2};
-      const p=(g.trail||[]).at(-1);if(p){p.tapped=label;p.line='';}});
+      const p=(g.trail||[]).at(-1);if(p){p.tapped=label;p.line='';p.tried=[...new Set([...(p.tried||[]),spot])];}});
     if(h)flash({kind:'heat',level:h.level,text:`「${label}」：${h.text}`});
     sfx.beep?.(h?.level==='hot');
     writeFlavor({type:'inspect',spot},{type:'heat',level:h?.level},live.id);
@@ -147,6 +148,9 @@ export default function ExploreScreen(){
     if(!view)return;
     const r=ev.currentTarget.getBoundingClientRect(),x=(ev.clientX-r.left)/r.width,y=(ev.clientY-r.top)/r.height;
     let best=0,d=9;view.hotspots.forEach((h,i)=>{const e=Math.hypot(h.x-x,h.y-y);if(e<d){d=e;best=i;}});
+    setTapFx({x,y,key:Date.now()});
+    // 离所有黄圈都远：明确告诉孩子点哪里，而不是悄悄算成最近的那个东西。
+    if(d>.15){if(!blocking)flash({kind:'heat',level:'miss',text:'这里空空的～点黄色圆圈里的东西试试'});return;}
     inspect(best);
   }
   // 每个事件带唯一 qid：弹层按 qid 关闭，不会因为两条内容一样的事件而关不掉或多关一条。
@@ -183,7 +187,8 @@ export default function ExploreScreen(){
             <div className="ex-caption">{viewIdx!=null?<span className="ex-past">（回看中 · 点画面回到现在）</span>:view.line?<span>💬 {view.line}</span>:view.panels[0]?<TypeLine text={view.panels[0].text}/>:<span className="ex-writing">{writing?'✍️ 博士在写这里的故事…':'点画里的东西，仔细找找！'}</span>}</div>
             <div className="fb-art ex-art" onClick={onImageTap}>
               <SceneImage regionId={region.id} page={view}/>
-              {viewIdx==null&&view.hotspots.map((h,i)=><div key={i} title={h.label} className="fb-hot" style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.2+i*.12}s`}}><i/><span>{h.label}</span></div>)}
+              {viewIdx==null&&view.hotspots.map((h,i)=><div key={i} title={h.label} className={`fb-hot ${view.tried?.includes(i)?'tried':''}`} style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.2+i*.12}s`}}><i/><span>{view.tried?.includes(i)?'✓ ':''}{h.label}</span></div>)}
+              {tapFx&&<div key={tapFx.key} className="ex-ripple" style={{left:`${tapFx.x*100}%`,top:`${tapFx.y*100}%`}}/>}
               {chip&&<div key={chip.key} className={`ex-chip ${chip.kind} ${chip.level||''}`}>{chip.text}</div>}
             </div>
             {viewIdx==null&&<div className="ex-exits"><span className="ex-exits-l">走去：</span>{view.exits.map(x=><button key={x.key} className={`ex-exit ${clue&&!clue.here&&clue.next===x.key&&hintLevel>=1?'hint':''}`} disabled={blocking} onClick={()=>moveTo(x.key)}>{(()=>{const d=compass(region.id,here,x.key);return d?<><b className="ex-exit-dir">{DIR_ARROW[d]} {d}</b> </>:'→ ';})()}{x.title}</button>)}</div>}
