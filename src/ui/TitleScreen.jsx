@@ -1,8 +1,23 @@
 import {useState} from 'react';
 import {useGame} from '../game/store.js';
-import {BEYS} from '../game/beys.js';
-import {BeySvg} from './BeyArt.jsx';
 import AccountPanel from './AccountPanel.jsx';
+import './title.css';
+
+// Anime key-visual title: animated speed lines + screentone, two spinning hero beys with motion blur,
+// big logo, and the parent login panel as a manga panel. Fits one screen.
+function HeroBey({id,cls}){
+  const [ok,setOk]=useState(true);
+  if(!ok)return null;
+  return (
+    <div className={`ti-bey ${cls}`}>
+      <span className="ti-bey-glow"/>
+      <span className="ti-bey-ring"/>
+      {[.18,.35].map((o,i)=><img key={i} className="ti-bey-ghost" style={{opacity:o,animationDelay:`${-(i+1)*.03}s`}} src={`/art/beys/${id}.png`} alt=""/>)}
+      <img className="ti-bey-img" src={`/art/beys/${id}.png`} alt="" onError={()=>setOk(false)}/>
+      <span className="ti-bey-streak"/>
+    </div>
+  );
+}
 
 export default function TitleScreen(){
   const {save,go}=useGame();
@@ -10,25 +25,26 @@ export default function TitleScreen(){
   const [logoOk,setLogoOk]=useState(true);
   const start=()=>go(save.collection.length?'map':'starter');
   return (
-    <div className="page" style={{minHeight:'100vh',display:'grid',placeItems:'center',overflow:'hidden'}}>
-      <div className="burst"/>
-      <div style={{position:'absolute',left:'-6%',top:'8%',opacity:.95,transform:'rotate(-12deg)'}}><BeySvg bey={BEYS.dragoon} size={300} spin/></div>
-      <div style={{position:'absolute',right:'-5%',bottom:'4%',opacity:.95,transform:'rotate(10deg)'}}><BeySvg bey={BEYS.bossdragoon} size={340} spin/></div>
-      <div className="col" style={{alignItems:'center',position:'relative',zIndex:2,textAlign:'center'}}>
-        {logoOk?<img src="/art/logo.png" alt="Kingdom of Spins" style={{width:'min(720px,90vw)'}} onError={()=>setLogoOk(false)}/>:
-          <div>
-            <div className="kicker" style={{fontSize:16}}>AI × BEYBLADE X × SCIENCE</div>
-            <h1 className="h-display h-outline" style={{fontSize:'clamp(56px,10vw,128px)'}}>KINGDOM<br/>OF <span className="h-red">SPINS</span></h1>
-            <div className="sfx" style={{fontSize:'clamp(32px,5vw,56px)',marginTop:8}}>陀螺王国！</div>
-          </div>}
-        {activeKid&&<div className="row mt2 wrap center">
-          <button className="btn primary big" onClick={start}>{save.collection.length?'继续冒险 ▶':'开始冒险 ▶'}</button>
-          <button className="btn big" onClick={()=>go('versus')}>对战模式 ⚔</button>
+    <div className="ti">
+      <div className="ti-lines"/>
+      <div className="ti-tone"/>
+      <HeroBey id="dragoon" cls="l"/>
+      <HeroBey id="bossdragoon" cls="r"/>
+      <span className="ti-sfx a">ギュイーン！</span>
+      <span className="ti-sfx b">轰！</span>
+      <main className="ti-main">
+        <div className="ti-logo">
+          {logoOk?<img src="/art/logo.png" alt="Kingdom of Spins 陀螺王国" onError={()=>setLogoOk(false)}/>:
+            <h1 className="ti-logo-fallback">KINGDOM<br/>OF <span>SPINS</span><small>陀螺王国！</small></h1>}
+        </div>
+        {activeKid&&<div className="ti-cta">
+          <button className="ti-go" onClick={start}><span>{save.collection.length?'继续冒险':'开始冒险'}</span> ▶</button>
+          <button className="ti-vs" onClick={()=>go('versus')}>对战模式 ⚔</button>
+          <div className="ti-hello">欢迎，<b>{activeKid.nickname}</b>！</div>
         </div>}
-        {activeKid&&<div style={{fontWeight:900,marginTop:6}}>欢迎，{activeKid.nickname}！</div>}
-        <AccountPanel/>
-        <p className="model-note" style={{maxWidth:520}}>对战由 MuJoCo 真实刚体物理计算。这是理想化模型，没有用真陀螺校准过——它能教你物理规律，但不能预测真实比赛。</p>
-      </div>
+        <div className={`ti-account ${activeKid?'compact':''}`}><AccountPanel/></div>
+      </main>
+      <p className="ti-note">⚙ 对战由 MuJoCo 真实刚体物理计算 · 理想化模型，没有用真陀螺校准——能教你物理规律，不能预测真实比赛</p>
     </div>
   );
 }

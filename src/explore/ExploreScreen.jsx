@@ -6,7 +6,7 @@ import {BLADERS} from '../game/story.js';
 import {getCard} from '../knowledge/cards.js';
 import KnowledgeCard from '../knowledge/KnowledgeCard.jsx';
 import {flipImage} from '../flipbook/api.js';
-import {sceneUrl} from '../game/scenes.js';
+import {sceneUrl,sceneByKey} from '../game/scenes.js';
 import {speak,stopSpeaking,ttsSupported} from '../fusion/voice.js';
 import BeyArt from '../ui/BeyArt.jsx';
 import {Portrait} from '../ui/common.jsx';
@@ -54,6 +54,7 @@ export default function ExploreScreen(){
   const [voice,setVoice]=useState(false);
   const [shake,setShake]=useState(false);
   const [archive,setArchive]=useState(false);
+  const [moving,setMoving]=useState(null);   // provisional page shown instantly while a move's text is written
   const alive=useRef(true);
   const cur=entries[idx];
   const pendingGate=gm?.pendingGate||null;
@@ -67,7 +68,7 @@ export default function ExploreScreen(){
     const g=(e.gm&&typeof e.gm==='object')?e.gm:{};
     const found=new Set(e.found),met=new Set(e.met);
     if(project)for(const v of lastEvents.current){if(v.type==='find_bey')found.add(v.beyId);if(v.type==='meet_blader')met.add(v.bladerId);}
-    return {found:[...found],met:[...met],steps:e.steps,runs:e.runs,sinceLast:g.sinceLast||0,gm:g.memory||'',trail:(g.trail||[]).map(t=>t.page.title),sinceGate:g.sinceGate??9,scenes:(g.trail||[]).map(t=>t.page.sceneKey).filter(Boolean),pendingGate:g.pendingGate||null};
+    return {found:[...found],met:[...met],steps:e.steps,runs:e.runs,sinceLast:g.sinceLast||0,gm:g.memory||'',trail:(g.trail||[]).map(t=>t.page.title),scene:g.scene,hidePlan:g.hidePlan||null,sinceGate:g.sinceGate??9,scenes:(g.trail||[]).map(t=>t.page.sceneKey).filter(Boolean),pendingGate:g.pendingGate||null};
   },[region.id]);
   useEffect(()=>{if(voice&&cur)speak([narration,pageText(cur.page)].filter(Boolean).join('。'));},[voice,cur?.page.id]);// eslint-disable-line
 
@@ -81,19 +82,19 @@ export default function ExploreScreen(){
     const cur2=useGame.getState().save.explore?.[region.id]||emptyExplore();
     const events=(r0.events||[]).filter(v=>!(v.type==='find_bey'&&cur2.found.includes(v.beyId))&&!(v.type==='meet_blader'&&cur2.met.includes(v.bladerId)));
     const r={...r0,events,awarded:events.some(v=>v.type==='find_bey'||v.type==='meet_blader')};
-    lastEvents.current=events;prefetch.current.clear();
+    lastEvents.current=events;prefetch.current.clear();setMoving(null);
     const gate=r.events.find(x=>x.type==='gate');
     const newClues=r.events.filter(x=>x.type==='clue').map(x=>x.text);
     const at=action.type==='enter'?0:(g.trail?.length||0);
     updateExplore(region.id,x=>{
       const gg=(x.gm&&typeof x.gm==='object')?x.gm:{};
-      const trail=[...(action.type==='enter'?[]:(gg.trail||[])),{page:r.page,tapped:r.tapped||''}].slice(-MAX_TRAIL);
-      x.gm={...gg,memory:r.gmMemory||gg.memory||'',trail,idx:trail.length-1,sinceLast:r.awarded?0:(action.type==='enter'?0:(gg.sinceLast||0)+1),
+      const trail=[...(action.type==='enter'?[]:(gg.trail||[])),{page:r.page,tapped:r.tapped||(action.type==='inspect'?action.label||'':'')}].slice(-MAX_TRAIL);
+      x.gm={...gg,memory:r.gmMemory||gg.memory||'',scene:r.scene||gg.scene,hidePlan:r.hidePlan||gg.hidePlan,trail,idx:trail.length-1,sinceLast:r.awarded?0:(action.type==='enter'?0:(gg.sinceLast||0)+1),
         pendingGate:gate?{quizId:gate.quizId,lead:gate.lead,q:gate.q,answer:gate.answer,explain:gate.explain,options:gate.options,cardId:gate.cardId}:(action.type==='answer'?null:gg.pendingGate||null),
         sinceGate:gate?0:(gg.sinceGate??9)+1,narration:r.narration||'',clues:[...newClues,...(action.type==='enter'?[]:(gg.clues||[]))].slice(0,6)};
       if(action.type!=='enter')x.steps=(x.steps||0)+1;
     });
-    setEntries(es=>[...(action.type==='enter'?[]:es.slice(0,at)),{page:r.page,tapped:r.tapped||'',image:null}].slice(-MAX_TRAIL));
+    setEntries(es=>[...(action.type==='enter'?[]:es.slice(0,at)),{page:r.page,tapped:r.tapped||(action.type==='inspect'?action.label||'':''),image:null}].slice(-MAX_TRAIL));
     setIdx(Math.min(at,MAX_TRAIL-1));
     setNarration(r.narration||'');
     if(newClues.length)setClues(c=>[...newClues,...(action.type==='enter'?[]:c)].slice(0,6));
@@ -102,16 +103,12 @@ export default function ExploreScreen(){
     setTap(null);setBusy(false);
   },[busy,region.id,updateExplore,unlockCards,buildState]);
 
-  // Prefetch the next step for the top 2 spots of the newest page (instant taps).
+  // Prefetch: inspect the 2 most likely spots + move to every exit (moves already render instantly from the static image).
   useEffect(()=>{
     if(!cur||busy||idx!==entries.length-1||useGame.getState().save.explore?.[region.id]?.gm?.pendingGate||lastEvents.current.some(v=>v.type==='gate'||v.type==='complete'))return;
-    const page=cur.page;
-    page.hotspots.slice(0,2).forEach((h,i)=>{
-      const k=`${page.id}:${i}`;if(prefetch.current.has(k))return;
-      const p=exploreStep({regionId:region.id,state:buildState(true),action:{type:'tap',spot:i,label:h.label,page}});
-      p.then(r=>{if(r.page?.sceneKey){const im=new Image();im.src=sceneUrl(region.id,r.page.sceneKey);}});
-      prefetch.current.set(k,p);
-    });
+    const page=cur.page,state=buildState(true);
+    const jobs=[...page.hotspots.slice(0,2).map((h,i)=>[`${page.id}:spot:${i}`,{type:'inspect',spot:i,label:h.label,page}]),...(page.exits||[]).map(x=>[`${page.id}:move:${x.key}`,{type:'move',to:x.key}])];
+    for(const [k,action] of jobs){if(!prefetch.current.has(k))prefetch.current.set(k,exploreStep({regionId:region.id,state,action}));}
   },[cur?.page.id,busy]);// eslint-disable-line
   // First visit / new run.
   const started=useRef(false);
@@ -129,7 +126,14 @@ export default function ExploreScreen(){
     const x=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width)),y=Math.max(0,Math.min(1,(ev.clientY-r.top)/r.height));
     const spot=nearestSpot(cur.page,x,y),h=cur.page.hotspots[spot];
     setTap({x:h?.x??x,y:h?.y??y});
-    step({type:'tap',spot,label:h?.label,page:cur.page},prefetch.current.get(`${cur.page.id}:${spot}`)||null);
+    step({type:'inspect',spot,label:h?.label,page:cur.page},prefetch.current.get(`${cur.page.id}:spot:${spot}`)||null);
+  }
+  function onMove(to){
+    if(!cur||busy)return;
+    if(queue.length||pendingGate){setShake(true);setTimeout(()=>setShake(false),400);return;}
+    const sc=sceneByKey(region.id,to);
+    if(sc)setMoving({id:'move-'+to,title:sc.title,panels:[],hotspots:sc.spots.map((p,i)=>({...p,spot:i,hint:''})),sceneKey:to,exits:sc.exits.map(k=>({key:k,title:sceneByKey(region.id,k)?.title||k}))});
+    step({type:'move',to},prefetch.current.get(`${cur.page.id}:move:${to}`)||null);
   }
   const pop=()=>setQueue(q=>q.slice(1));
   const ev0=queue[0];
@@ -151,16 +155,17 @@ export default function ExploreScreen(){
         </div>
         <div className="ex-stage">
           {!cur&&<div className="fb-page fb-loading"><div className="fb-doodle"/><b>博士正在打开地图…</b></div>}
-          {cur&&<div className="fb-page fb-turn" key={cur.page.id}>
-            <div className="fb-title">{cur.tapped&&<span className="fb-tapped">👆 {cur.tapped}</span>}<h2>{cur.page.title}</h2></div>
+          {cur&&(()=>{const view=moving||cur.page;return <div className="fb-page fb-turn" key={view.id}>
+            <div className="fb-title">{!moving&&cur.tapped&&<span className="fb-tapped">👆 {cur.tapped}</span>}<h2>{view.title}</h2></div>
             <div className={`fb-art ex-art ${shake?'shake':''}`} onClick={onImageTap}>
-              <SceneImage regionId={region.id} page={cur.page}/>
-              {cur.page.panels.map((p,i)=><div key={i} className={`fb-panel ${p.kind}`} style={{left:`${p.x*100}%`,top:`${p.y*100}%`,animationDelay:`${.15+i*.25}s`}}>{p.text}</div>)}
-              {idx===entries.length-1&&cur.page.hotspots.map((h,i)=><div key={i} className="fb-hot" style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.4+i*.18}s`}}><i/><span>{h.label}</span></div>)}
+              <SceneImage regionId={region.id} page={view}/>
+              {view.panels.map((p,i)=><div key={i} className={`fb-panel ${p.kind}`} style={{left:`${p.x*100}%`,top:`${p.y*100}%`,animationDelay:`${.15+i*.25}s`}}>{p.text}</div>)}
+              {idx===entries.length-1&&view.hotspots.map((h,i)=><div key={i} className="fb-hot" style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.4+i*.18}s`}}><i/><span>{h.label}</span></div>)}
               {tap&&<div className="fb-tap" style={{left:`${tap.x*100}%`,top:`${tap.y*100}%`}}/>}
-              {busy&&<div className="fb-wait"><div className="fb-doodle small"/><b>冒险继续中…</b></div>}
+              {busy&&<div className="fb-wait"><div className="fb-doodle small"/><b>{moving?'博士在写这里的故事…':'冒险继续中…'}</b></div>}
+              {idx===entries.length-1&&(view.exits||[]).length>0&&<div className="ex-exits" onClick={e=>e.stopPropagation()}>{view.exits.map(x=><button key={x.key} className="ex-exit" disabled={busy} onClick={()=>onMove(x.key)}>→ {x.title}</button>)}</div>}
             </div>
-          </div>}
+          </div>;})()}
         </div>
         <div className="fb-strip ex-strip">{entries.map((e,i)=>(
           <button key={e.page.id+i} className={`fb-thumb ${i===idx?'on':''}`} onClick={()=>{if(!busy)setIdx(i);}}>

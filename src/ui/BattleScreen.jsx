@@ -98,7 +98,7 @@ function Hud({player,names,beys,score,target,color,round}){
   useEffect(()=>{if(!player)return;let raf;const f=()=>{const cur=player.getState(player.clock);setSt(cur);if(cur&&!player.paused)sfx.spinRpm(cur.bodies[0]?.rpm,cur.bodies[1]?.rpm);raf=requestAnimationFrame(f);};f();return()=>cancelAnimationFrame(raf);},[player]);
   const side=(i)=>{const b=st?.bodies?.[i],rpm=Math.max(0,Math.abs(b?.rpm||0));return (
     <div className={`hud-side ${i?'right':''}`} style={{background:i?color:beys[0].colors?.primary}}>
-      <div className="row between"><span className="hud-name">{names[i]} · {beys[i].name}</span><span className="hud-pts">{score[i]} PT</span></div>
+      <div className="hud-top"><span className="hud-name"><b>{names[i]}</b><em> · {beys[i].name}</em></span><span className="hud-pts">{score[i]}<small> PT</small></span></div>
       <div className="hud-bar"><i style={{width:`${Math.min(100,rpm/70)}%`,background:rpm<1200?'var(--red)':'var(--yellow)'}}/></div>
       <div className="hud-meta">{Math.round(rpm).toLocaleString()} RPM · 倾角 {Math.round(b?.tilt||0)}°</div>
     </div>);};

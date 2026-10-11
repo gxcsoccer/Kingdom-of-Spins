@@ -58,3 +58,18 @@
 .dj{display:inline-block;margin-top:4px;background:#111;color:var(--yellow);font-weight:900;padding:3px 10px;transform:skewX(-8deg)}
 .ks-rv-bar,.ks-rv-bar button,.ks-rv-time{color:#111}
 .ks-rv-caption-title,.ks-rv-caption-num{color:#111}
+/* HUD name row: one line, ellipsis; compact on phones */
+.hud-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
+.hud-side.right .hud-top{flex-direction:row-reverse}
+.hud-name{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-name em{font-style:normal}
+.hud-pts{flex:none;white-space:nowrap}
+.hud-pts small{font-size:.6em}
+@media (max-width:600px){
+  .hud{gap:6px}
+  .hud-side{padding:5px 8px;border-width:3px;box-shadow:3px 3px 0 #111}
+  .hud-name{font-size:14px}.hud-name em{display:none}
+  .hud-pts{font-size:20px}
+  .hud-bar{height:9px;border-width:2px;margin-top:3px}
+  .hud-meta{font-size:10px;margin-top:2px}
+}

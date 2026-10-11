@@ -9,7 +9,7 @@ import {CARDS, getCard, relevantCards} from '../src/knowledge/cards.js';
 import {TIPS} from '../src/physics/model.js';
 import {regionById} from '../src/game/regions.js';
 import {prototypeOf} from '../src/game/prototypes.js';
-import {SCENES, sceneByKey} from '../src/game/scenes.js';
+import {SCENES, sceneByKey, START_SCENE} from '../src/game/scenes.js';
 import {BEYS} from '../src/game/beys.js';
 import {BLADERS} from '../src/game/story.js';
 
@@ -48,6 +48,8 @@ export function parseJSON(text) {
   }
   return null;
 }
+// Route every Workers AI call through AI Gateway (unified billing pays from gateway credits, not the free daily quota).
+const gw = env => ({gateway:{id:env?.AI_GATEWAY_ID || 'default'}});
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms))]);
 
 // Claude via the official SDK. Gateway uses the same Messages API with a different base URL + model id.
@@ -85,7 +87,7 @@ async function callCfClaude(env, {system, user, images=[], maxTokens, model}, ms
   // Haiku 5.5 otherwise burns the whole budget on adaptive thinking for long JSON; disabled is allowed at effort ≤ high.
   if (/haiku/i.test(m)) input.thinking = {type:'disabled'};
   try {
-    const r = await withTimeout(env.AI.run(m, input, {gateway:{id:env.AI_GATEWAY_ID || 'default'}}), ms);
+    const r = await withTimeout(env.AI.run(m, input, gw(env)), ms);
     const text = contentOf(r);
     if (!text) throw new Error(`empty reply (stop=${r?.stop_reason ?? r?.choices?.[0]?.finish_reason}, blocks=${Array.isArray(r?.content)?r.content.map(b=>b.type).join('+'):typeof r}, out=${r?.usage?.output_tokens ?? r?.usage?.completion_tokens})`);
     return text;
@@ -97,7 +99,7 @@ async function callCfClaude(env, {system, user, images=[], maxTokens, model}, ms
 }
 async function callWorkersAI(env, {system, user, maxTokens}, ms) {
   if (!env?.AI) throw new Error('no Workers AI binding');
-  const r = await withTimeout(env.AI.run(MODEL, {messages:[{role:'system', content:system}, {role:'user', content:user}], max_tokens:maxTokens, reasoning_effort:'low'}), ms);
+  const r = await withTimeout(env.AI.run(MODEL, {messages:[{role:'system', content:system}, {role:'user', content:user}], max_tokens:maxTokens, reasoning_effort:'low'}, gw(env)), ms);
   return contentOf(r);
 }
 const tagVia = (o, via, note='') => Object.defineProperty(Object.defineProperty(o, '__via', {value:via, enumerable:false}), '__note', {value:note, enumerable:false});
@@ -427,144 +429,152 @@ ${FLIP_FIELDS} 另加 tapped 字段：孩子点的东西（≤8字）。
     return json({page: sanitizePage(out, cards[0]?.id), tapped: String(out.tapped||'').slice(0,10), via: out.__via, aiNote: out.__note||undefined});
   } catch (e) { return json({page: fallback(), fallback:true, error:String(e.message||e).slice(0,200)}); }
 }
+let kleinDownUntil = 0;
 async function flipImage(body, env) {
   const prompt = String(body.prompt||'').slice(0,800);
   if (!prompt) return json({error:'empty prompt'}, 400);
   if (!env?.AI) return json({error:'no image model'}, 503);
   const full = `${prompt}. ${FLIP_STYLE}`, errors = [];
-  // Primary: FLUX.2 klein 9B (2–5 s, multipart input, 4:3 frame). Fallback: flux-1-schnell with a short timeout.
-  try {
+  // Primary: FLUX.2 klein 9B (multipart, 4:3). Through AI Gateway the binding's multipart path currently fails
+  // (stream → 'ReadableStreams not supported', buffered → 8001 Invalid input), so after such an error skip it for 10 min.
+  if (Date.now() >= kleinDownUntil) try {
     const form = new FormData(); form.append('prompt', full); form.append('width', '1024'); form.append('height', '768');
-    const fr = new Response(form);
-    const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-2-klein-9b', {multipart:{body:fr.body, contentType:fr.headers.get('content-type')}}), 20000);
+    const fr = new Response(form), ct = fr.headers.get('content-type');
+    // AI Gateway rejects ReadableStream bodies → buffer the multipart payload first.
+    const buf = await fr.blob();
+    const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-2-klein-9b', {multipart:{body:buf, contentType:ct}}, gw(env)), 20000);
     const img = r?.image || r?.result?.image;
     if (img) return json({image:`data:image/jpeg;base64,${img}`, model:'flux-2-klein-9b'});
     errors.push('klein: no image');
-  } catch (e) { errors.push('klein: '+String(e.message||e).slice(0,120)); }
+  } catch (e) { const m = String(e.message||e); errors.push('klein: '+m.slice(0,120)); if (/8001|ReadableStream|Invalid input/i.test(m)) kleinDownUntil = Date.now() + 600_000; }
   try {
-    const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-1-schnell', {prompt:full, steps:4}), 12000);
-    if (r?.image) return json({image:`data:image/jpeg;base64,${r.image}`, model:'flux-1-schnell'});
+    const r = await withTimeout(env.AI.run('@cf/black-forest-labs/flux-1-schnell', {prompt:full, steps:4}, gw(env)), 25000);
+    if (r?.image) return json({image:`data:image/jpeg;base64,${r.image}`, model:'flux-1-schnell', note:errors.join('; ')});
     errors.push('schnell: no image');
   } catch (e) { errors.push('schnell: '+String(e.message||e).slice(0,120)); }
   return json({error:errors.join('; ')}, 502);
 }
 
 // ── 探索：AI Game Master ──
-const PACE_FORCE = 5;   // steps without a find/meet before the server forces one
+// The map is a fixed scene graph (scenes.js). Code decides WHERE things are hidden (per-run hide plan), whether this
+// step awards something, and pacing; the GM (Haiku) only writes the story, clues, gates and geo facts.
+const PACE_FORCE = 5;   // steps without a find/meet before the server reveals one at the current scene
 const shuffle = a => { const b = [...a]; for (let i=b.length-1;i>0;i--) { const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]] = [b[j],b[i]]; } return b; };
 const bladerById = id => BLADERS.find(b=>b.id===id);
+const clean2 = (v, n) => String(v||'').replace(/[（(]?\b(?:bx|ph|mt|sm|gd|geo)-[a-z0-9-]+\b[)）]?/g,'').trim().slice(0, n);
 function exploreManifest(region, state) {
   const found = new Set(state.found||[]), met = new Set(state.met||[]);
   return {beysLeft: region.beys.filter(id=>!found.has(id)), bladersLeft: region.bladers.filter(id=>!met.has(id))};
 }
-// Server-side guardrails on whatever the GM produced.
-function validateEvents(raw, region, state, {mustAward, enter, noGate=false}) {
+const itemLabel = id => BEYS[id] ? `陀螺 ${BEYS[id].name}（${BEYS[id].zh}）` : `陀螺手 ${bladerById(id)?.name||id}`;
+// Per-run hiding plan: every remaining item gets a random scene (not the start) + spot. Keeps valid entries from the client.
+function makeHidePlan(region, state, prev={}) {
+  const scenes = (SCENES[region.id]||[]).filter(x=>x.key!==START_SCENE[region.id]);
   const {beysLeft, bladersLeft} = exploreManifest(region, state);
-  const out = []; let awarded = null;
-  for (const e of Array.isArray(raw) ? raw.slice(0,5) : []) {
-    if (!e || typeof e!=='object') continue;
-    if (e.type==='clue' && e.text) out.push({type:'clue', text:clean2(e.text,70)});
-    else if (e.type==='find_bey' && !awarded && !enter && beysLeft.includes(e.beyId)) { awarded = {type:'find_bey', beyId:e.beyId, text:clean2(e.text||'',60)}; out.push(awarded); }
-    else if (e.type==='meet_blader' && !awarded && !enter && bladersLeft.includes(e.bladerId)) { const b = bladerById(e.bladerId); awarded = {type:'meet_blader', bladerId:e.bladerId, line:clean2(e.line||b?.line||'来一场吧！',50)}; out.push(awarded); }
-    else if (e.type==='gate' && !enter && !noGate && !out.some(x=>x.type==='gate') && GATE_BANK[e.cardId]) out.push(bankGate(e.cardId, `${e.cardId}-${(+state.steps||0)+1}`, clean2(e.lead||'',40)));
-    else if (e.type==='geo_fact' && getCard(e.cardId)?.layer==='geo' && !out.some(x=>x.type==='geo_fact')) out.push({type:'geo_fact', cardId:e.cardId});
+  const plan = {}, used = new Set();
+  for (const [id, h] of Object.entries(prev||{})) { const sc = sceneByKey(region.id, h?.scene); if ((beysLeft.includes(id)||bladersLeft.includes(id)) && sc && sc.spots[h.spot]) { plan[id] = {scene:h.scene, spot:+h.spot}; used.add(h.scene); } }
+  const pool = shuffle(scenes);
+  for (const id of shuffle([...beysLeft, ...bladersLeft])) {
+    if (plan[id]) continue;
+    const sc = pool.find(x=>!used.has(x.key)) || pool[Math.floor(Math.random()*pool.length)];
+    if (!sc) continue;
+    used.add(sc.key); plan[id] = {scene:sc.key, spot:Math.floor(Math.random()*sc.spots.length)};
   }
-  // Pacing guardrail: force the next collectible if the GM keeps stalling.
-  if (mustAward && !awarded && (beysLeft.length || bladersLeft.length)) {
-    if (beysLeft.length && (!bladersLeft.length || Math.random()<.5)) { awarded = {type:'find_bey', beyId:beysLeft[0], text:'草丛里有什么在闪闪发光……', forced:true}; }
-    else { const b = bladerById(bladersLeft[0]); awarded = {type:'meet_blader', bladerId:bladersLeft[0], line:b?.line||'来一场吧！', forced:true}; }
-    out.push(awarded);
-  }
-  const leftAfter = beysLeft.length + bladersLeft.length - (awarded ? 1 : 0);
-  if (leftAfter===0 && awarded) out.push({type:'complete'});
-  return {events: out, awarded};
+  return plan;
 }
-const clean2 = (v, n) => String(v||'').replace(/[（(]?\b(?:bx|ph|mt|sm|gd|geo)-[a-z0-9-]+\b[)）]?/g,'').trim().slice(0, n);
-// Build a page on a pre-generated scene: hotspots come from the scene's predefined spots (the GM only picks/renames).
-function scenePage(region, raw={}, visited=[]) {
-  const list = SCENES[region.id] || [];
-  let scene = sceneByKey(region.id, raw.sceneKey);
-  if (!scene && list.length) scene = list.find(x=>!visited.includes(x.key)) || list[Math.floor(Math.random()*list.length)];
-  const spots = scene?.spots || [{x:.25,y:.6,label:'那边'},{x:.55,y:.45,label:'中间'},{x:.8,y:.65,label:'这边'}];
-  const picked = (Array.isArray(raw.hotspots)?raw.hotspots:[]).map(h=>{ const i = Number.isInteger(+h?.spot) ? +h.spot : spots.findIndex(p=>p.label===h?.label); return spots[i] ? {...spots[i], label:clean2(h.label||spots[i].label,6), hint:String(h.hint||'').slice(0,120), spot:i} : null; }).filter(Boolean);
-  const seen = new Set(picked.map(h=>h.spot));
-  for (let i=0;i<spots.length && picked.length<Math.min(4,spots.length);i++) if (!seen.has(i)) picked.push({...spots[i], hint:'', spot:i});
-  const page = sanitizePage({title:raw.title||scene?.title, panels:(raw.panels||[]).map((p,i)=>({...p, x:[.04,.56,.04,.56][i], y:[.04,.04,.8,.8][i]})), imagePrompt:`${scene?.desc||region.scenery}, setting: ${region.scenery.split(':')[0]}`, hotspots:picked, cardId:raw.cardId}, (CARDS.find(c=>c.layer==='geo'&&c.region===region.id)||{}).id);
-  page.hotspots = page.hotspots.map((h,i)=>({...h, spot: picked[i]?.spot ?? i}));
-  page.sceneKey = scene?.key || null;
+function bfsPath(region, from, to) {
+  if (from===to) return [from];
+  const prev = {[from]:null}, q = [from];
+  while (q.length) { const k = q.shift(); for (const n of sceneByKey(region.id,k)?.exits||[]) if (!(n in prev)) { prev[n]=k; if (n===to) { const path=[to]; let c=k; while (c) { path.unshift(c); c=prev[c]; } return path; } q.push(n); } }
+  return null;
+}
+function nearestTarget(region, scene, plan) {
+  let best = null;
+  for (const [id, h] of Object.entries(plan)) { const p = bfsPath(region, scene, h.scene); if (p && (!best || p.length < best.path.length)) best = {id, ...h, path:p}; }
+  return best;
+}
+function awardEvent(id, text='') {
+  if (BEYS[id]) return {type:'find_bey', beyId:id, text:clean2(text,60)};
+  const b = bladerById(id); return {type:'meet_blader', bladerId:id, line:clean2(text||b?.line||'来一场吧！',50)};
+}
+function scenePageFor(region, sceneKey, raw={}) {
+  const scene = sceneByKey(region.id, sceneKey) || sceneByKey(region.id, START_SCENE[region.id]);
+  const renamed = new Map((Array.isArray(raw.hotspots)?raw.hotspots:[]).filter(h=>Number.isInteger(+h?.spot)).map(h=>[+h.spot, h]));
+  const hotspots = scene.spots.map((p,i)=>({...p, label:clean2(renamed.get(i)?.label||p.label,6), hint:String(renamed.get(i)?.hint||'').slice(0,120), spot:i}));
+  const panels = (Array.isArray(raw.panels)?raw.panels:[]).slice(0,3).map((p,i)=>({...p, x:[.04,.56,.04][i], y:[.04,.04,.8][i]}));
+  const page = sanitizePage({title:raw.title||scene.title, panels: panels.length?panels:[{text:`来到了${scene.title}。`, kind:'caption'}], imagePrompt:scene.desc, hotspots, cardId:raw.cardId}, (CARDS.find(c=>c.layer==='geo'&&c.region===region.id)||{}).id);
+  page.hotspots = page.hotspots.map((h,i)=>({...h, spot:i}));
+  page.sceneKey = scene.key;
+  page.exits = scene.exits.map(k=>({key:k, title:sceneByKey(region.id,k)?.title||k}));
   return page;
-}
-function exploreFallbackPage(region, title, text, visited=[]) {
-  return scenePage(region, {title, panels:[{text, kind:'caption'}]}, visited);
 }
 async function exploreStep(body, env) {
   const region = regionById(body.regionId);
   if (!region) return json({error:'unknown region'}, 400);
-  if (region.comingSoon) return json({comingSoon:true, page: exploreFallbackPage(region, region.name, `${region.name}还在建造中，即将开放！`), events:[], narration:'这片区域还在准备中哦。'});
+  if (region.comingSoon) return json({comingSoon:true, page:null, events:[], narration:'这片区域还在准备中哦。'});
   const st = body.state || {}, action = body.action || {type:'enter'};
   const enter = action.type==='enter';
-  const {beysLeft, bladersLeft} = exploreManifest(region, st);
+  // 1. Where are we, and where does this action take us (graph-validated)?
+  let scene = enter ? START_SCENE[region.id] : (sceneByKey(region.id, st.scene) ? st.scene : START_SCENE[region.id]);
+  if (action.type==='move') {
+    if (!(sceneByKey(region.id, scene)?.exits||[]).includes(action.to)) return json({error:'not an exit'}, 400);
+    scene = action.to;
+  }
+  const sc = sceneByKey(region.id, scene);
+  // 2. Hide plan + award decided in code.
+  const plan = makeHidePlan(region, st, enter ? {} : st.hidePlan);
   const since = +st.sinceLast || 0;
-  const mustAward = !enter && since >= PACE_FORCE;
-  const pleaseAward = !enter && since >= PACE_FORCE - 1;
-  const names = {
-    beys: beysLeft.map(id=>`${id}（${BEYS[id]?.name}，${BEYS[id]?.zh}，${STYLE_ZH[BEYS[id]?.blade?.style]||''}）`).join('、') || '（已全部找到）',
-    bladers: bladersLeft.map(id=>{ const b = bladerById(id); return `${id}（${b?.name}，口头禅“${b?.line}”）`; }).join('、') || '（已全部遇见）',
-  };
+  let award = null, forced = false;
+  if (action.type==='inspect') { const hit = Object.entries(plan).find(([,h])=>h.scene===scene && h.spot===+action.spot); if (hit) award = hit[0]; }
+  if (!award && !enter && since >= PACE_FORCE) { const t = nearestTarget(region, scene, plan); if (t) { award = t.id; forced = true; } }
+  if (award) delete plan[award];
+  const target = nearestTarget(region, scene, plan);
+  const {beysLeft, bladersLeft} = exploreManifest(region, st);
+  const leftAfter = beysLeft.length + bladersLeft.length - (award ? 1 : 0);
   const geo = CARDS.filter(c=>c.layer==='geo' && c.region===region.id);
   const proto = prototypeOf(region.id);
-  const phys = ['ph-friction-area','ph-inertia','ph-momentum','ph-gyro-stability','sm-control'].map(getCard);
-  // Correct answers are checked here, not by the model.
-  let actionText = '';
-  if (enter) {
-    const spots = region.scenery.split(/,|:/).map(x=>x.trim()).filter(x=>x.length>4);
-    actionText = `孩子刚进入${region.name}（第 ${(+st.runs||0)+1} 次探险）。这次开局的随机设定：从「${spots[Math.floor(Math.random()*spots.length)]}」附近开始；这次线索的大致顺序：${shuffle([...beysLeft, ...bladersLeft]).join(' → ')}。第一页只介绍场景和第一个线索，不要给奖励，也不要出关卡。`;
-  } else if (action.type==='tap') {
-    const h = (action.page?.hotspots||[])[+action.spot] || {};
-    actionText = `孩子在「${action.page?.title||''}」这一页点了「${h.label||action.label||'画面'}」${h.hint?'（'+h.hint+'）':''}。让故事往那里发展（可以换到相关的场景）。`;
-  } else if (action.type==='answer') {
-    const g = st.pendingGate || {};
-    const ok = String(action.quizId)===String(g.quizId) && +action.choice===+g.answer;
-    actionText = ok ? `孩子答对了关卡题「${g.q||''}」！热烈表扬，并打开新的区域或线索。` : `孩子答错了关卡题「${g.q||''}」。温柔地解释正确答案（${g.explain||''}），然后让道路依然打开，继续冒险。`;
-  } else if (action.type==='choice') {
-    actionText = `孩子做了选择：${String(action.label||action.id||'').slice(0,40)}。${action.id==='later' ? '孩子决定稍后再挑战这位对手，对手说会在附近等着，故事继续。' : ''}`;
-  }
-  const user = `地区：${region.name}（${region.landform}）。场景元素（英文，用于画面）：${region.scenery}
-这个地区要融入的真实地理话题：${region.geoTopics.join('；')}
-${proto ? `这个地区的真实世界原型：${proto.name}（${proto.place}）。可以把原型的特点编进场景和关卡（例如涨潮淹没沙路、要等落潮才能过去），但提到真实地点时只能使用下面这些事实，不要编造其他数字或说法：
-${proto.facts.map(f=>'- '+f).join('\n')}
-游戏里的地区名字保持虚构（${region.name}），可以说“就像现实中的${proto.name}”。` : ''}
-还没找到的陀螺（只能用这些 id）：${names.beys}
-还没遇见的陀螺手（只能用这些 id）：${names.bladers}
-已找到：${(st.found||[]).join('、')||'无'}；已遇见：${(st.met||[]).join('、')||'无'}；已走 ${+st.steps||0} 步，距上次收获 ${since} 步。
-你之前的记忆（gmMemory）：${String(st.gm||'').slice(0,600) || '（新的冒险）'}
-最近的页面：${(Array.isArray(st.trail)?st.trail.slice(-6):[]).join(' → ') || '（无）'}
-场景库（每页必须选一个 sceneKey；括号里是画面中可点的东西，hotspots 用它们的序号 spot，可以改名 label）：
-${(SCENES[region.id]||[]).map(x=>`${x.key}：${x.title}——${x.desc.slice(0,70)}（${x.spots.map((p,i)=>i+'='+p.label).join('，')}）`).join('\n')}
-最近用过的场景：${(Array.isArray(st.scenes)?st.scenes.slice(-4):[]).join('、')||'无'}（尽量换新场景，除非故事需要留在原地）
+  const noGate = enter || action.type==='answer' || !!award || (+st.sinceGate||0) < 3;
+  // 3. Ask the GM to write it.
+  let actionText;
+  if (enter) actionText = `孩子刚进入${region.name}（第 ${(+st.runs||0)+1} 次探险），站在「${sc.title}」。介绍这里，并给出第一个线索。`;
+  else if (action.type==='move') actionText = `孩子从「${sceneByKey(region.id, st.scene)?.title||''}」走到了「${sc.title}」。描写到达时看到的景象。`;
+  else if (action.type==='inspect') { const h = (action.page?.hotspots||[])[+action.spot] || sc.spots[+action.spot] || {}; actionText = `孩子仔细查看了「${sc.title}」里的「${h.label||sc.spots[+action.spot]?.label||'某处'}」。描写他在那里发现了什么。`; }
+  else if (action.type==='answer') { const g = st.pendingGate || {}; const ok = String(action.quizId)===String(g.quizId) && +action.choice===+g.answer; actionText = ok ? `孩子答对了关卡题「${g.q||''}」！热烈表扬，告诉他前进的方向。` : `孩子答错了关卡题「${g.q||''}」。温柔地说出正确答案（${g.explain||''}），然后鼓励他继续。`; }
+  else actionText = `孩子做了选择：${String(action.label||action.id||'').slice(0,40)}。`;
+  const awardText = award ? `【这一步的收获（系统已决定，必须写进画面和文字）】孩子${forced?'在这里':'在这个地方'}${BEYS[award]?'找到了':'遇见了'}${itemLabel(award)}${forced?'（它恰好出现在这里）':''}。` : '这一步没有收获，不要写找到陀螺或遇见陀螺手。';
+  const clueText = target ? `下一个藏东西的地方：「${sceneByKey(region.id,target.scene)?.title}」里的「${sceneByKey(region.id,target.scene)?.spots[target.spot]?.label}」，从这里的路线：${target.path.map(k=>sceneByKey(region.id,k)?.title).join(' → ')}。线索要用路标/方向/地形暗示这条路（不要直接说答案，可以说“往灯塔那边”“潮水退了才看得到”）。` : '东西都找齐了，写一个圆满的结尾。';
+  const user = `地区：${region.name}（${region.landform}）。当前场景：「${sc.title}」——${sc.desc}
+这里可以查看的东西（spot 序号=名字）：${sc.spots.map((p,i)=>i+'='+p.label).join('，')}
+从这里可以走到：${sc.exits.map(k=>sceneByKey(region.id,k)?.title).join('、')}
 本步：${actionText}
-${mustAward||pleaseAward ? `【节奏要求】已经 ${since} 步没有收获了：这一步必须让孩子找到一只陀螺（find_bey）或遇见一位陀螺手（meet_blader），并且画面要表现出来。` : '大约每 3~4 步安排一次收获（find_bey 或 meet_blader），中间用线索、地理关卡和地理小知识推进。'}
-地理知识卡（gate 和 geo_fact 只能用这些 id，答案必须来自卡片内容）：
+${awardText}
+${clueText}
+真实地理话题：${region.geoTopics.join('；')}
+${proto ? `真实原型：${proto.name}（${proto.place}），提到真实地点时只能用这些事实：\n${proto.facts.map(f=>'- '+f).join('\n')}` : ''}
+你的记忆：${String(st.gm||'').slice(0,500) || '（新的冒险）'}
+最近的页面：${(Array.isArray(st.trail)?st.trail.slice(-5):[]).join(' → ') || '（无）'}
+地理知识卡（geo_fact / gate 只能用这些 id）：
 ${cardLines(geo)}
-物理知识卡（也可用于 gate）：
-${cardLines(phys)}
-规则：涉及真实世界的危险（雷电、涨潮、火山、冰川）时，要顺带说出正确的安全做法（比如打雷时远离山顶和孤立的高处、躲进安全的建筑）；每一步最多一个 find_bey 或 meet_blader；gate（关卡）每 4~6 步出现一次${(+st.sinceGate||0)<3||action.type==='answer'?'（这一步不要出关卡）':''}：只需给出 cardId（从上面的知识卡里选和场景相关的）和一句 lead（场景引子），题目由系统按卡片出；geo_fact 顺手讲一个和画面有关的真实地理知识。页面文字中文、短句、热血冒险漫画风，给 10 岁孩子看；panels 2~3 个，每个≤40字。
-只输出 JSON，格式示例：{"page":{"sceneKey":"tidepool","title":"≤10字","panels":[{"text":"…","kind":"caption"},{"text":"…","kind":"bubble"}],"hotspots":[{"spot":0,"label":"发光的海星","hint":"为什么它在发光？"},{"spot":2,"label":"贝壳","hint":"贝壳下面有东西"}],"cardId":"geo-tides"},"events":[{"type":"clue","text":"…"},{"type":"gate","cardId":"geo-tides","lead":"潮水涨上来了！"},{"type":"geo_fact","cardId":"geo-coast"},{"type":"find_bey","beyId":"fish","text":"…"},{"type":"meet_blader","bladerId":"ran","line":"…"}],"gmMemory":"≤300字：去过哪里、埋下的线索、打算把剩下的东西藏在哪","narration":"博士的一句话≤30字"}
-（示例里的事件只是格式，大多数步骤只要 1~2 个事件。）`;
+规则：中文短句，热血冒险漫画风，给 10 岁孩子看；panels 2~3 个，每个≤40字；涉及真实危险（雷电、涨潮、冰川）要说出正确的安全做法。events 只可以用：clue（线索）${noGate?'':'、gate（关卡：只给 cardId 和一句 lead，题目由系统出）'}、geo_fact（cardId，顺手讲和画面有关的真实地理知识）。可以给 spot 改一个更有趣的名字（hotspots 里写 spot 序号）。
+只输出 JSON：{"page":{"title":"≤10字","panels":[{"text":"…","kind":"caption"},{"text":"…","kind":"bubble"}],"hotspots":[{"spot":0,"label":"≤6字","hint":"一句好奇的问题"}],"cardId":"geo-…"},"events":[{"type":"clue","text":"…"}],"gmMemory":"≤300字：走过哪里、给过哪些线索","narration":"博士的一句话≤30字","line":"${award&&!BEYS[award]?'这位陀螺手见面时说的一句话≤20字':''}"}`;
+  const finish = (page, gmEvents, gmMemory, narration, extra={}) => {
+    const events = [];
+    if (award) events.push(awardEvent(award, extra.line || (BEYS[award] ? (page.panels[0]?.text||'') : '')));
+    for (const e of Array.isArray(gmEvents) ? gmEvents.slice(0,4) : []) {
+      if (e?.type==='clue' && e.text && !events.some(x=>x.type==='clue')) events.push({type:'clue', text:clean2(e.text,70)});
+      else if (e?.type==='gate' && !noGate && GATE_BANK[e.cardId] && !events.some(x=>x.type==='gate')) events.push(bankGate(e.cardId, `${e.cardId}-${(+st.steps||0)+1}`, clean2(e.lead||'',40)));
+      else if (e?.type==='geo_fact' && getCard(e.cardId)?.layer==='geo' && !events.some(x=>x.type==='geo_fact')) events.push({type:'geo_fact', cardId:e.cardId});
+    }
+    if (award && leftAfter===0) events.push({type:'complete'});
+    return json({page, events, awarded:!!award, scene, hidePlan:plan, gmMemory:String(gmMemory||st.gm||'').slice(0,600), narration:clip(String(narration||''),40), ...extra.meta});
+  };
   try {
-    const out = await llm(env, {system:FLIP_SYSTEM.replace('一本可以点来点去的漫画科学绘本','一场可以点来点去的漫画冒险（你是 Game Master，同时是融合博士）'), user,
-      maxTokens:700, kind:'explore'});
-    const page = scenePage(region, out.page||{}, st.scenes||[]);
-    // Gates are spaced out: never right after answering one, and at least 3 steps apart.
-    const noGate = action.type==='answer' || (+st.sinceGate||0) < 3;
-    const {events, awarded} = validateEvents(out.events, region, st, {mustAward, enter, noGate});
-    return json({page, events, awarded:Boolean(awarded), gmMemory:String(out.gmMemory||st.gm||'').slice(0,600), narration:clip(String(out.narration||''),40), via:out.__via, aiNote:out.__note||undefined});
+    const out = await llm(env, {system:FLIP_SYSTEM.replace('一本可以点来点去的漫画科学绘本','一场可以点来点去的漫画冒险（你是 Game Master，同时是融合博士）'), user, maxTokens:700, kind:'explore'});
+    return finish(scenePageFor(region, scene, out.page||{}), out.events, out.gmMemory, out.narration, {line:out.line, meta:{via:out.__via, aiNote:out.__note||undefined}});
   } catch (e) {
-    // Template step: keep the adventure moving and still honour pacing.
-    const page = exploreFallbackPage(region, enter ? region.name : '继续前进', enter ? `欢迎来到${region.name}！到处看看，找找藏起来的陀螺吧。` : '博士的通讯有点卡……我们先往前走走看！', st.scenes||[]);
-    const {events} = validateEvents([], region, st, {mustAward: !enter && since >= 2, enter});
-    if (enter && geo[0]) events.push({type:'geo_fact', cardId: geo[Math.floor(Math.random()*geo.length)].id});
-    return json({page, events, gmMemory:String(st.gm||''), narration:'往前走走看！', fallback:true, error:String(e.message||e).slice(0,200)});
+    const page = scenePageFor(region, scene, {title:sc.title, panels:[{text: award ? `看！${itemLabel(award)}就在这里！` : (enter ? `欢迎来到${region.name}！到处看看，找找藏起来的陀螺吧。` : `来到了${sc.title}，仔细看看这里有什么。`), kind:'caption'}]});
+    const clue = target ? [{type:'clue', text:`博士的雷达显示：往「${sceneByKey(region.id,target.path[1]||target.scene)?.title}」那边走走看。`}] : [];
+    return finish(page, clue, st.gm, '往前走走看！', {meta:{fallback:true, error:String(e.message||e).slice(0,160)}});
   }
 }
 
