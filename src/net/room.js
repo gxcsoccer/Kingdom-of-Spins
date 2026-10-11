@@ -37,6 +37,9 @@ export function joinRoom(code, {nickname, bey, pid = playerId(), origin} = {}, h
   const queue = [];
   const h = name => (...args) => { try { handlers[name]?.(...args); } catch (e) { console.error(e); } };
   const onState = h('onState'), onStart = h('onStart'), onFinal = h('onFinal'), onError = h('onError'), onConnection = h('onConnection');
+  const onGo = h('onGo'), onPull = h('onPull');
+  // Clock sync (new servers only): offset = serverNow - Date.now(), refined by the best (lowest-RTT) clock probe.
+  let offset = 0, bestRtt = Infinity, synced = false;
 
   function send(msg) {
     if (ws?.readyState === 1) ws.send(JSON.stringify(msg)); else queue.push(msg);
@@ -53,7 +56,17 @@ export function joinRoom(code, {nickname, bey, pid = playerId(), origin} = {}, h
     };
     ws.onmessage = ev => {
       let msg; try { msg = JSON.parse(ev.data); } catch { return; }
-      if (msg.type === 'joined') slot = msg.slot;
+      if (msg.type === 'joined') {
+        slot = msg.slot;
+        if (Number.isFinite(msg.serverNow)) {
+          if (!synced) offset = msg.serverNow - Date.now();
+          synced = true;
+          for (let i = 0; i < 3; i++) setTimeout(() => ws?.readyState === 1 && ws.send(JSON.stringify({type: 'clock', t: Date.now()})), 50 + i * 250);
+        }
+      }
+      else if (msg.type === 'clock') { const now = Date.now(), rtt = now - msg.t; if (rtt < bestRtt) { bestRtt = rtt; offset = msg.now + rtt / 2 - now; } }
+      else if (msg.type === 'go') onGo(msg);
+      else if (msg.type === 'pull') onPull(msg);
       else if (msg.type === 'state') { slot = msg.you; onState(msg.room, msg.you); }
       else if (msg.type === 'start') onStart(msg);
       else if (msg.type === 'final') onFinal(msg);
@@ -71,6 +84,13 @@ export function joinRoom(code, {nickname, bey, pid = playerId(), origin} = {}, h
 
   return {
     get slot() { return slot; },
+    /** true once a sync-capable server answered (arm/go/pull supported); false = legacy server. */
+    get synced() { return synced; },
+    /** Converts a server timestamp to local Date.now() time. */
+    toLocal(serverMs) { return serverMs - offset; },
+    serverNow() { return Date.now() + offset; },
+    arm() { send({type: 'arm'}); },
+    pull(power) { if (ws?.readyState === 1) ws.send(JSON.stringify({type: 'pull', power})); },
     setBey(b) { send({type: 'bey', bey: b}); },
     ready(launch, b) { send({type: 'ready', launch, ...(b ? {bey: b} : {})}); },
     unready() { send({type: 'unready'}); },
