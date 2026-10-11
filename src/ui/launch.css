@@ -141,8 +141,19 @@
   .ls-me{top:0;bottom:auto;clip-path:polygon(0 0,100% 0,100% 78%,0 100%)}
   .ls-opp{top:auto;bottom:0;clip-path:polygon(0 22%,100% 0,100% 100%,0 100%)}
   .ls-panel-bey{display:none}
-  .ls-readout{top:auto;bottom:70px;transform:none;flex-direction:row;flex-wrap:wrap;width:auto;left:60px;right:12px}
-  .ls-meter b{font-size:18px}
+  .ls-power{left:auto;right:10px;top:70px;transform:none}.ls-power-bar{width:18px;height:140px;border-width:3px}.ls-power-l{font-size:10px}
+  .ls-readout{top:auto;bottom:62px;transform:none;flex-direction:row;flex-wrap:nowrap;width:auto;left:10px;right:10px;gap:6px}
+  .ls-meter{flex:1;min-width:0;padding:4px 8px;border-width:3px}.ls-meter b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ls-meter span,.ls-meter small{font-size:10px}
+  .ls-mic{position:absolute;right:0;bottom:62px;font-size:12px;padding:5px 8px}
   .ls-hint{display:none}
+  .ls-drag-hint{bottom:auto;top:60%;font-size:14px}
+  .ls-switch{left:10px;bottom:10px;font-size:13px;padding:6px 10px}
+  .ls-cards{flex-wrap:nowrap;gap:6px}
+  .ls-card{flex:1 1 0;min-width:0;flex-direction:column;gap:0;padding:6px 4px;text-align:center;box-shadow:4px 4px 0 #ffd400,4px 4px 0 3px #000}
+  .ls-card small{display:none}.ls-card b{font-size:13px}.ls-emoji{font-size:22px}
+  .ls-skip{position:absolute;right:0;top:-26px}
+  .ls-predict-bubble{font-size:13px;padding:6px 12px}
+  .ls-taunt{left:6%;top:auto;bottom:44%;max-width:70%;font-size:14px}
+  .ls-sfx{font-size:44px!important;left:40%;top:64%}
 }
 @media (prefers-reduced-motion:reduce){.ls *,.ls-cutin *{animation:none!important}}

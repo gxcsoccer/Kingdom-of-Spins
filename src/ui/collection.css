@@ -1,0 +1,62 @@
+/* Collection "图鉴墙": 4×2 wall of big cards (paginated), team strip, 3D modal. No scroll at 1280×720. */
+.cw-page{height:100vh;height:100dvh;padding-bottom:14px;display:flex;flex-direction:column;overflow:hidden}
+.cw-page .topbar{flex:none}
+.cw-count{display:flex;align-items:center;gap:6px;font-weight:900;font-size:14px;flex-wrap:wrap}
+.cw-count em{font-style:normal;color:#fff;border:2px solid #111;padding:0 6px;font-size:12px}
+.cw-wall{flex:1;min-height:0;display:flex;align-items:stretch;gap:12px}
+.cw-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:14px}
+.cw-nav{flex:none;align-self:center;width:48px;height:72px;font-size:26px;font-weight:900;border:4px solid #111;background:#fff;box-shadow:4px 4px 0 #111;cursor:pointer}
+.cw-nav:disabled{opacity:.3;cursor:default}
+.cw-dots{display:flex;justify-content:center;gap:8px;margin:6px 0 0}
+.cw-dots i{width:12px;height:12px;border-radius:50%;border:2px solid #111;cursor:pointer}.cw-dots i.on{background:#ffd400}
+.cw-card{position:relative;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto auto auto;justify-items:center;align-items:center;gap:3px;padding:10px 10px 12px;font:inherit;color:#111;cursor:pointer;
+  background:radial-gradient(circle at 50% 36%,#fff 0 26%,color-mix(in srgb,var(--c) 32%,#fff) 62%,color-mix(in srgb,var(--c) 55%,#fff)),#fff;
+  border:4px solid #111;box-shadow:6px 6px 0 #111;transition:transform .15s;animation:cw-in .35s calc(var(--i)*.04s) cubic-bezier(.2,1.4,.4,1) both;overflow:hidden}
+.cw-card::before{content:'';position:absolute;inset:0;background:repeating-conic-gradient(from 0deg at 50% 36%,rgba(255,255,255,.55) 0 3deg,transparent 3deg 10deg);opacity:.6;pointer-events:none}
+.cw-card:hover,.cw-card:focus-visible{transform:translateY(-6px) rotate(-1deg)}
+.cw-card:hover .cw-pic{animation:cw-spin 1s linear infinite}
+.cw-art{position:relative;width:100%;height:100%;min-height:0;display:grid;place-items:center}
+.cw-pic{max-width:88%;max-height:100%;width:auto;height:100%;object-fit:contain;filter:drop-shadow(5px 6px 0 rgba(0,0,0,.55))}
+.cw-pic.svg{height:auto;display:grid;place-items:center}
+.cw-name{position:relative;font-family:"Arial Black",sans-serif;font-weight:900;font-size:clamp(16px,1.6vw,22px);line-height:1.05;text-align:center}
+.cw-row{position:relative;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}
+.cw-parts{font-size:11px;font-weight:900;color:#333}
+.cw-fuse{position:relative;font-size:11px;font-weight:800;color:#5b2aa8}
+.cw-origin{position:absolute;z-index:2;top:8px;left:-4px;color:#fff;font-weight:900;font-size:12px;padding:2px 10px 2px 8px;border:2px solid #111;box-shadow:2px 2px 0 #111;clip-path:polygon(0 0,100% 0,88% 50%,100% 100%,0 100%)}
+.cw-origin.big{position:static;align-self:flex-start;display:inline-block;font-size:13px}
+.cw-eq{position:absolute;z-index:2;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:#111;color:#fff;font-size:11px;font-weight:900;padding:2px 8px 2px 2px;border-radius:999px}
+.cw-eq img{width:20px;height:20px;border-radius:50%;object-fit:cover;object-position:50% 15%;background:#fff}
+.cw-empty{grid-column:1/-1;grid-row:1/-1;display:grid;place-items:center;font-weight:900;font-size:20px}
+/* team strip */
+.cw-team{flex:none;display:flex;align-items:center;gap:12px;margin-top:12px;padding:8px 12px;background:#111;color:#fff;border:4px solid #111;box-shadow:6px 6px 0 #ffd400}
+.cw-team-t{font-family:"Arial Black",sans-serif;font-weight:900;font-size:20px;font-style:italic;white-space:nowrap}
+.cw-team-t small{font-size:13px;color:#ffd400}
+.cw-mate{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:#1d1f27;border:2px solid var(--c,#555);padding:4px 10px 4px 4px}
+.cw-mate.empty{border-style:dashed;border-color:#555;color:#888}
+.cw-mate-face{flex:none;width:44px;height:44px;border-radius:50%;overflow:hidden;border:3px solid var(--c,#555);background:#fbf8f1;display:grid;place-items:center;font-weight:900;color:#888;position:relative}
+.cw-mate-face img{position:absolute;width:175%;max-width:none;left:-37.5%;top:-4%}
+.cw-mate-info{display:flex;flex-direction:column;line-height:1.15;white-space:nowrap}
+.cw-mate-info b{font-size:15px}.cw-mate-info small{font-size:11px;color:#aaa}
+.cw-mate-bey{display:flex;align-items:center;gap:4px;min-width:0;margin-left:auto}
+.cw-mate-bey .cw-pic{height:40px;width:40px;filter:none}
+.cw-mate-bey em{font-style:normal;font-weight:900;font-size:13px;color:#ffd400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* modal */
+.cw-modal-back{position:fixed;inset:0;z-index:50;background:rgba(17,17,17,.65);display:grid;place-items:center;padding:20px}
+.cw-modal{position:relative;width:min(920px,96vw);max-height:92vh;display:grid;grid-template-columns:1.1fr 1fr;background:#fbf8f1;border:5px solid #111;box-shadow:10px 10px 0 var(--c);animation:cw-pop .35s cubic-bezier(.2,1.5,.4,1) both;overflow:auto}
+.cw-modal-3d{position:relative;min-height:340px;border-right:4px solid #111;background:radial-gradient(circle at 50% 45%,#fff,color-mix(in srgb,var(--c) 30%,#fff))}
+.cw-modal-info{padding:18px 20px;display:flex;flex-direction:column;gap:8px;color:#111}
+.cw-modal-info h2{margin:0;font-family:"Arial Black",sans-serif;font-size:34px;line-height:1}
+.cw-modal-info h2 small{font-size:16px;color:#666}
+.cw-lore{margin:0;font-weight:700;line-height:1.55}
+.cw-why{margin:0;font-size:13px;background:#fff;border:2px solid #111;border-radius:14px;padding:8px 12px;font-weight:700}
+.cw-close{position:absolute;top:8px;right:8px;z-index:3;width:36px;height:36px;border:3px solid #111;background:#fff;font-weight:900;cursor:pointer}
+@keyframes cw-in{0%{transform:translateY(24px) scale(.9);opacity:0}100%{transform:none;opacity:1}}
+@keyframes cw-pop{0%{transform:scale(.85);opacity:0}100%{transform:none;opacity:1}}
+@keyframes cw-spin{to{transform:rotate(360deg)}}
+@media (max-width:900px),(max-aspect-ratio:1/1){
+  .cw-page{height:auto;overflow:visible}
+  .cw-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;grid-auto-rows:240px}
+  .cw-team{flex-wrap:wrap}.cw-mate{flex:1 1 100%}
+  .cw-modal{grid-template-columns:1fr}.cw-modal-3d{border-right:0;border-bottom:4px solid #111;min-height:260px}
+}
+@media (prefers-reduced-motion:reduce){.cw-page *{animation:none!important}}

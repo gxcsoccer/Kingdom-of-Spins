@@ -26,7 +26,7 @@ export function ShowcaseCanvas() {
   );
 }
 
-function ShowcaseContent({ bey, spinning, rpm, tilt, zoom }) {
+function ShowcaseContent({ bey, spinning, rpm, rpmRef, tilt, zoom }) {
   const g = useRef();
   useFrame(({ clock }) => {
     if (!g.current) return;
@@ -42,7 +42,7 @@ function ShowcaseContent({ bey, spinning, rpm, tilt, zoom }) {
       <directionalLight position={[-2, .5, -1]} intensity={.6} color="#bcd4ff" />
       <group ref={g}>
         <group rotation-x={-Math.PI / 2 + tilt} scale={10}>
-          <BeyModel bey={bey} spinning={spinning} rpm={rpm} outlineWidth={2.4} />
+          <BeyModel bey={bey} spinning={spinning} rpm={rpm} rpmRef={rpmRef} outlineWidth={2.4} />
         </group>
       </group>
     </>
@@ -50,13 +50,13 @@ function ShowcaseContent({ bey, spinning, rpm, tilt, zoom }) {
 }
 
 /**
- * <BeyShowcase bey spinning? rpm? tilt? zoom? background? className? style? />
+ * <BeyShowcase bey spinning? rpm? rpmRef? tilt? zoom? background? standalone? className? style? />
  * Rotating bey for menus/cards. tilt: radians toward camera (default .45). rpm: show spin blur.
  */
-export default function BeyShowcase({ bey, spinning = true, rpm, tilt = .32, zoom = 1.35, background = true, className = '', style }) {
-  const useView = useShared();
+export default function BeyShowcase({ bey, spinning = true, rpm, rpmRef, tilt = .32, zoom = 1.35, background = true, standalone = false, className = '', style }) {
+  const useView = useShared() && !standalone; // standalone: own canvas (e.g. inside modals above the shared canvas)
   if (!bey) return null;
-  const content = <ShowcaseContent bey={bey} spinning={spinning} rpm={rpm} tilt={tilt} zoom={zoom} />;
+  const content = <ShowcaseContent bey={bey} spinning={spinning} rpm={rpm} rpmRef={rpmRef} tilt={tilt} zoom={zoom} />;
   return (
     <div className={`ks-showcase ${className}`} style={style}>
       {background && <div className="ks-showcase-bg" />}
