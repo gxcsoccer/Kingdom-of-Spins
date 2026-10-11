@@ -8,6 +8,7 @@ import {BEYS} from '../src/game/beys.js';
 import {REGIONS} from '../src/game/regions.js';
 import {SKILLS, skillOf} from '../src/game/team.js';
 import {voKey} from '../src/game/voiceKey.js';
+import {CHAPTERS} from '../src/flipbook/chapters.js';
 
 const KEY = (fs.readFileSync('.env.local', 'utf8').match(/^FISH_API_KEY=(.*)$/m) || [])[1]?.replace(/["'\s]/g, '');
 if (!KEY) throw new Error('FISH_API_KEY missing in .env.local');
@@ -28,6 +29,12 @@ for (const r of REGIONS) for (const id of [...(r.beys || []), ...(r.bladers || [
 }
 for (const b of BLADERS.filter(b => b.tier === 'pro')) { const sk = SKILLS[skillOf(b)]; if (sk) add(`${b.name}，${sk.name}！`, GIRLS.has(b.id) ? 'girl' : 'boy'); }
 
+// 科学绘本主线：每页朗读“标题。正文…”（和 ChapterBook 里拼接的方式一致）
+for (const ch of CHAPTERS) for (const pg of ch.pages) add([pg.title, ...(pg.text || [])].join('。'));
+// 对手登场台词（角色声线）和发射口令
+for (const b of BLADERS) add(b.line, GIRLS.has(b.id) ? 'girl' : 'boy');
+add('来吧！', 'boy');
+add('Go shoot!', 'boy');
 fs.mkdirSync('public/audio/vo', {recursive: true});
 const manifest = {};
 const jobs = [...lines];
