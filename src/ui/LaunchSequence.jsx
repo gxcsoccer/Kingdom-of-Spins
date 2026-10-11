@@ -1,9 +1,10 @@
 import {useEffect,useRef,useState} from 'react';
-import BeyArt,{BeySvg} from './BeyArt.jsx';
-import {Portrait,TypeBadge} from './common.jsx';
+import BeyArt,{BeyArt3D} from './BeyArt.jsx';
+import {TypeBadge} from './common.jsx';
 import {DoctorFace} from './MapScreen.jsx';
 import {voiceSupported,listen} from '../game/voice.js';
 import * as sfx from '../game/sfx.js';
+import LaunchStage3D from '../scene/LaunchStage3D.jsx';
 import './launch.css';
 
 export const PREDICT_CARDS=[
@@ -12,8 +13,8 @@ export const PREDICT_CARDS=[
   {id:'lose',emoji:'😰',label:'可能会输…',sub:'对手很强'},
 ];
 
-// Slingshot geometry (SVG units): stadium centre (0,0), radius 100; the player launches from the left side.
-const R=100, START={x:-58,y:0}, MAX_PULL=70;
+// Slingshot units (unchanged from the top-down version): stadium radius 100, player on the left.
+const MAX_PULL=70;
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
 /** Converts a slingshot pull into the physics launch used by launchState(): rpm, speed, aim (-1..1 inward→tangential), tilt. */
@@ -27,118 +28,73 @@ export function slingToLaunch(pull){
   return {rpm:Math.round(3000+3900*pp),speed:+(.12+.42*pp).toFixed(3),aim:+aim.toFixed(2),tilt:over?13:3+3*pp,over,power:pp,dir};
 }
 
+const beyBase=b=>(b?.id||'').includes('-')?b.id.split('-').pop():b?.id;
+function BeyPic({bey,size}){
+  const [ok,setOk]=useState(true);
+  return ok&&!bey?.parents?<img className="ls-beypic" src={`/art/beys/${beyBase(bey)}.png`} alt={bey.name} style={{width:size}} onError={()=>setOk(false)}/>:<BeyArt bey={bey} size={size}/>;
+}
+
+// ---------- 1. VS splash: diagonal panels slam in, VS stamp, impact frame, taunt, prediction cards
 function VsSplash({me,opp,myBey,onPick}){
-  const [said,setSaid]=useState(false);
-  useEffect(()=>{const t=setTimeout(()=>{setSaid(true);sfx.say(opp.blader?.line||'来吧！','zh-CN',1.1);},700);return()=>clearTimeout(t);},[]);// eslint-disable-line
+  const [skip,setSkip]=useState(false),[said,setSaid]=useState(false);
+  useEffect(()=>{
+    sfx.whoosh();
+    const a=setTimeout(()=>sfx.clang(1),520);
+    const b=setTimeout(()=>{setSaid(true);sfx.say(opp.blader?.line||'来吧！','zh-CN',1.1);},900);
+    return()=>{clearTimeout(a);clearTimeout(b);};
+  },[]);// eslint-disable-line
+  const oppImg=opp.blader?`/art/bladers/${opp.blader.id}.png`:null;
   return (
-    <div className="ls-vs">
-      <div className="ls-side ls-me" style={{'--c':myBey.colors?.primary||'#2f7bff'}}>
-        <div className="ls-portrait">{me.avatar?<img src={`/art/avatars/${me.avatar}.png`} alt=""/>:<span className="h-display h-outline" style={{fontSize:90}}>{(me.name||'你').slice(0,1)}</span>}</div>
-        <div className="ls-bey"><BeyArt bey={myBey} size={200}/></div>
-        <div className="ls-name">{me.name}<small>{myBey.name}</small></div>
+    <div className={`ls-vs ${skip?'skip':''}`} onClick={e=>{if(!e.target.closest('.ls-predict'))setSkip(true);}}>
+      <div className="ls-vs-lines"/>
+      <div className="ls-panel ls-me" style={{'--c':myBey.colors?.primary||'#2f7bff'}}>
+        <div className="ls-panel-bg"/>
+        {me.avatar?<>
+          <div className="ls-figure"><img src={`/art/avatars/${me.avatar}.png`} alt=""/></div>
+          <div className="ls-panel-bey"><BeyPic bey={myBey} size={190}/></div>
+        </>:<div className="ls-figure bey"><BeyPic bey={myBey} size={340}/></div>}
+        <div className="ls-nameplate"><b>{me.name}</b><small>{myBey.name}</small></div>
       </div>
-      <div className="ls-side ls-opp" style={{'--c':opp.color||'#f2b632'}}>
-        <div className="ls-portrait">{opp.blader?<Portrait blader={opp.blader} size={320}/>:<BeyArt bey={opp.bey} size={260}/>}</div>
-        <div className="ls-bey"><BeyArt bey={opp.bey} size={200}/></div>
-        <div className="ls-name">{opp.name}<small>{opp.bey.name}</small></div>
-        {said&&opp.blader&&<div className="bubble ls-taunt pop">「{opp.blader.line}」</div>}
+      <div className="ls-panel ls-opp" style={{'--c':opp.color||'#f2b632'}}>
+        <div className="ls-panel-bg"/>
+        <div className="ls-figure big">{oppImg?<img src={oppImg} alt=""/>:<BeyPic bey={opp.bey} size={300}/>}</div>
+        <div className="ls-panel-bey"><BeyPic bey={opp.bey} size={190}/></div>
+        <div className="ls-nameplate"><b>{opp.name}</b><small>{opp.bey.name}</small></div>
+        {(said||skip)&&opp.blader&&<div className="ls-taunt">「{opp.blader.line}」</div>}
       </div>
-      <div className="ls-vs-mark sfx">VS</div>
-      <div className="ls-predict slidein">
-        <div className="row" style={{gap:10,alignItems:'flex-end'}}><DoctorFace mood="thinking" size={64}/><div className="bubble" style={{fontSize:15}}>开打前先猜猜：你会怎么赢？</div></div>
+      <div className="ls-vs-flash"/>
+      <div className="ls-vs-mark"><span>V</span><span>S</span></div>
+      <div className="ls-predict">
+        <div className="ls-predict-q"><DoctorFace mood="thinking" size={58}/><div className="ls-predict-bubble">开打前先猜猜：你会怎么赢？</div></div>
         <div className="ls-cards">
-          {PREDICT_CARDS.map(c=><button key={c.id} className="ls-card" onClick={()=>{sfx.beep(true);onPick(c.id);}}><span className="ls-emoji">{c.emoji}</span><b>{c.label}</b><small>{c.sub}</small></button>)}
+          {PREDICT_CARDS.map((c,i)=><button key={c.id} className="ls-card" style={{'--i':i}} onClick={()=>{sfx.beep(true);onPick(c.id);}}><span className="ls-emoji">{c.emoji}</span><span className="ls-card-t"><b>{c.label}</b><small>{c.sub}</small></span></button>)}
           <button className="ls-skip" onClick={()=>onPick(null)}>跳过 ▶</button>
         </div>
       </div>
+      {!skip&&<div className="ls-tap">点一下跳过动画</div>}
     </div>
   );
 }
 
+// ---------- 2. bey picker (3D showcase via shared canvas)
 function BeyPicker({beys,value,onChange,onDone}){
   const idx=Math.max(0,beys.findIndex(b=>b.uid===value));
   const go=d=>{const n=(idx+d+beys.length)%beys.length;onChange(beys[n].uid);sfx.beep();};
   const b=beys[idx];
   return (
     <div className="ls-pick">
-      <div className="h-display h-outline" style={{fontSize:40}}>选你的出战陀螺</div>
+      <div className="ls-pick-title">选你的出战陀螺</div>
       <div className="ls-carousel">
         {beys.length>1&&<button className="ls-arrow" onClick={()=>go(-1)} aria-label="上一只">◀</button>}
-        <div className="ls-pick-card pop" key={b.uid} style={{'--c':b.colors?.primary}}>
-          <BeyArt bey={b} size={260}/>
-          <div className="panel-title" style={{fontSize:30}}>{b.name}</div>
-          <div className="row center" style={{gap:8}}><TypeBadge type={b.type||b.blade?.style}/><span className="kicker">{b.ratchet?.prongs||3}-{b.ratchet?.height||60} {b.bit}</span></div>
+        <div className="ls-pick-card" key={b.uid} style={{'--c':b.colors?.primary}}>
+          <BeyArt3D.Provider value={true}><BeyArt bey={b} size={250}/></BeyArt3D.Provider>
+          <div className="ls-pick-name">{b.name}</div>
+          <div className="ls-pick-meta"><TypeBadge type={b.type||b.blade?.style}/><span>{b.ratchet?.prongs||3}-{b.ratchet?.height||60} · {b.bit}</span></div>
         </div>
         {beys.length>1&&<button className="ls-arrow" onClick={()=>go(1)} aria-label="下一只">▶</button>}
       </div>
       <div className="ls-dots">{beys.map(x=><i key={x.uid} className={x.uid===b.uid?'on':''}/>)}</div>
-      <button className="btn primary big" onClick={onDone}>就用它！</button>
-    </div>
-  );
-}
-
-function Slingshot({myBey,oppBey,onLaunch,avatar}){
-  const svg=useRef(null);
-  const [pull,setPull]=useState(null); // {x,y} offset from START while dragging
-  const [launched,setLaunched]=useState(false);
-  const [mic,setMic]=useState(false),[heard,setHeard]=useState(''),[level,setLevel]=useState(0);
-  const rec=useRef(null),audio=useRef(null),peak=useRef(0);
-  const toSvg=e=>{const r=svg.current.getBoundingClientRect();return {x:((e.clientX-r.left)/r.width)*240-120,y:((e.clientY-r.top)/r.height)*240-120};};
-  const down=e=>{if(launched)return;e.currentTarget.setPointerCapture?.(e.pointerId);setPull({x:0,y:0});};
-  const move=e=>{if(!pull||launched)return;const p=toSvg(e);let dx=p.x-START.x,dy=p.y-START.y;const L=Math.hypot(dx,dy),M=MAX_PULL*1.15;if(L>M){dx*=M/L;dy*=M/L;}
-    chargeTone(Math.min(1.15,Math.hypot(dx,dy)/MAX_PULL));setPull({x:dx,y:dy});};
-  const [cut,setCut]=useState(false);
-  const fire=(launch)=>{setLaunched(true);chargeTone(null);sfx.clang(1);sfx.whoosh();setCut(true);sfx.say('Go shoot!','en-US',1.25);setTimeout(()=>onLaunch(launch),1150);};
-  const up=()=>{if(!pull||launched)return;const L=Math.hypot(pull.x,pull.y);if(L<8){setPull(null);chargeTone(null);return;}fire(slingToLaunch(pull));};
-  useEffect(()=>()=>{rec.current?.stop();audio.current?.stop?.();},[]);
-  async function toggleMic(){
-    if(mic){rec.current?.stop();audio.current?.stop?.();setMic(false);return;}
-    setMic(true);setHeard('');peak.current=0;
-    try{ // loudness meter: louder shout = faster spin
-      const stream=await navigator.mediaDevices.getUserMedia({audio:true});const ctx=new AudioContext();const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=512;src.connect(an);
-      const buf=new Uint8Array(an.fftSize);let raf;const tick=()=>{an.getByteTimeDomainData(buf);let s=0;for(const v of buf)s+=((v-128)/128)**2;const rms=Math.sqrt(s/buf.length);const lv=clamp(rms*4,0,1);peak.current=Math.max(peak.current,lv);setLevel(lv);raf=requestAnimationFrame(tick);};tick();
-      audio.current={stop:()=>{cancelAnimationFrame(raf);stream.getTracks().forEach(t=>t.stop());ctx.close();}};
-    }catch{}
-    rec.current=listen({lang:'en-US',onText:t=>{setHeard(t);if(/shoot|shot|shoe|chute|sure/i.test(t)){rec.current?.stop();const p=clamp(.35+peak.current*.8,.35,1);audio.current?.stop?.();setMic(false);
-      fire(slingToLaunch({x:-MAX_PULL*p*.85,y:-MAX_PULL*p*.45}));}},onEnd:()=>setMic(false)});
-  }
-  const L=pull?slingToLaunch(pull):null;
-  const bx=START.x+(pull?.x||0)*.35, by=START.y+(pull?.y||0)*.35;
-  const arrow=L?{x2:START.x+L.dir.x*(30+70*L.power),y2:START.y+L.dir.y*(30+70*L.power)}:null;
-  const pw=L?Math.min(1.15,Math.hypot(pull.x,pull.y)/MAX_PULL):0, aura=L?.over?'#ff2d4a':pw>.82?'#ffd400':'#29b6ff';
-  return (
-    <div className={`ls-launch ${pull&&!launched?'charging':''} ${L?.over?'hot':''}`} style={{'--p':pw,'--aura':aura,'--ax':`${(bx+120)/240*100}%`,'--ay':`${(by+120)/240*100}%`}}>
-      <div className="ls-speedlines"/>
-      <div className="ls-launch-head"><span className="h-display h-yellow" style={{fontSize:34}}>拉开发射器！</span><span className="ls-hint">按住你的陀螺往后拉，松手发射 · 拉得越远转得越快 · 方向决定冲向哪里</span></div>
-      <svg ref={svg} viewBox="-120 -120 240 240" className="ls-stadium" onPointerMove={move} onPointerUp={up} onPointerLeave={up} role="img" aria-label="发射台：拖动陀螺瞄准并发射">
-        <defs><pattern id="lsTone" width="4" height="4" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".7" fill="rgba(0,0,0,.18)"/></pattern>
-          <radialGradient id="lsAura"><stop offset="0" stopColor="#fff" stopOpacity=".95"/><stop offset=".35" stopColor={aura} stopOpacity=".75"/><stop offset="1" stopColor={aura} stopOpacity="0"/></radialGradient></defs>
-        <circle r={R+8} fill="#111"/><circle r={R} fill="#f4efe2"/><circle r={R} fill="url(#lsTone)"/>
-        <circle r={R*.8} fill="none" stroke="#ffd400" strokeWidth="7" strokeDasharray="4 4"/>
-        <circle r={R*.38} fill="none" stroke="#111" strokeWidth="1" strokeDasharray="2 3"/>
-        <path d="M-6 -6 L6 6 M6 -6 L-6 6" stroke="#ff2d4a" strokeWidth="3"/>
-        <g transform="translate(55 0)"><g className="ls-opp-spin"><BeySvgInline bey={oppBey}/></g></g>
-        {pull&&!launched&&<line x1={START.x-14} y1={START.y-16} x2={bx} y2={by} stroke="#111" strokeWidth="2.5"/>}
-        {pull&&!launched&&<line x1={START.x-14} y1={START.y+16} x2={bx} y2={by} stroke="#111" strokeWidth="2.5"/>}
-        {arrow&&!launched&&<g><line x1={START.x} y1={START.y} x2={arrow.x2} y2={arrow.y2} stroke={L.over?'#ff2d4a':'#2f7bff'} strokeWidth="4" strokeDasharray="8 5"/><circle cx={arrow.x2} cy={arrow.y2} r="5" fill={L.over?'#ff2d4a':'#2f7bff'} stroke="#111"/></g>}
-        <g transform={`translate(${launched?START.x+ (L?.dir.x||1)*40:bx} ${launched?START.y+(L?.dir.y||0)*40:by})`} style={{transition:launched?'transform .4s ease-in':'none',cursor:'grab'}} onPointerDown={down}>
-          {L&&!launched&&<g className="ls-aura-svg"><circle r={26+46*pw} fill="url(#lsAura)" style={{animation:`ls-svgpulse ${.5-.3*Math.min(pw,1)}s ease-in-out infinite alternate`}}/>
-            <circle r={24+36*pw} fill="none" stroke={aura} strokeWidth={2+3*pw} strokeDasharray="3 7" className="ls-ring"/>
-            <circle r={20+10*L.power} fill="none" stroke={aura} strokeWidth="4" opacity=".9"/></g>}
-          <circle r="22" fill="transparent"/>
-          <g className={launched?'ls-my-spin fast':'ls-my-spin'}><BeySvgInline bey={myBey}/></g>
-        </g>
-        {!pull&&!launched&&<text x={START.x} y={START.y+38} textAnchor="middle" fontSize="9" fontWeight="900">← 按住往后拉</text>}
-      </svg>
-      <div className="ls-readout">
-        <div className="ls-meter"><span>转速</span><b>{L?L.rpm.toLocaleString():'—'}</b><small>RPM</small></div>
-        <div className="ls-meter"><span>路线</span><b>{L?(Math.abs(L.aim)>.6?'绕场游走':Math.abs(L.aim)>.25?'斜线切入':'正面冲撞'):'—'}</b></div>
-        <div className={`ls-meter ${L?.over?'warn':''}`}><span>状态</span><b>{L?(L.over?'用力过猛会歪！':L.power>.82?'完美！':'再拉远点'):'准备'}</b></div>
-        {voiceSupported()&&<button className={`btn ${mic?'yellow mic-on':''}`} onClick={toggleMic} disabled={launched}>🎤 喊口令发射</button>}
-      </div>
-      {mic&&<div className="mic-hint">🎤 大声喊 <b>3, 2, 1, GO SHOOT!</b>（越大声转得越快）<span className="ls-vol"><i style={{width:`${Math.round(level*100)}%`}}/></span>{heard&&<span className="muted"> · 听到：{heard}</span>}</div>}
-      {pull&&!launched&&<div className="ls-sfx sfx" style={{fontSize:`${60+60*pw}px`,opacity:.35+.65*Math.min(pw,1)}}>{L?.over?'ギギギ…！':'グググ…'}</div>}
-      {cut&&<CutIn bey={myBey} avatar={avatar}/>}
+      <button className="ls-ok" onClick={onDone}>就用它！</button>
     </div>
   );
 }
@@ -153,22 +109,93 @@ function chargeTone(p){
     tone.o.frequency.setTargetAtTime(90+520*p,tone.c.currentTime,.05);tone.g.gain.setTargetAtTime(.04+.06*Math.min(p,1),tone.c.currentTime,.05);
   }catch{}
 }
+const auraOf=L=>!L?'#29b6ff':L.over?'#ff2d4a':L.power>.82?'#ffd400':'#29b6ff';
+const routeOf=L=>Math.abs(L.aim)>.6?'绕场游走':Math.abs(L.aim)>.25?'斜线切入':'正面冲撞';
 
-// Anime cut-in: diagonal band with the kid's face + "GO SHOOT!!" shout.
-function CutIn({bey,avatar}){
+// ---------- 3. 3D slingshot launch
+function Slingshot({myBey,oppBey,onLaunch,avatar}){
+  const stateRef=useRef({pull:null,power:0,dir:null,over:false,aura:'#29b6ff',launched:null,shake:0});
+  const [pull,setPull]=useState(null);
+  const [launched,setLaunched]=useState(false),[cut,setCut]=useState(false);
+  const [mic,setMic]=useState(false),[heard,setHeard]=useState(''),[level,setLevel]=useState(0);
+  const rec=useRef(null),audio=useRef(null),peak=useRef(0);
+  const L=pull?slingToLaunch(pull):null, pw=pull?Math.min(1.15,Math.hypot(pull.x,pull.y)/MAX_PULL):0;
+
+  const update=pl=>{
+    const l=pl?slingToLaunch(pl):null, p=pl?Math.min(1.15,Math.hypot(pl.x,pl.y)/MAX_PULL):0;
+    Object.assign(stateRef.current,{pull:pl,power:p,dir:l?.dir||null,over:!!l?.over,aura:auraOf(l),shake:l?.over?.025:p>.82?.008:0});
+    setPull(pl);
+  };
+  const fire=launch=>{
+    if(launched)return;
+    setLaunched(true);chargeTone(null);
+    stateRef.current.launched={t0:performance.now(),dir:launch.dir,from:[-.09,0]};stateRef.current.shake=.06;
+    sfx.clang(1);sfx.whoosh();sfx.say('Go shoot!','en-US',1.25);
+    setTimeout(()=>{setCut(true);stateRef.current.shake=0;},180);
+    setTimeout(()=>onLaunch(launch),1350);
+  };
+  const onPull=pl=>{if(launched)return;chargeTone(Math.min(1.15,Math.hypot(pl.x,pl.y)/MAX_PULL));update(pl);};
+  const onRelease=pl=>{if(launched)return;if(Math.hypot(pl.x,pl.y)<8){chargeTone(null);update(null);return;}fire(slingToLaunch(pl));};
+
+  useEffect(()=>()=>{rec.current?.stop();audio.current?.stop?.();chargeTone(null);},[]);
+  async function toggleMic(){
+    if(mic){rec.current?.stop();audio.current?.stop?.();setMic(false);return;}
+    setMic(true);setHeard('');peak.current=0;
+    try{ // loudness meter: louder shout = faster spin
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});const ctx=new AudioContext();const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=512;src.connect(an);
+      const buf=new Uint8Array(an.fftSize);let raf;const tick=()=>{an.getByteTimeDomainData(buf);let s=0;for(const v of buf)s+=((v-128)/128)**2;const rms=Math.sqrt(s/buf.length);const lv=clamp(rms*4,0,1);peak.current=Math.max(peak.current,lv);setLevel(lv);
+        // live aura from loudness
+        const fake={x:-MAX_PULL*lv*.85,y:-MAX_PULL*lv*.45};if(!stateRef.current.launched)update(lv>.05?fake:null);
+        raf=requestAnimationFrame(tick);};tick();
+      audio.current={stop:()=>{cancelAnimationFrame(raf);stream.getTracks().forEach(t=>t.stop());ctx.close();}};
+    }catch{}
+    rec.current=listen({lang:'en-US',onText:t=>{setHeard(t);if(/shoot|shot|shoe|chute|sure/i.test(t)){rec.current?.stop();const p=clamp(.35+peak.current*.8,.35,1);audio.current?.stop?.();setMic(false);
+      fire(slingToLaunch({x:-MAX_PULL*p*.85,y:-MAX_PULL*p*.45}));}},onEnd:()=>setMic(false)});
+  }
+
   return (
-    <div className="ls-cutin" style={{'--c':bey.colors?.primary||'#2f7bff'}}>
-      <div className="ls-cutin-band">
-        <div className="ls-cutin-face">{avatar?<img src={`/art/avatars/${avatar}.png`} alt=""/>:<BeySvg bey={bey} size={320}/>}</div>
-        <div className="ls-cutin-text sfx">GO SHOOT!!</div>
+    <div className={`ls-launch ${pull&&!launched?'charging':''} ${L?.over?'hot':''} ${launched?'fired':''}`} style={{'--p':pw,'--aura':auraOf(L)}}>
+      <LaunchStage3D myBey={myBey} oppBey={oppBey} stateRef={stateRef} onPull={onPull} onRelease={onRelease} disabled={launched}/>
+      <div className="ls-speedlines"/>
+      <div className="ls-launch-head">
+        <span className="ls-launch-title">拉开发射器！</span>
+        <span className="ls-hint">在场地上按住往<b>后</b>拉，松手发射 · 拉得越远转得越快 · 往左右拉决定冲向哪里</span>
       </div>
-      <div className="ls-cutin-flash"/>
+      <div className="ls-power">
+        <div className="ls-power-bar"><i style={{height:`${Math.min(100,pw/1.15*100)}%`}}/><span className="ls-power-sweet"/></div>
+        <div className="ls-power-l">POWER</div>
+      </div>
+      <div className="ls-readout">
+        <div className="ls-meter"><span>转速</span><b>{L?L.rpm.toLocaleString():'—'}</b><small>RPM</small></div>
+        <div className="ls-meter"><span>路线</span><b>{L?routeOf(L):'—'}</b></div>
+        <div className={`ls-meter ${L?.over?'warn':''}`}><span>状态</span><b>{L?(L.over?'用力过猛会歪！':L.power>.82?'完美！':'再拉远点'):'准备'}</b></div>
+        {voiceSupported()&&<button className={`ls-mic ${mic?'on':''}`} onClick={toggleMic} disabled={launched}>🎤 喊口令发射</button>}
+      </div>
+      {!pull&&!launched&&<div className="ls-drag-hint"><span>👆</span>按住 · 往下拉</div>}
+      {mic&&<div className="ls-mic-hint">🎤 大声喊 <b>3, 2, 1, GO SHOOT!</b>（越大声转得越快）<span className="ls-vol"><i style={{width:`${Math.round(level*100)}%`}}/></span>{heard&&<span> · 听到：{heard}</span>}</div>}
+      {pull&&!launched&&pw>.15&&<div className="ls-sfx" style={{fontSize:`${56+70*pw}px`,opacity:.3+.7*Math.min(pw,1)}}>{L?.over?'ギギギ…！':'グググ…'}</div>}
+      {launched&&!cut&&<div className="ls-impact"/>}
+      {cut&&<CutIn bey={myBey} avatar={avatar}/>}
     </div>
   );
 }
 
-// Embeds the 2D bey icon inside the stadium SVG (BeySvg renders its own <svg>).
-function BeySvgInline({bey}){return <foreignObject x="-22" y="-22" width="44" height="44" style={{overflow:'visible'}}><div style={{width:44,height:44}}><BeySvg bey={bey} size={44}/></div></foreignObject>;}
+// ---------- anime cut-in: eye-line band with the kid's face, speed lines, shout, whiteout
+function CutIn({bey,avatar}){
+  return (
+    <div className="ls-cutin" style={{'--c':bey.colors?.primary||'#2f7bff'}}>
+      <div className="ls-cutin-bg"/>
+      <div className="ls-cutin-band thin a"/>
+      <div className="ls-cutin-band main">
+        <div className="ls-cutin-lines"/>
+        <div className={`ls-cutin-face ${avatar?'avatar':'bey'}`}>{avatar?<img src={`/art/avatars/${avatar}.png`} alt=""/>:<BeyPic bey={bey} size={300}/>}</div>
+        <div className="ls-cutin-text">GO<br/>SHOOT!!</div>
+      </div>
+      <div className="ls-cutin-band thin b"/>
+      <div className="ls-cutin-flash"/>
+    </div>
+  );
+}
 
 /** Full pre-round flow. first round: VS splash (+prediction) → pick bey → slingshot. Later rounds: straight to slingshot (with a bey switch). */
 export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastRound,onPredict,onLaunch,lastLabel}){
@@ -181,7 +208,7 @@ export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastR
       {step==='pick'&&<BeyPicker beys={beys} value={myBey.uid} onChange={setBeyUid} onDone={()=>setStep('launch')}/>}
       {step==='launch'&&<>
         <Slingshot key={myBey.uid} myBey={myBey} oppBey={opp.bey} onLaunch={onLaunch} avatar={me.avatar}/>
-        {beys.length>1&&<button className="btn small ls-switch" onClick={()=>setStep('pick')}>🔁 换陀螺（{myBey.name}）</button>}
+        {beys.length>1&&<button className="ls-switch" onClick={()=>setStep('pick')}>🔁 换陀螺（{myBey.name}）</button>}
       </>}
     </div>
   );

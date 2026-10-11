@@ -11,6 +11,7 @@ const FusionScreen=lazy(()=>import('./ui/FusionScreen.jsx'));
 const VersusScreen=lazy(()=>import('./ui/VersusScreen.jsx'));
 const CodexScreen=lazy(()=>import('./ui/CodexScreen.jsx'));
 const ArtCheck=lazy(()=>import('./ui/ArtCheck.jsx'));
+const FlipbookHost=lazy(()=>import('./flipbook/Flipbook.jsx').then(m=>({default:m.FlipbookHost})));
 const ShowcaseCanvas=lazy(()=>import('./scene/BeyShowcase.jsx').then(m=>({default:m.ShowcaseCanvas})));
 
 const SCREENS={title:TitleScreen,starter:StarterScreen,map:MapScreen,shop:ShopScreen,collection:CollectionScreen,battle:BattleScreen,fusion:FusionScreen,versus:VersusScreen,codex:CodexScreen};
@@ -24,6 +25,7 @@ export default function App(){
   return <>
     <Suspense fallback={<Loading/>}><Screen key={screen+(nonce||0)}/></Suspense>
     <Suspense fallback={null}><ShowcaseCanvas/></Suspense>
+    <Suspense fallback={null}><FlipbookHost onUnlock={ids=>useGame.getState().unlockCards(ids)}/></Suspense>
   </>;
 }
 export function Loading({text='LOADING…'}){

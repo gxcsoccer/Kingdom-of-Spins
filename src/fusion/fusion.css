@@ -106,3 +106,5 @@
 .sketch-drop img{width:100%;height:100%;object-fit:contain;background:#fff}
 .sketch-empty{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:18px}
 .sketch-wish{border:var(--border);padding:12px;font:inherit;font-weight:700;background:#fff;outline:none;width:100%}
+.kcard-book{margin-top:8px;border:2px solid var(--ink);background:var(--yellow);font-weight:900;font-size:12px;padding:3px 10px;box-shadow:2px 2px 0 var(--ink)}
+.kcard-book:active{transform:translate(2px,2px);box-shadow:none}

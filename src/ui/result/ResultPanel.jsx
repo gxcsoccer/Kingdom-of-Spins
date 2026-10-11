@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useGame} from '../../game/store.js';
 import {FINISH_LABEL,FINISH_ZH} from '../../game/story.js';
 import {commentary} from '../../ai/client.js';
@@ -6,6 +6,7 @@ import * as aiClient from '../../ai/client.js';
 import {getCard} from '../../knowledge/cards.js';
 import {KnowledgeChip} from '../../knowledge/KnowledgeCard.jsx';
 import {findMoments} from '../../game/moments.js';
+import {openFlipbook} from '../../flipbook/store.js';
 import ExperimentLab from '../../lab/ExperimentLab.jsx';
 import ReplaySlot from '../ReplaySlot.jsx';
 import RpmChart from '../RpmChart.jsx';
@@ -13,15 +14,21 @@ import BeyArt from '../BeyArt.jsx';
 import {Portrait,Modal} from '../common.jsx';
 import {DoctorFace} from '../MapScreen.jsx';
 import * as sfx from '../../game/sfx.js';
+import './result.css';
 
 const PREDICT=[{id:'ko',label:'把对手撞出界（OVER / XTREME）',match:r=>r==='over'||r==='xtreme'},{id:'spin',label:'比谁转得久（SPIN / 判定）',match:r=>r==='spin'||r==='judge'},{id:'lose',label:'我觉得会输……',match:null}];
 const REWARD={normal:[120,60],pro:[160,80],super:[220,100],boss:[400,150]};
 const MOMENT_TITLE={'first-hit':'第一次碰撞','big-hit':'最猛的一撞','spin-drop':'转速大跳水','dash':'冲刺！','finish':'决胜时刻'};
+const PAGES=[{id:'result',label:'结果'},{id:'review',label:'复盘'},{id:'lab',label:'实验室'},{id:'next',label:'下一步'}];
+const NUM='①②③④⑤';
+const HIGHLIGHT_MS=4200;
+const REPLAY_BAR_PX=150;   // ReplayViewer's control bar + scrubber below the 3D view   // the slow-mo highlight is ~7 s; the quiz pops once the key instant has played
 function localMoment(m,names){
   const n=i=>i===0?`你的 ${names[0]}`:names[1];const d=m.data||{};
   if(m.kind==='first-hit'||m.kind==='big-hit')return `相对速度 ${(d.relSpeed||0).toFixed(1)} m/s 的碰撞。撞完 ${n(0)} 约 ${Math.round((d.rpmAfter?.[0]||0)/100)*100} 转、${n(1)} 约 ${Math.round((d.rpmAfter?.[1]||0)/100)*100} 转——撞击会把转动的能量变成乱跑和晃动。`;
   if(m.kind==='spin-drop')return `1 秒内 ${n(m.body)} 的转速掉了约 ${Math.round((d.drop||0)/100)*100} 转。看看这一秒它撞到了什么？`;
   if(m.kind==='finish')return `${n(1-d.winner)} ${({spin:'先停转了',over:'飞出了场地',xtreme:'掉进了 Xtreme 口',judge:'时间到时转速更低'})[d.reason]||''}。`;
+  if(m.kind==='dash')return `${n(m.body??0)} 的齿轮咬住了边缘齿轨，把转动变成了往前冲！`;
   return '';
 }
 function suggestVariable(bey,won){
@@ -30,13 +37,23 @@ function suggestVariable(bey,won){
   if((bey.blade?.ring??60)<70)return {key:'ring',value:80};
   return {key:'bit',value:'needle'};
 }
+function useCountUp(target,run,ms=1100){
+  const [v,setV]=useState(0);
+  useEffect(()=>{if(!run)return;let raf;const t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/ms);setV(Math.round(target*(1-Math.pow(1-k,3))));if(k<1)raf=requestAnimationFrame(f);};raf=requestAnimationFrame(f);return()=>cancelAnimationFrame(raf);},[target,run,ms]);
+  return v;
+}
+function useBoxHeight(){
+  const ref=useRef(null);const [h,setH]=useState(0);
+  useEffect(()=>{const el=ref.current;if(!el)return;const ro=new ResizeObserver(([e])=>setH(Math.round(e.contentRect.height)));ro.observe(el);return()=>ro.disconnect();},[]);
+  return [ref,h];
+}
 
 export default function ResultPanel({won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins}){
   const [ai,setAi]=useState(null);
   const [recruitOpen,setRecruitOpen]=useState(false);
-  const [active,setActive]=useState(null);
-  const [cursor,setCursor]=useState(null);
-  const viewer=useRef(null);
+  const [recruited,setRecruited]=useState(false);
+  const [page,setPage]=useState(0);
+  const [dir,setDir]=useState(1);
   const decisive=rounds.at(-1);
   const names=[myBey.name,opp.bey.name];
   const moments=useMemo(()=>findMoments(decisive.samples,decisive.events,decisive.result),[decisive]);
@@ -52,76 +69,166 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
     recordMatch({bladerId:won?blader?.id:null,won,coins,prediction:pred?{id:pred.id,correct:!!predOk,opp:opp.name}:null});
     const req=aiClient.moments?aiClient.moments({summary:decisive.summary,moments,names}):commentary(decisive.summary,names);
     Promise.resolve(req).then(r=>{setAi(r||{});const ids=(r?.moments||[]).map(m=>m.cardId).concat(r?.science?.cardId||[]).filter(Boolean);if(ids.length)unlockCards(ids);}).catch(()=>setAi({}));
-    if(canRecruit)setTimeout(()=>setRecruitOpen(true),900);
+    sfx.say?.(won?'Victory!':'Defeat…','en-US',1);
   },[]);// eslint-disable-line
-  const aiM=id=>(ai?.moments||[]).find(m=>m.id===id);
-  const play=m=>{setActive(m.id+':'+Date.now());viewer.current?.playMoment?.(m.id);const line=aiM(m.id)?.dj;if(line)setTimeout(()=>sfx.say(line,'zh-CN',1.2),700);};
-  const [answers,setAnswers]=useState({});
+
+  const goPage=useCallback(n=>{setPage(p=>{const q=Math.max(0,Math.min(PAGES.length-1,typeof n==='function'?n(p):n));setDir(q>=p?1:-1);return q;});},[]);
+  useEffect(()=>{
+    const onKey=e=>{if(recruitOpen||e.target.closest?.('input,textarea,select'))return;if(e.key==='ArrowRight')goPage(p=>p+1);if(e.key==='ArrowLeft')goPage(p=>p-1);};
+    window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);
+  },[goPage,recruitOpen]);
+  useEffect(()=>{if(page!==1)sfx.say&&window.speechSynthesis?.cancel();},[page]);
+  // Swipe between pages (touch only; mouse drags are left to the 3D replay / scrubber).
+  const swipe=useRef(null);
+  const onPointerDown=e=>{if(e.pointerType!=='touch'||e.target.closest('.ks-rv-track,canvas,input,.rp-scroll'))return;swipe.current={x:e.clientX,y:e.clientY};};
+  const onPointerUp=e=>{const s=swipe.current;swipe.current=null;if(!s)return;const dx=e.clientX-s.x,dy=e.clientY-s.y;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.5)goPage(p=>p+(dx<0?1:-1));};
+
   return (
-    <div className="result slidein">
-      <div className="row wrap" style={{gap:24,alignItems:'center'}}>
-        <div className={`h-display ${won?'h-red':'h-outline'}`} style={{fontSize:'clamp(56px,8vw,96px)',transform:'rotate(-4deg)'}}>{won?'VICTORY!':'DEFEAT…'}</div>
-        <div>
-          <div style={{fontWeight:900,fontSize:22}}>{score[0]} : {score[1]} · 决胜：{FINISH_LABEL[decisive.result.reason]}（{FINISH_ZH[decisive.result.reason]}）</div>
-          <div style={{marginTop:4,fontWeight:700}}>奖励：🪙 +{coins}{first&&won?' · 首次击败！':''}{pred?` · 预测：${predOk?'猜对了 ✓':'没猜中'}`:''}</div>
+    <div className="rp" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
+      <div className="rp-top">
+        <div className="rp-chips">{PAGES.map((p,i)=><button key={p.id} className={`rp-chip ${i===page?'on':''}`} onClick={()=>goPage(i)}><span>{i+1}</span>{p.label}</button>)}</div>
+        <div className="rp-score">{myName} <b>{score[0]} : {score[1]}</b> {opp.name}</div>
+      </div>
+      <div className="rp-stage">
+        <div key={page} className={`rp-page ${dir>0?'turn-fwd':'turn-back'}`}>
+          {page===0&&<ResultPage {...{won,score,decisive,myBey,opp,coins,first,pred,predOk,canRecruit,recruited,blader}} onRecruit={()=>setRecruitOpen(true)} onNext={()=>goPage(1)}/>}
+          {page===1&&<ReviewPage {...{decisive,myBey,opp,moments,names,ai,unlockCards,addCoins}} onNext={()=>goPage(2)}/>}
+          {page===2&&<div className="rp-scroll"><ExperimentLab mine={myBey} opp={opp.bey} launches={decisive.launches} names={names} suggest={suggestVariable(myBey,won)} onReward={n=>addCoins(n)} onUnlock={unlockCards}/></div>}
+          {page===3&&<NextPage {...{won,ai,go,myBey}}/>}
         </div>
       </div>
-
-      <section className="review mt">
-        <div className="review-head"><DoctorFace mood={ai?'excited':'thinking'} size={56}/><div><div className="h-display" style={{fontSize:26}}>复盘 · {ai?.headline||'关键时刻'}</div><div className="muted" style={{color:'#bbb',fontWeight:700}}>点一个关键时刻，慢动作回看发生了什么</div></div></div>
-        <div className="review-grid">
-          <div className="review-stage">
-            <ReplaySlot ref={viewer} beys={[myBey,opp.bey]} samples={decisive.samples} events={decisive.events} moments={moments.map(m=>({id:m.id,time:m.time,title:aiM(m.id)?.title||MOMENT_TITLE[m.kind]}))} activeMoment={active?.split(':')[0]} onSeek={setCursor}/>
-            <div className="panel" style={{padding:12,color:'#111',marginTop:12}}><b>📈 转速曲线（点图表跳到那一刻）</b>
-              <RpmChart samples={decisive.samples} events={decisive.events} moments={moments} cursor={cursor} onSeek={t=>{setCursor(t);viewer.current?.seek?.(t);}} names={names} colors={[myBey.colors?.primary||'#2f7bff',opp.bey.colors?.primary||'#f2b632']}/>
-            </div>
-          </div>
-          <div className="moment-list">
-            {moments.map(m=>{const a=aiM(m.id);const card=a?.cardId&&getCard(a.cardId);return (
-              <div key={m.id} className={`moment ${active?.startsWith(m.id+':')?'on':''}`}>
-                <button className="moment-hit" onClick={()=>play(m)}>
-                  <span className="moment-n">{'①②③④'[m.n-1]}</span>
-                  <span className="grow"><b>{a?.title||MOMENT_TITLE[m.kind]}</b><small>{m.time.toFixed(1)} 秒</small></span>
-                  <span className="moment-play">▶ 回放</span>
-                </button>
-                <p>{ai?(a?.explain||localMoment(m,names)):'博士正在看这一段……'}</p>
-                {a?.dj&&<div className="dj">🎙 {a.dj}</div>}
-                {a?.quiz&&<Quiz quiz={a.quiz} answer={answers[m.id]} onAnswer={i=>{setAnswers(x=>({...x,[m.id]:i}));if(i===a.quiz.answer){sfx.beep(true);addCoins(5);}else sfx.beep();if(a.cardId)unlockCards([a.cardId]);}}/>}
-                {card&&(answers[m.id]!=null||!a?.quiz)&&<KnowledgeChip card={card}/>}
-              </div>);})}
-            {ai?.takeaway&&<div className="takeaway">💡 {ai.takeaway}</div>}
-            <div className="model-note" style={{color:'#aaa'}}>复盘只引用这一局记录到的数据；因果结论都是「在这个模型里」成立。</div>
-          </div>
-        </div>
-      </section>
-
-      <div className="mt2"><ExperimentLab mine={myBey} opp={opp.bey} launches={decisive.launches} names={names} suggest={suggestVariable(myBey,won)} onReward={n=>addCoins(n)} onUnlock={unlockCards}/></div>
-
-      <div className="row mt2" style={{gap:10,maxWidth:720}}>
-        <button className="btn primary grow" onClick={()=>go('map')}>回到地图</button>
-        <button className="btn grow" onClick={()=>go('battle',{...useGame.getState().params})}>再战一次</button>
-        <button className="btn grow" onClick={()=>go('fusion',{back:'map'})}>去融合工坊改造</button>
+      <div className="rp-nav">
+        <button className="rp-arrow" disabled={page===0} onClick={()=>goPage(p=>p-1)} aria-label="上一页">◀</button>
+        <div className="rp-dots">{PAGES.map((p,i)=><button key={p.id} className={i===page?'on':''} onClick={()=>goPage(i)} aria-label={p.label}/>)}</div>
+        <button className="rp-arrow next" disabled={page===PAGES.length-1} onClick={()=>goPage(p=>p+1)} aria-label="下一页">{page<PAGES.length-1?`${PAGES[page+1].label} ▶`:'▶'}</button>
       </div>
-      {recruitOpen&&<RecruitModal blader={blader} save={save} onDone={(uid)=>{recruit(blader.id,uid);setRecruitOpen(false);}} onClose={()=>setRecruitOpen(false)}/>}
+      {recruitOpen&&<RecruitModal blader={blader} save={save} onDone={(uid)=>{recruit(blader.id,uid);setRecruited(true);setRecruitOpen(false);}} onClose={()=>setRecruitOpen(false)}/>}
     </div>
   );
 }
 
-function Quiz({quiz,answer,onAnswer}){
+function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRecruit,recruited,blader,onRecruit,onNext}){
+  const shown=useCountUp(coins,true,1300);
+  const reason=decisive.result.reason;
+  return (
+    <div className={`rp-result ${won?'win':'lose'}`}>
+      <div className="rp-burst"/>
+      <div className="rp-splash">
+        <div className={`rp-sfx ${won?'win':'lose'}`}>{won?'VICTORY!':'DEFEAT…'}</div>
+        <div className="rp-vs">
+          <div className={`rp-bey ${won?'champ':''}`}><BeyArt bey={myBey} size={150} spin={won}/><b>{myBey.name}</b></div>
+          <div className="rp-bigscore">{score[0]}<span>:</span>{score[1]}</div>
+          <div className={`rp-bey ${won?'':'champ'}`}><BeyArt bey={opp.bey} size={150} spin={!won}/><b>{opp.bey.name}</b></div>
+        </div>
+        <div className="rp-finish"><span>决胜</span>{FINISH_LABEL[reason]} · {FINISH_ZH[reason]} · {decisive.result.time.toFixed(1)} 秒</div>
+      </div>
+      <div className="rp-side">
+        <div className="rp-reward"><span className="kicker">REWARD</span><div className="rp-coins">🪙 +{shown}</div>{first&&won&&<div className="rp-first">首次击败！</div>}</div>
+        {pred&&<div className={`rp-stamp ${predOk?'ok':'no'}`}><b>{predOk?'✓':'✗'}</b><span>赛前预测<br/>{predOk?'猜对了！+20':'没猜中'}</span></div>}
+        {canRecruit&&<div className="rp-cutin" onClick={recruited?undefined:onRecruit}>
+          <Portrait blader={blader} size={96}/>
+          <div><div className="sfx" style={{fontSize:30,color:'var(--yellow)'}}>{recruited?'入队！':'招募！'}</div><div style={{fontWeight:800}}>{recruited?`${blader.name} 加入了你的队伍`:`${blader.name} 想加入你的队伍！`}</div>{!recruited&&<button className="btn small yellow" style={{marginTop:6}}>点我招募</button>}</div>
+        </div>}
+        <button className="btn primary big rp-cta" onClick={onNext}>看复盘 ▶</button>
+      </div>
+    </div>
+  );
+}
+
+function ReviewPage({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,onNext}){
+  const viewer=useRef(null);
+  const [boxRef,boxH]=useBoxHeight();
+  const [sel,setSel]=useState(null);           // selected moment id
+  const [quizOn,setQuizOn]=useState(false);
+  const [answers,setAnswers]=useState({});
+  const [chart,setChart]=useState(false);
+  const [cursor,setCursor]=useState(null);
+  const [auto,setAuto]=useState(false);
+  const timers=useRef([]);
+  const aiM=id=>(ai?.moments||[]).find(m=>m.id===id);
+  const clear=()=>{timers.current.forEach(clearTimeout);timers.current=[];};
+  useEffect(()=>()=>{clear();window.speechSynthesis?.cancel();},[]);
+  const play=useCallback((m,{withQuiz=true}={})=>{
+    clear();setSel(m.id);setQuizOn(false);
+    viewer.current?.playMoment?.(m.id);
+    const line=aiM(m.id)?.dj;if(line)timers.current.push(setTimeout(()=>sfx.say(line,'zh-CN',1.2),600));
+    if(withQuiz&&aiM(m.id)?.quiz&&answers[m.id]==null)timers.current.push(setTimeout(()=>setQuizOn(true),HIGHLIGHT_MS));
+  },[ai,answers]);// eslint-disable-line
+  const playAll=()=>{
+    if(auto){clear();setAuto(false);return;}
+    setAuto(true);clear();
+    moments.forEach((m,i)=>timers.current.push(setTimeout(()=>play(m,{withQuiz:false}),i*7600)));
+    timers.current.push(setTimeout(()=>setAuto(false),moments.length*7600));
+  };
+  const cur=moments.find(m=>m.id===sel);const curAi=cur&&aiM(cur.id);
+  const answer=(m,i)=>{const q=aiM(m.id)?.quiz;setAnswers(x=>({...x,[m.id]:i}));if(i===q.answer){sfx.beep(true);addCoins(5);}else sfx.beep();const c=aiM(m.id)?.cardId;if(c)unlockCards([c]);};
+  return (
+    <div className="rp-review">
+      <div className="rp-review-head">
+        <DoctorFace mood={ai?'excited':'thinking'} size={44}/>
+        <div className="grow"><div className="rp-h">复盘 · {ai?.headline||'关键时刻'}</div><div className="rp-sub">点下面的关键时刻，慢动作回看发生了什么</div></div>
+        <button className={`btn small ${auto?'yellow':''}`} onClick={playAll}>{auto?'⏹ 停止':'▶ 自动播放全部关键时刻'}</button>
+        <button className={`btn small ${chart?'yellow':''}`} onClick={()=>setChart(c=>!c)}>📈 转速</button>
+      </div>
+      <div className="rp-replay" ref={boxRef}>
+        {boxH>0&&<ReplaySlot ref={viewer} height={Math.max(180,boxH-REPLAY_BAR_PX)} beys={[myBey,opp.bey]} samples={decisive.samples} events={decisive.events}
+          moments={moments.map(m=>({id:m.id,time:m.time,title:aiM(m.id)?.title||MOMENT_TITLE[m.kind]}))} onSeek={setCursor}/>}
+        {cur&&<div key={sel} className="rp-balloon">
+          <div className="rp-balloon-t">{NUM[cur.n-1]} {curAi?.title||MOMENT_TITLE[cur.kind]} <small>{cur.time.toFixed(1)} 秒</small></div>
+          {curAi?.dj&&<div className="rp-dj">🎙 {curAi.dj}</div>}
+          <p>{ai?(curAi?.explain||localMoment(cur,names)):'博士正在看这一段……'}</p>
+        </div>}
+        {chart&&<div className="rp-chart"><RpmChart samples={decisive.samples} events={decisive.events} moments={moments} cursor={cursor} onSeek={t=>{setCursor(t);viewer.current?.seek?.(t);}} names={names} colors={[myBey.colors?.primary||'#2f7bff',opp.bey.colors?.primary||'#f2b632']}/></div>}
+        {cur&&quizOn&&curAi?.quiz&&<QuizCard quiz={curAi.quiz} answer={answers[cur.id]} onAnswer={i=>answer(cur,i)} onClose={()=>setQuizOn(false)} card={curAi.cardId&&getCard(curAi.cardId)}/>}
+      </div>
+      <div className="rp-strip">
+        {moments.map(m=>{const a=aiM(m.id);const ans=answers[m.id];return (
+          <div key={m.id} className={`rp-mpanel ${sel===m.id?'on':''}`}>
+            <button className="rp-mpanel-hit" onClick={()=>play(m)}>
+              <span className="rp-mnum">{NUM[m.n-1]}</span>
+              <span className="rp-mtitle">{a?.title||MOMENT_TITLE[m.kind]}<small>{m.time.toFixed(1)} 秒{ans!=null?(ans===a?.quiz?.answer?' · ✅':' · ❌'):a?.quiz?' · 🤔':''}</small></span>
+            </button>
+            <div className="rp-mactions">
+              <button className="btn small" onClick={()=>play(m)}>▶ 慢放</button>
+              {a?.quiz&&<button className="btn small" onClick={()=>{setSel(m.id);setQuizOn(true);}}>🤔 你猜</button>}
+              <button className="btn small" onClick={()=>openFlipbook({moment:{kind:m.kind,title:a?.title||MOMENT_TITLE[m.kind],explain:a?.explain||localMoment(m,names)}})}>📖 绘本</button>
+            </div>
+          </div>);})}
+        <button className="rp-mpanel rp-mnext" onClick={onNext}><span className="rp-mnum">🔬</span><span className="rp-mtitle">去实验室验证<small>只改一个变量</small></span></button>
+      </div>
+      <div className="model-note rp-note">复盘只引用这一局记录到的数据；因果结论都是「在这个模型里」成立。</div>
+    </div>
+  );
+}
+
+function QuizCard({quiz,answer,onAnswer,onClose,card}){
   const done=answer!=null;
-  return <div className="quiz">
-    <div className="quiz-q">🤔 你猜？{quiz.q}</div>
-    <div className="quiz-opts">{quiz.options.map((o,i)=><button key={i} disabled={done} className={`quiz-opt ${done&&i===quiz.answer?'right':''} ${done&&i===answer&&i!==quiz.answer?'wrong':''}`} onClick={()=>onAnswer(i)}>{'AB'[i]}. {o}</button>)}</div>
-    {done&&<div className="quiz-reveal slidein">{answer===quiz.answer?'✅ 答对了！🪙 +5 ':'❌ 差一点！'}{quiz.reveal}<div className="quiz-analogy">🌏 生活里：{quiz.analogy}</div></div>}
+  return <div className="rp-quiz pop">
+    <button className="rp-quiz-x" onClick={onClose} aria-label="关闭">✕</button>
+    <div className="rp-quiz-q">🤔 你猜？{quiz.q}</div>
+    <div className="rp-quiz-opts">{quiz.options.map((o,i)=><button key={i} disabled={done} className={`rp-quiz-opt ${done&&i===quiz.answer?'right':''} ${done&&i===answer&&i!==quiz.answer?'wrong':''}`} onClick={()=>onAnswer(i)}><b>{'AB'[i]}</b>{o}</button>)}</div>
+    {done&&<div className="rp-quiz-reveal slidein">
+      <div>{answer===quiz.answer?'✅ 答对了！🪙 +5　':'❌ 差一点！　'}{quiz.reveal}</div>
+      <div className="rp-quiz-analogy">🌏 生活里：{quiz.analogy}</div>
+      {card&&<div style={{marginTop:6}}><KnowledgeChip card={card}/></div>}
+    </div>}
   </div>;
 }
 
-function ExperimentCompare({rounds,myName,opp}){
-  const r=rounds.at(-1);
-  return <div className="panel" style={{padding:14,color:'#111'}}>
-    <b>🔬 实验记录</b>
-    <div style={{fontSize:14,lineHeight:1.7,marginTop:6}}>这次用 <b>{r.beyName}</b>：{r.result.winner?opp.name:myName} 以 {FINISH_ZH[r.result.reason]} 获胜，用时 {r.result.time.toFixed(1)} 秒。<br/>发射条件和对手完全一样，所以差别来自你换的东西（在这个模型里）。</div>
-  </div>;
+function NextPage({won,ai,go,myBey}){
+  return (
+    <div className="rp-next">
+      <div className="rp-next-doc">
+        <DoctorFace mood={won?'excited':'thinking'} size={110}/>
+        <div className="bubble rp-next-bubble">{ai?.takeaway||(won?`漂亮！你的 ${myBey.name} 赢下了这一场。想想是哪个设计帮了大忙？`:`没关系！输了正好做实验：只改一个零件，再比一次看看。`)}</div>
+      </div>
+      <div className="rp-next-btns">
+        <button className="rp-bigbtn map" onClick={()=>go('map')}><span>🗺️</span>回到地图</button>
+        <button className="rp-bigbtn again" onClick={()=>go('battle',{...useGame.getState().params})}><span>⚔️</span>再战一次</button>
+        <button className="rp-bigbtn fuse" onClick={()=>go('fusion',{back:'map'})}><span>⚡</span>去融合工坊改造</button>
+      </div>
+    </div>
+  );
 }
 
 function RecruitModal({blader,save,onDone,onClose}){

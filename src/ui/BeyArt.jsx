@@ -41,8 +41,10 @@ export default function BeyArt({bey,size=160,spin}){
       </Suspense>
     </div>
   );
-  const src=`/art/beys/${bey.id}.png`;
-  if(!failed&&!bey.parents)return <img src={src} width={size} height={size} alt={bey.name} style={{objectFit:'contain',display:'block'}} onError={()=>setFailed(true)}/>;
+  // Story variants (e.g. 'raiga-dragoon') reuse their base bey's art; fused beys use the generated icon.
+  const ids=[bey.id,String(bey.id||'').split('-').pop()].filter((v,i,a)=>v&&a.indexOf(v)===i);
+  const idx=failed===false?0:failed;
+  if(!bey.parents&&idx<ids.length)return <img key={ids[idx]} src={`/art/beys/${ids[idx]}.png`} width={size} height={size} alt={bey.name} style={{objectFit:'contain',display:'block'}} onError={()=>setFailed(idx+1)}/>;
   return <BeySvg bey={bey} size={size} spin={spin}/>;
 }
 

@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import {LAYER_LABEL, getCard} from './cards.js';
+import {openFlipbook} from '../flipbook/store.js';
 import '../fusion/fusion.css';
 
 const LAYER_ICON = {official:'🏆', physics:'🔬', design:'🎮'};
@@ -9,7 +10,7 @@ export function LayerBadge({layer}) {
 }
 
 // Full card. `card` may be an object or an id.
-export default function KnowledgeCard({card, compact=false, isNew=false}) {
+export default function KnowledgeCard({card, compact=false, isNew=false, book=true}) {
   const c = typeof card==='string' ? getCard(card) : card;
   if (!c) return null;
   return (
@@ -20,6 +21,7 @@ export default function KnowledgeCard({card, compact=false, isNew=false}) {
         <LayerBadge layer={c.layer}/>
       </div>
       <p className="kcard-body">{c.body}</p>
+      {book && <button type="button" className="kcard-book" onClick={e=>{e.stopPropagation(); openFlipbook({cardId:c.id});}}>📖 翻开绘本</button>}
     </div>
   );
 }

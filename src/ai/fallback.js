@@ -306,10 +306,14 @@ export function variableFacts(variable={}) {
   return VAR_WHY[card] || '';
 }
 // Make sure the player's bey is always called "你的 X" in model prose.
-export function ownName(text='', name='') {
+export function ownName(text='', name='', other='') {
   if (!name) return text;
-  const esc = name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  return String(text).replace(new RegExp(`(^|[^的])\\s*(${esc})`,'g'), (m,pre,n)=>`${pre}你的 ${n}`).replace(/你的\s+你的/g,'你的');
+  const esc = v => v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  // Protect the opponent's name when it contains ours (e.g. "Thunder Dragoon" vs "Dragoon").
+  let t = String(text); const hold = '\u0001';
+  if (other && other!==name && other.includes(name)) t = t.split(other).join(hold);
+  t = t.replace(new RegExp(`(^|[^的A-Za-z])\\s*(${esc(name)})(?![A-Za-z])`,'g'), (m,pre,n)=>`${pre}你的 ${n}`).replace(/你的\s+你的/g,'你的');
+  return t.split(hold).join(other);
 }
 const NEXT_VARS = [['ph-friction-area','换一种 Bit（轴尖）'],['ph-inertia','调外圈配重'],['ph-com-height','换 Ratchet 高度'],['ph-wing-contact','改翼片数量'],['ph-launch-rpm','改发射转速']];
 export function templateExperiment({names=['A','B'], variable={}, prediction=null, metric={}, stats={}, trials=[]}={}) {

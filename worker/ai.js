@@ -225,7 +225,7 @@ tryNext 只能建议改“你的 ${names[0]}”的一个地方（外圈配重/�
   try {
     const out = await runModel(env, [{role:'system', content:'你是陀螺对战的热血解说员兼科学老师。中文，短句，有趣，诚实。只输出 JSON。'}, {role:'user', content:user}], 600, 'commentary');
     const card = getCard(out.science?.cardId) || getCard(fallback().science.cardId);
-    const story = (Array.isArray(out.story)?out.story:[]).map(s=>clip(ownName(tidyNumbers(String(s)), names[0]),72)).filter(Boolean).slice(0,4);
+    const story = (Array.isArray(out.story)?out.story:[]).map(s=>clip(ownName(tidyNumbers(String(s)), names[0], names[1]),72)).filter(Boolean).slice(0,4);
     if (!story.length || !out.headline) throw new Error('incomplete');
     let sciBody = tidyNumbers(String(out.science?.body||card.body)).slice(0,90);
     if (!sciBody.includes('模型')) sciBody += '（在这个模型里）';
@@ -284,12 +284,12 @@ ${wantQuiz ? `- quiz：一个“你猜？”问题，问这个时刻“为什么
     const merged = list.map(m=>{
       const t = templateMoment(m, names), o = got.get(String(m.id));
       if (!o) return t;
-      return {id:m.id, title:clip(tidyNumbers(String(o.title||t.title)),14), explain:clip(ownName(tidyNumbers(String(o.explain||t.explain)), names[0]),80),
+      return {id:m.id, title:clip(tidyNumbers(String(o.title||t.title)),14), explain:clip(ownName(tidyNumbers(String(o.explain||t.explain)), names[0], names[1]),80),
         cardId:getCard(o.cardId)?o.cardId:t.cardId, dj:clip(String(o.dj||t.dj),28),
         // Smaller open models invert causality in quizzes; only trust Claude's, else the vetted template.
         quiz: out.__via==='claude' ? sanitizeQuiz(o.quiz, m) : t.quiz};
     });
-    let takeaway = clip(ownName(tidyNumbers(String(out.takeaway||'')), names[0]),60);
+    let takeaway = clip(ownName(tidyNumbers(String(out.takeaway||'')), names[0], names[1]),60);
     if (!takeaway || !takeaway.includes('你的')) takeaway = designTakeaway(summary, names);
     return json({headline:String(out.headline||fallback().headline).slice(0,16), moments:merged, takeaway, via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
@@ -320,7 +320,7 @@ ${row('B',B)}
 只输出 JSON：{"conclusion":"","why":"","repeatLesson":"","predictionFeedback":"","nextIdea":""}`;
   try {
     const out = await runModel(env, [{role:'system', content:'你是陀螺王国的科学老师，带小学生做实验。中文短句，鼓励，诚实，只输出 JSON。'}, {role:'user', content:user}], 650, 'experiment');
-    const pick = (k, max) => { const v = ownName(tidyNumbers(String(out[k]||'')).trim(), names[0]); return (v || base[k]).slice(0, max); };
+    const pick = (k, max) => { const v = ownName(tidyNumbers(String(out[k]||'')).trim(), names[0], names[1]); return (v || base[k]).slice(0, max); };
     let conclusion = pick('conclusion', 80);
     if (!conclusion.includes('模型')) conclusion = conclusion.replace(/。?$/, '（在这个模型里）。');
     return json({verdict:base.verdict, conclusion, why:pick('why',110), repeatLesson:pick('repeatLesson',70), predictionFeedback:pick('predictionFeedback',50), cardId:base.cardId, nextIdea:pick('nextIdea',50), via:out.__via, aiNote:out.__note||undefined});
