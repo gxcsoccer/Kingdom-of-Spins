@@ -1,6 +1,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {flipStartOnce, flipTap, flipImage, markTap} from './api.js';
 import {useFlipbook} from './store.js';
+import ChapterBook from './ChapterBook.jsx';
+import {chapterById, chapterForCard, chapterForMoment} from './chapters.js';
 import {speak, stopSpeaking, ttsSupported} from '../fusion/voice.js';
 import {LayerBadge} from '../knowledge/KnowledgeCard.jsx';
 import './flipbook.css';
@@ -133,5 +135,8 @@ export default function Flipbook({start, onClose, onUnlock}) {
 export function FlipbookHost({onUnlock}) {
   const start = useFlipbook(s=>s.start), close = useFlipbook(s=>s.close);
   if (!start) return null;
+  // Built-in chapter when one matches (by id, card, or replay moment); otherwise free AI exploration.
+  const chapter = chapterById(start.chapter) || (start.cardId && chapterForCard(start.cardId)) || (start.moment && chapterForMoment(start.moment)) || null;
+  if (chapter && !start.free) return <ChapterBook key={chapter.id+start._t} chapter={chapter} onClose={close} onUnlock={onUnlock}/>;
   return <Flipbook start={start} onClose={close} onUnlock={onUnlock}/>;
 }

@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {BEYS} from './beys.js';
 import {BLADERS} from './story.js';
 import {emptyExplore} from './regions.js';
+import {screenToPath,pathToScreen} from './router.js';
 
 const KEY='kos-save-v1';
 export const BLIND_BOX_COST=100;
@@ -17,9 +18,12 @@ const copyBey=(b,extra={})=>({...structuredClone(b),uid:uid(),...extra});
 export const useGame=create((set,get)=>({
   saveKey:KEY,
   save:loadLocal(KEY),
-  screen:'title',
-  params:{},
-  go(screen,params={}){set(st=>({screen,params,nonce:(st.nonce||0)+1}));window.scrollTo?.(0,0);},
+  ...(typeof window!=='undefined'?pathToScreen():{screen:'title',params:{}}),
+  go(screen,params={},opts={}){
+    set(st=>({screen,params,nonce:(st.nonce||0)+1}));window.scrollTo?.(0,0);
+    if(typeof window!=='undefined'&&!opts.fromHistory){const path=screenToPath(screen,params);
+      if(path&&path!==location.pathname+location.search)history[opts.replace?'replaceState':'pushState']({screen,params},'',path);}
+  },
   // Switch which save slot (kid profile) is active. Remote sync hooks in via onChange.
   useSlot(key,remote){const save=remote?{...freshSave(),...remote}:loadLocal(key);set({saveKey:key,save});},
   update(fn){

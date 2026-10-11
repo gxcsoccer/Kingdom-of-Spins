@@ -1,0 +1,180 @@
+// Hands-on mini experiments for the science chapters. Tiny analytic models (stated as such), SVG + rAF.
+import {useEffect, useRef, useState} from 'react';
+
+function useLoop(run, step) {
+  const s = useRef(step); s.current = step;
+  useEffect(()=>{ if (!run) return; let raf, last = performance.now();
+    const f = t => { const dt = Math.min(.05, (t-last)/1000); last = t; if (s.current(dt) !== false) raf = requestAnimationFrame(f); };
+    raf = requestAnimationFrame(f); return ()=>cancelAnimationFrame(raf); }, [run]);
+}
+const Note = ({children}) => <div className="xp-note">⚙ {children}</div>;
+
+// ① 转动惯量：同样的发射转速、同样的摩擦力矩，I 越大停得越慢（ω = ω0 − τ/I · t）。
+function Disc({weights, angle, label, color, onToggle}) {
+  return (
+    <svg viewBox="-60 -60 120 120" className="xp-disc">
+      <g transform={`rotate(${angle})`}>
+        <circle r="50" fill={color} stroke="#111" strokeWidth="3"/>
+        {[0,120,240].map(a=><path key={a} d="M0 -50 L12 -28 L-12 -28 Z" fill="#fff" stroke="#111" strokeWidth="2" transform={`rotate(${a})`}/>)}
+        <circle r="9" fill="#111"/>
+        {weights.map((outer,i)=>{ const a = (i*60+30)*Math.PI/180, r = outer ? 40 : 21; return (
+          <rect key={i} x={r*Math.cos(a)-5} y={r*Math.sin(a)-5} width="10" height="10" rx="2" fill="#c9ced6" stroke="#111" strokeWidth="2" style={{cursor:'pointer'}} onClick={()=>onToggle?.(i)}/>); })}
+      </g>
+      <text y="58" textAnchor="middle" fontSize="9" fontWeight="900">{label}</text>
+    </svg>
+  );
+}
+export function InertiaLab({onDone}) {
+  const [A, setA] = useState([1,1,1,1,1,1]), [B, setB] = useState([0,0,0,0,0,0]);
+  const [st, setSt] = useState(null);   // {w:[..], ang:[..], t, stop:[..]}
+  const I = ws => 1 + ws.reduce((s,o)=>s + .5*(o ? 40*40 : 21*21)/400, 0);   // disc + Σ m r² (units arbitrary)
+  const W0 = 30, TAU = 48;   // tuned so the rim-weighted disc spins ~8 s
+  useLoop(!!st && st.running, dt => setSt(s => { if (!s) return s;
+    const w = s.w.map((x,i)=>Math.max(0, x - TAU/s.I[i]*dt)), ang = s.ang.map((a,i)=>a + w[i]*dt*57.3), t = s.t + dt;
+    const stop = s.stop.map((v,i)=>v ?? (w[i]===0 ? t : null)), running = w.some(x=>x>0);
+    if (!running) onDone?.(); return {...s, w, ang, t, stop, running}; }));
+  const go = () => setSt({I:[I(A), I(B)], w:[W0, W0], ang:[0,0], t:0, stop:[null,null], running:true});
+  const tog = (set) => i => { if (st?.running) return; set(ws=>ws.map((o,j)=>j===i ? 1-o : o)); setSt(null); };
+  return (
+    <div className="xp">
+      <div className="xp-row">
+        {[A,B].map((ws,i)=>(
+          <div key={i} className="xp-cell">
+            <Disc weights={ws} angle={st?.ang[i]||0} color={i?'#ffd9a0':'#a9cbff'} label={i?'陀螺 B':'陀螺 A'} onToggle={tog(i?setB:setA)}/>
+            <div className="xp-meter"><i style={{width:`${(st ? st.w[i]/W0 : 1)*100}%`}}/></div>
+            <div className="xp-read">转动惯量 {I(ws).toFixed(1)} · {st?.stop[i] ? `停在 ${st.stop[i].toFixed(1)} 秒` : st ? '转动中…' : '点金属块：外圈 ↔ 中心'}</div>
+          </div>))}
+      </div>
+      <button className="btn primary big" disabled={st?.running} onClick={go}>🌀 转！</button>
+      <Note>小模型：两只陀螺一样重、发射转速一样、摩擦力矩一样；只有金属块的位置不同。</Note>
+    </div>
+  );
+}
+
+// ② 轴尖与摩擦：转速衰减 ∝ 摩擦力臂；跑动速度 ∝ 抓地（碰地半径）。数值来自游戏里的轴尖参数。
+const TIP = {needle:{label:'尖轴', arm:.35, grip:.2, c:'#14c9a5'}, ball:{label:'圆轴', arm:.9, grip:.5, c:'#2f7bff'}, flat:{label:'平轴', arm:2, grip:1, c:'#ff2d4a'}};
+export function FrictionLab({onDone}) {
+  const [st, setSt] = useState(null);
+  useLoop(!!st?.running, dt => setSt(s => { const n = {...s, t:s.t+dt}; let any = false;
+    for (const k of Object.keys(TIP)) { const r = {...s[k]}; if (r.w > 0) { r.w = Math.max(0, r.w - TIP[k].arm*.18*dt*10); r.pos += TIP[k].grip*r.w*dt*.06; r.ang += r.w*dt*60; if (r.w===0) r.stop = n.t; any = true; } n[k] = r; }
+    n.running = any; if (!any) onDone?.(); return n; }));
+  const go = () => setSt({t:0, running:true, ...Object.fromEntries(Object.keys(TIP).map(k=>[k,{w:10, pos:0, ang:0, stop:null}]))});
+  return (
+    <div className="xp">
+      {Object.entries(TIP).map(([k,tp])=>{ const r = st?.[k]; return (
+        <div key={k} className="xp-lane">
+          <b style={{color:tp.c}}>{tp.label}</b>
+          <div className="xp-track"><span className="xp-top" style={{left:`${Math.min(92, (r?.pos||0)*100)}%`, background:tp.c, transform:`rotate(${r?.ang||0}deg)`}}/></div>
+          <div className="xp-meter small"><i style={{width:`${(r ? r.w/10 : 1)*100}%`, background:tp.c}}/></div>
+          <span className="xp-read">{r?.stop ? `停在 ${r.stop.toFixed(1)} 秒 · 跑了 ${Math.round(r.pos*100)} 格` : r ? '转动中…' : ''}</span>
+        </div>); })}
+      <button className="btn primary big" disabled={st?.running} onClick={go}>🌀 三个一起转！</button>
+      <Note>小模型：转速掉得快慢看摩擦的“力臂”，跑得远近看抓地力；三只陀螺其他条件都一样。</Note>
+    </div>
+  );
+}
+
+// ③ 碰撞：一维弹性碰撞，B 原本静止：vA' = (mA−mB)/(mA+mB)·v，vB' = 2mA/(mA+mB)·v。
+export function MomentumLab({onDone}) {
+  const [mA, setMA] = useState(30), [mB, setMB] = useState(45);
+  const [st, setSt] = useState(null);
+  const v = 1, vA = (mA-mB)/(mA+mB)*v, vB = 2*mA/(mA+mB)*v;
+  useLoop(!!st?.running, dt => setSt(s => { const t = s.t + dt; const hit = .35;
+    const xa = t < hit ? .1 + v*t*.9 : .1 + v*hit*.9 + vA*(t-hit)*.9, xb = t < hit ? .5 : .5 + vB*(t-hit)*.9;
+    const running = t < 1.6; if (!running) onDone?.(); return {t, xa, xb, running, hitShown: t >= hit}; }));
+  const size = m => 18 + m*.5;
+  return (
+    <div className="xp">
+      <div className="xp-arena">
+        <span className="xp-ball a" style={{left:`${(st?.xa ?? .1)*100}%`, width:size(mA), height:size(mA)}}>A</span>
+        <span className="xp-ball b" style={{left:`${Math.min(96,(st?.xb ?? .5)*100)}%`, width:size(mB), height:size(mB)}}>B</span>
+        {st?.hitShown && <span className="xp-boom">ガキン！</span>}
+      </div>
+      <div className="xp-sliders">
+        <label>A 的重量 {mA} g<input type="range" min="20" max="60" value={mA} onChange={e=>{setMA(+e.target.value); setSt(null);}}/></label>
+        <label>B 的重量 {mB} g<input type="range" min="20" max="60" value={mB} onChange={e=>{setMB(+e.target.value); setSt(null);}}/></label>
+      </div>
+      <div className="xp-read big">撞完：A 的速度 {vA>=0?'向前':'弹回'} {Math.abs(vA).toFixed(2)} · B 的速度 {vB.toFixed(2)}（撞前 A = 1.00）</div>
+      <button className="btn primary big" disabled={st?.running} onClick={()=>setSt({t:0, running:true})}>💥 撞！</button>
+      <Note>小模型：一维弹性碰撞，B 原来不动。真实陀螺还会转、会晃，能量也会损失一部分。</Note>
+    </div>
+  );
+}
+
+// ④ 进动：Ω = m·g·r / (I·ω)；转速越快画圈越慢；太慢就倒。
+export function PrecessionLab({onDone}) {
+  const [rpm, setRpm] = useState(4000);
+  const [phi, setPhi] = useState(0);
+  const fall = rpm < 1000, omega = rpm*Math.PI/30, Om = 0.042*9.81*0.012/(2.1e-5*omega);   // rad/s
+  useLoop(true, dt => { setPhi(p=>p + (fall ? 0 : Om*dt)); });
+  useEffect(()=>{ if (rpm<=1500) onDone?.(); }, [rpm]);   // eslint-disable-line
+  const tilt = fall ? 70 : 15, cx = 100 + Math.sin(phi)*40*Math.sin(tilt*Math.PI/180)*2, cy = 40 + (fall ? 50 : 0);
+  return (
+    <div className="xp">
+      <svg viewBox="0 0 200 150" className="xp-prec">
+        <ellipse cx="100" cy="130" rx="70" ry="10" fill="#e9e3d4"/>
+        {!fall && <ellipse cx="100" cy="45" rx={40*Math.sin(tilt*Math.PI/180)*2} ry="8" fill="none" stroke="#8a3cff" strokeDasharray="4 4"/>}
+        <line x1="100" y1="128" x2={cx} y2={cy} stroke="#111" strokeWidth="4"/>
+        <ellipse cx={(100+cx)/2+ (cx-100)*.15} cy={(128+cy)/2 - 10} rx="32" ry="9" fill="#c6a8ff" stroke="#111" strokeWidth="3" transform={`rotate(${(cx-100)*.6} ${(100+cx)/2} ${(128+cy)/2-10})`}/>
+        {fall && <text x="100" y="30" textAnchor="middle" fontSize="16" fontWeight="900" fill="#ff2d4a">倒下啦！</text>}
+      </svg>
+      <label className="xp-sliders one">转速 {rpm} 转/分<input type="range" min="500" max="7000" step="100" value={rpm} onChange={e=>setRpm(+e.target.value)}/></label>
+      <div className="xp-read big">{fall ? '转得太慢，角动量不够，扛不住重力了。' : `画一圈要 ${(2*Math.PI/Om).toFixed(1)} 秒 —— 转得越快，画圈越慢、越稳。`}</div>
+      <Note>小模型：进动角速度 = 重力力矩 ÷ 角动量；1000 转/分以下当作“倒下”。</Note>
+    </div>
+  );
+}
+
+// ⑤ 潮汐：两个水鼓包朝着/背着月亮；港口水位 ∝ cos 2(θ港 − θ月)；太阳同向时（大潮）振幅更大。
+export function TidesLab({onDone}) {
+  const [hour, setHour] = useState(6), [spring, setSpring] = useState(true);
+  const moon = 0, harbor = hour/24*2*Math.PI, amp = spring ? 1 : .55;
+  const level = amp*Math.cos(2*(harbor-moon));
+  const seen = useRef(new Set()); useEffect(()=>{ seen.current.add(level>.4?'hi':level<-.4?'lo':''); if (seen.current.has('hi')&&seen.current.has('lo')) onDone?.(); }, [level]);   // eslint-disable-line
+  const R = 40, bul = 10*amp, hx = 100 + (R+4)*Math.cos(harbor), hy = 75 - (R+4)*Math.sin(harbor);
+  return (
+    <div className="xp">
+      <svg viewBox="0 0 260 150" className="xp-tides">
+        <ellipse cx="100" cy="75" rx={R+bul} ry={R-bul*.3} fill="#7fd3ff" stroke="#1d6fd1" strokeWidth="2"/>
+        <circle cx="100" cy="75" r={R-6} fill="#8fd18a" stroke="#111" strokeWidth="2"/>
+        <circle cx={hx} cy={hy} r="6" fill="#ff2d4a" stroke="#fff" strokeWidth="2"/>
+        <circle cx="225" cy="75" r="12" fill="#f1f4f7" stroke="#111" strokeWidth="2"/><text x="225" y="100" textAnchor="middle" fontSize="10" fontWeight="900">月亮</text>
+        {spring ? <><circle cx="16" cy="75" r="10" fill="#ffd400" stroke="#111"/><text x="16" y="98" textAnchor="middle" fontSize="9" fontWeight="900">太阳</text></>
+          : <><circle cx="100" cy="12" r="9" fill="#ffd400" stroke="#111"/><text x="122" y="15" fontSize="9" fontWeight="900">太阳</text></>}
+      </svg>
+      <div className="xp-tidebar"><span>港口水位</span><div className="xp-meter"><i style={{width:`${(level+1)/2*100}%`}}/></div><b>{level>.4?'涨潮 🌊':level<-.4?'落潮 🏖️':'半潮'}</b></div>
+      <div className="xp-sliders">
+        <label>一天中的时间 {hour} 点（地球自转）<input type="range" min="0" max="24" value={hour} onChange={e=>setHour(+e.target.value)}/></label>
+        <label className="xp-check"><input type="checkbox" checked={spring} onChange={e=>setSpring(e.target.checked)}/> 太阳和月亮排成一线（新月/满月）</label>
+      </div>
+      <Note>示意模型：鼓包和天体大小都夸张了；真实的潮汐还受海岸地形影响。</Note>
+    </div>
+  );
+}
+
+// ⑥ 海拔与温度：T = T0 − 0.6 × h/100。
+export function AltitudeLab({onDone}) {
+  const [h, setH] = useState(0), [t0, setT0] = useState(28);
+  const T = t0 - .6*h/100;
+  useEffect(()=>{ if (h>=8000) onDone?.(); }, [h]);   // eslint-disable-line
+  const zone = T>12 ? '🌲 森林' : T>3 ? '🌼 草甸' : T>0 ? '🪨 岩石' : '❄️ 冰雪';
+  return (
+    <div className="xp">
+      <svg viewBox="0 0 260 150" className="xp-mount">
+        <polygon points="20,145 130,10 240,145" fill="#9aa7b3" stroke="#111" strokeWidth="2"/>
+        <polygon points="105,40 130,10 155,40 140,36 130,44 118,36" fill="#fff" stroke="#111" strokeWidth="1.5"/>
+        <polygon points="20,145 70,85 190,85 240,145" fill="#6fbf73" opacity=".85"/>
+        <circle cx="130" cy={145 - h/8849*135} r="6" fill="#ff2d4a" stroke="#fff" strokeWidth="2"/>
+        <text x="148" y={149 - h/8849*135} fontSize="11" fontWeight="900">{T.toFixed(1)}°C</text>
+      </svg>
+      <div className="xp-sliders">
+        <label>海拔 {h} 米{h>=8800?'（珠峰顶！8848.86 米）':''}<input type="range" min="0" max="8849" step="50" value={h} onChange={e=>setH(+e.target.value)}/></label>
+        <label>山脚（海边）气温 {t0}°C<input type="range" min="5" max="35" value={t0} onChange={e=>setT0(+e.target.value)}/></label>
+      </div>
+      <div className="xp-read big">现在：{T.toFixed(1)}°C · {zone}</div>
+      <Note>小模型：每升高 100 米降 0.6°C（平均值）。真实的植被分带还和雨量、坡向有关。</Note>
+    </div>
+  );
+}
+
+export const EXPERIMENTS = {inertia:InertiaLab, friction:FrictionLab, momentum:MomentumLab, precession:PrecessionLab, tides:TidesLab, altitude:AltitudeLab};

@@ -15,11 +15,11 @@ import {BLADERS} from '../src/game/story.js';
 
 export const MODEL = globalThis.process?.env?.AI_MODEL || '@cf/openai/gpt-oss-120b';
 // Per-route budgets: Claude gets CLAUDE_MS, the Workers AI fallback gets TIMEOUT_MS after that.
-const TIMEOUT_MS = {explore:10000, flip:10000, fusion:20000, commentary:12000, ask:10000, moments:12000, experiment:12000, sketch:25000};
-const CLAUDE_MS = {explore:14000, flip:20000, fusion:22000, sketch:28000, moments:18000, experiment:12000, commentary:12000, ask:10000};
+const TIMEOUT_MS = {locate:8000, explore:10000, flip:10000, fusion:20000, commentary:12000, ask:10000, moments:12000, experiment:12000, sketch:25000};
+const CLAUDE_MS = {locate:16000, explore:14000, flip:20000, fusion:22000, sketch:28000, moments:18000, experiment:12000, commentary:12000, ask:10000};
 // Model split: quality/vision routes use the smart model, live-feedback routes use the fast one.
 // moments is on the smart model: Haiku's quizzes/analogies were physically wrong in tests (Sonnet ~13 s, correct).
-const SMART_KINDS = new Set(['fusion','sketch','moments','flip']);
+const SMART_KINDS = new Set(['fusion','sketch','moments','flip','locate']);
 export const modelFor = (env, kind) => SMART_KINDS.has(kind) ? (env?.LLM_MODEL_SMART || env?.LLM_MODEL || 'anthropic/claude-sonnet-5.5') : (env?.LLM_MODEL_FAST || 'anthropic/claude-haiku-5.5');
 export const CF_CLAUDE_MODEL = 'anthropic/claude-sonnet-5.5';
 export const CLAUDE_MODEL = 'claude-sonnet-5-5';
@@ -458,6 +458,22 @@ async function flipImage(body, env) {
   return json({error:errors.join('; ')}, 502);
 }
 
+// Vision: find 3 tappable objects actually drawn in a picture (hotspots are never pre-placed on generated art).
+async function flipLocate(body, env) {
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.imageDataUrl||''));
+  if (!m) return json({error:'bad image'}, 400);
+  const ctx = body.context || {};
+  const user = `这是儿童科学漫画绘本的一页插图。本页主题：「${String(ctx.title||'').slice(0,30)}」。${String(ctx.text||'').slice(0,200)}
+请在图里找出 3 个孩子可能好奇、和本页科学知识有关、而且确实清楚画在图里的东西（例如陀螺外圈的金属块、轴尖、滑冰者的手臂、火花）。
+对每个东西给出它在图中的中心位置：x 从左到右 0~1，y 从上到下 0~1（要准确落在物体上）；label 是中文≤6字；hint 是一句英文，说明它背后可以深入讲的科学。
+如果图里没画某样东西，就不要编。只输出 JSON：{"spots":[{"x":0.5,"y":0.5,"label":"外圈配重","hint":"rim weights raise moment of inertia"}]}`;
+  try {
+    const out = await llm(env, {system:'You locate objects in illustrations precisely. Output JSON only.', user, images:[{mediaType:m[1], data:m[2]}], maxTokens:500, kind:'locate', claudeOnly:true});
+    const spots = (Array.isArray(out.spots)?out.spots:[]).slice(0,4).map(sp=>({x:Math.max(.03,Math.min(.97,+sp.x||.5)), y:Math.max(.03,Math.min(.97,+sp.y||.5)), label:clean2(sp.label,6)||'看看', hint:String(sp.hint||'').slice(0,140)})).filter(sp=>Number.isFinite(sp.x)&&Number.isFinite(sp.y));
+    return json({spots, via:out.__via});
+  } catch (e) { return json({spots:[], error:String(e.message||e).slice(0,160)}); }
+}
+
 // ── 探索：AI Game Master ──
 // The map is a fixed scene graph (scenes.js). Code decides WHERE things are hidden (per-run hide plan), whether this
 // step awards something, and pacing; the GM (Haiku) only writes the story, clues, gates and geo facts.
@@ -634,6 +650,7 @@ export async function handle(request, env) {
   if (path.endsWith('/flip/start')) return flipStart(body, env);
   if (path.endsWith('/flip/tap')) return flipTap(body, env);
   if (path.endsWith('/flip/image')) return flipImage(body, env);
+  if (path.endsWith('/flip/locate')) return flipLocate(body, env);
   if (path.endsWith('/explore/step')) return exploreStep(body, env);
   return json({error:'not found'}, 404);
 }

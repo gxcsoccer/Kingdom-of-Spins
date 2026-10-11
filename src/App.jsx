@@ -1,5 +1,6 @@
 import {lazy,Suspense} from 'react';
 import {useGame} from './game/store.js';
+import {pathToScreen} from './game/router.js';
 import TitleScreen from './ui/TitleScreen.jsx';
 import StarterScreen from './ui/StarterScreen.jsx';
 import MapScreen from './ui/MapScreen.jsx';
@@ -16,6 +17,8 @@ const FlipbookHost=lazy(()=>import('./flipbook/Flipbook.jsx').then(m=>({default:
 const ShowcaseCanvas=lazy(()=>import('./scene/BeyShowcase.jsx').then(m=>({default:m.ShowcaseCanvas})));
 
 const SCREENS={title:TitleScreen,starter:StarterScreen,map:MapScreen,shop:ShopScreen,collection:CollectionScreen,battle:BattleScreen,fusion:FusionScreen,versus:VersusScreen,codex:CodexScreen,explore:ExploreScreen};
+
+if(typeof window!=='undefined')window.addEventListener('popstate',e=>{const st=e.state||pathToScreen();useGame.getState().go(st.screen,st.params||{},{fromHistory:true});});
 
 export default function App(){
   const screen=useGame(s=>s.screen), nonce=useGame(s=>s.nonce);
