@@ -1,4 +1,4 @@
-import {lazy,Suspense} from 'react';
+import {lazy,Suspense,Component} from 'react';
 import {useGame} from './game/store.js';
 import {pathToScreen} from './game/router.js';
 import TitleScreen from './ui/TitleScreen.jsx';
@@ -20,6 +20,22 @@ const SCREENS={title:TitleScreen,starter:StarterScreen,map:MapScreen,shop:ShopSc
 
 if(typeof window!=='undefined')window.addEventListener('popstate',e=>{const st=e.state||pathToScreen();useGame.getState().go(st.screen,st.params||{},{fromHistory:true});});
 
+// After a deploy, old lazy chunks disappear; reload once instead of showing a blank screen.
+class ChunkBoundary extends Component{
+  constructor(p){super(p);this.state={err:null};}
+  static getDerivedStateFromError(err){return {err};}
+  componentDidCatch(err){
+    const chunk=/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError/i.test(String(err?.message||err));
+    const k='kos.reloaded';if(chunk&&!sessionStorage.getItem(k)){sessionStorage.setItem(k,'1');location.reload();}
+  }
+  render(){
+    if(!this.state.err){try{sessionStorage.removeItem('kos.reloaded');}catch{}return this.props.children;}
+    return <div className="page" style={{display:'grid',placeItems:'center',minHeight:'100vh'}}><div className="panel" style={{padding:24,textAlign:'center'}}>
+      <div className="h-display" style={{fontSize:28}}>哎呀，画面卡住了</div><p style={{fontWeight:700}}>游戏刚刚更新过，点一下重新载入就好～</p>
+      <button className="btn primary" onClick={()=>location.reload()}>重新载入</button></div></div>;
+  }
+}
+
 export default function App(){
   const screen=useGame(s=>s.screen), nonce=useGame(s=>s.nonce);
   if(new URLSearchParams(location.search).has('art'))return <Suspense fallback={<Loading/>}><ArtCheck/></Suspense>;
@@ -27,7 +43,7 @@ export default function App(){
   // Gate: every screen except the title requires a signed-in parent + chosen kid profile.
   const Screen=activeKid?(SCREENS[screen]||TitleScreen):TitleScreen;
   return <>
-    <Suspense fallback={<Loading/>}><Screen key={screen+(nonce||0)}/></Suspense>
+    <ChunkBoundary key={screen+(nonce||0)}><Suspense fallback={<Loading/>}><Screen/></Suspense></ChunkBoundary>
     <Suspense fallback={null}><ShowcaseCanvas/></Suspense>
     <Suspense fallback={null}><FlipbookHost onUnlock={ids=>useGame.getState().unlockCards(ids)}/></Suspense>
   </>;

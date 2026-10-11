@@ -30,8 +30,7 @@ export function toonMat(color, opts = {}) {
   return memo(key, () => new THREE.MeshToonMaterial({
     color: new THREE.Color(color),
     gradientMap: opts.metal ? metalGradient() : toonGradient(),
-    emissive: opts.emissive ? new THREE.Color(opts.emissive) : undefined,
-    emissiveIntensity: opts.emissiveIntensity ?? 1,
+    ...(opts.emissive ? { emissive: new THREE.Color(opts.emissive), emissiveIntensity: opts.emissiveIntensity ?? 1 } : {}),
     transparent: (opts.opacity ?? 1) < 1,
     opacity: opts.opacity ?? 1,
   }));
