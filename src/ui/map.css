@@ -236,3 +236,8 @@
 .wm-state-dots{align-items:center}
 .wm-state-dots em{font-style:normal;font-weight:900;font-size:calc(var(--fs)*.95);margin-left:4px}
 .wm-mini{position:relative}.wm-mini.joined::after{content:"✓";position:absolute;right:-4px;bottom:-4px;width:15px;height:15px;border-radius:50%;background:#14c9a5;color:#fff;border:2px solid #111;font-size:10px;font-weight:900;display:grid;place-items:center;line-height:1}
+/* 区域卡 ↔ 地标点的引线（在卡片下方、地标点之下） */
+.wm-leads{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:visible}
+.wm-lead-bg{stroke:#111;stroke-width:9;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.wm-lead{stroke:var(--c,#fff);stroke-width:4;stroke-dasharray:10 7;stroke-linecap:round;vector-effect:non-scaling-stroke;animation:wmLead 1.2s linear infinite}
+@keyframes wmLead{to{stroke-dashoffset:-17}}

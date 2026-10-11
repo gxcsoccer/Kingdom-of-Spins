@@ -26,9 +26,9 @@ function hint(save){
 
 // Positions in % of the 1536×1024 (3:2) world map art. pin = landmark, card = where the badge floats.
 const REGION_POS={
-  harbor:{pin:[12.5,65],card:[13,40]},    // red-roof harbour town + lighthouse
-  thunder:{pin:[34.5,16],card:[60,21]},   // blue spiral tower; card over the open sea
-  volcano:{pin:[89,12],card:[84,46]},     // dragon castle; card over the lava fields
+  harbor:{pin:[12.5,65],card:[18,45]},    // red-roof harbour town + lighthouse
+  thunder:{pin:[34.5,16],card:[53,23]},   // blue spiral tower; card over the open sea
+  volcano:{pin:[89,12],card:[84,38]},     // dragon castle; card over the lava fields
 };
 const REGION_FOG={thunder:[[14,16],[30,10],[40,25],[24,30],[8,34],[46,14]],volcano:[[74,30],[85,20],[90,9],[84,46],[93,58],[77,60],[96,36],[71,46]]};
 const PLACES=[
@@ -262,6 +262,10 @@ export default function MapScreen(){
             </div>
           ))}
 
+          {/* 漫画引线：把每张区域卡和它在地图上的地标点连起来 */}
+          <svg className="wm-leads" viewBox="0 0 1536 1024" preserveAspectRatio="none">{REGIONS.map(r=>{const {pin,card}=REGION_POS[r.id];return <g key={r.id} style={{'--c':r.color}}>
+            <line x1={pin[0]*15.36} y1={pin[1]*10.24} x2={card[0]*15.36} y2={card[1]*10.24} className="wm-lead-bg"/>
+            <line x1={pin[0]*15.36} y1={pin[1]*10.24} x2={card[0]*15.36} y2={card[1]*10.24} className="wm-lead"/></g>;})}</svg>
           {REGIONS.map(r=><RegionBadge key={r.id} r={r} save={save} locked={locked(r)} onClick={()=>tapRegion(r)}/>)}
 
           {PLACES.map(p=><Place key={p.id} p={p} count={p.id==='codex'?save.cards.length:p.id==='collection'?save.collection.length:null} onClick={()=>go(p.go)}/>)}
