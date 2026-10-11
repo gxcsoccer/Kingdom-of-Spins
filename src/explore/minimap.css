@@ -1,0 +1,4 @@
+.mm{border:3px solid #111;box-shadow:4px 4px 0 #000;background:#1b2a3a;border-radius:12px;overflow:hidden}
+.mm svg{display:block;width:100%;height:auto}
+.mm-pulse{animation:mmPulse 1s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes mmPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.35)}}
