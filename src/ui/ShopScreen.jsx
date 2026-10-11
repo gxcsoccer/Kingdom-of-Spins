@@ -14,7 +14,7 @@ export default function ShopScreen(){
     setTimeout(()=>{setResult(openBlindBox());setStage('reveal');},1100);
   };
   return (
-    <div className="page">
+    <div className="page bg-shop">
       <TopBar title="商店 · 盲盒"/>
       <div style={{display:'flex',gap:28,flexWrap:'wrap'}}>
         <div className="panel" style={{flex:'999 1 520px',minHeight:460,display:'grid',placeItems:'center',position:'relative',overflow:'hidden',padding:24}}>

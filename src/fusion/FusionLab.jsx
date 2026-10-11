@@ -21,6 +21,10 @@ const PARAM_ROWS = [
 ];
 
 function Doctor({mood='talk'}) {
+  // Delivered portrait art (doctor/normal|excited|thinking.png); CSS face is the fallback.
+  const [ok,setOk]=useState(true);
+  const file={talk:'normal',happy:'excited',excited:'excited',think:'thinking',thinking:'thinking'}[mood]||'normal';
+  if(ok)return <div className={`doctor doctor-art ${mood}`} aria-hidden><img src={`/art/doctor/${file}.png`} alt="" onError={()=>setOk(false)} style={{width:'100%',height:'100%',objectFit:'contain'}}/><div className="doctor-name">融合博士</div></div>;
   return (
     <div className={`doctor ${mood}`} aria-hidden>
       <div className="doctor-face"><span className="doctor-eye"/><span className="doctor-eye"/><span className="doctor-mouth"/></div>

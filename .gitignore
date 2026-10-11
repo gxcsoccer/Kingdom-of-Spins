@@ -6,3 +6,4 @@ dist
 supabase/.secrets
 .env.local
 .env*.local
+art-delivery/

@@ -92,3 +92,8 @@ img{max-width:100%}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 .page.dark .btn:not(.primary):not(.ink){color:var(--ink)}
 .page.dark .panel:not(.ink){color:var(--ink)}
+/* Delivered manga backgrounds (empty centre by design); a paper wash keeps text readable. */
+.page.bg-map{background:linear-gradient(rgba(251,248,241,.5),rgba(251,248,241,.5)),url(/art/bg/map.jpg) center/cover fixed}
+.page.bg-shop{background:linear-gradient(rgba(251,248,241,.45),rgba(251,248,241,.45)),url(/art/bg/shop.jpg) center/cover fixed}
+.page.bg-lab{background:linear-gradient(rgba(251,248,241,.45),rgba(251,248,241,.45)),url(/art/bg/lab.jpg) center/cover fixed}
+.battle-idle.bg-arena,.prep{background-image:linear-gradient(rgba(10,10,14,.55),rgba(10,10,14,.72)),url(/art/bg/arena.jpg);background-size:cover;background-position:center}

@@ -19,7 +19,7 @@ export default function MapScreen(){
   const {save,go,setDemo}=useGame();
   const [info,setInfo]=useState(null);
   return (
-    <div className="page">
+    <div className="page bg-map">
       <TopBar title="冒险地图" back="title" right={<>
         <span className="chip">陀螺 {save.collection.length}/3</span>
         <span className="chip">队员 {save.team.length}/3</span>

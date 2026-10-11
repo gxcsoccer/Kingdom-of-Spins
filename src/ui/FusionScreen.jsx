@@ -6,7 +6,7 @@ export default function FusionScreen(){
   const {save,addBey,unlockCards,go,params}=useGame();
   const opponents=BLADERS.filter(b=>b.tier==='normal'||save.defeated.includes(b.id)||save.demo).map(b=>({id:b.id,name:b.name,bey:b.bey}));
   return (
-    <div className="page">
+    <div className="page bg-lab">
       <FusionLab collection={save.collection} opponents={opponents}
         onUnlock={ids=>unlockCards(ids)}
         onSave={bey=>{const added=addBey(bey,'fusion');unlockCards((bey.knowledge||[]).map(k=>k.id||k));go('collection',{highlight:added?.uid});}}

@@ -79,7 +79,7 @@ export default function BattleScreen(){
     <div className="page dark battle-page">
       <Hud player={player} names={[myName,opp.name]} beys={[myBey,opp.bey]} score={score} target={target} color={opp.color} round={roundRef.current}/>
       <div className="battle-stage">
-        {player?<BattleScene player={player} style={{position:'absolute',inset:0}}/>:<div className="battle-idle"><BeyArt bey={myBey} size={220} spin/><span className="h-display h-outline" style={{fontSize:80}}>VS</span><BeyArt bey={opp.bey} size={220} spin/></div>}
+        {player?<BattleScene player={player} style={{position:'absolute',inset:0}}/>:<div className="battle-idle bg-arena"><BeyArt bey={myBey} size={220} spin/><span className="h-display h-outline" style={{fontSize:80}}>VS</span><BeyArt bey={opp.bey} size={220} spin/></div>}
         {phase==='countdown'&&<div className="countdown"><span key={count} className="sfx pop">{count>0?count:'GO SHOOT!'}</span></div>}
         {phase==='fight'&&<div className="fight-controls">
           <button className="btn small" onClick={()=>{player.setPaused(!paused);setPaused(!paused);}}>{paused?'▶ 继续':'⏸ 暂停'}</button>

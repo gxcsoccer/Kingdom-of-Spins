@@ -3,11 +3,12 @@ import {useGame} from '../game/store.js';
 import {isConfigured, providerEnabled, getSession, onAuthChange, signInWithGoogle, signOut, listKids, createKid, deleteKid} from '../net/auth.js';
 import {activateKid, deactivateKid, restoreLastKid} from '../game/sync.js';
 
-const AVATARS = ['#ff2d4a', '#2f7bff', '#14c9a5', '#ffd400'];
+const AVATARS = ['1', '2', '3', '4']; // /art/avatars/<n>.png; older profiles may hold a hex colour
 const inputStyle = {border: 'var(--border)', padding: '8px 12px', font: 'inherit', fontWeight: 800};
 let restoreTried = false;
 
 function Avatar({color, name, size = 44}) {
+  if (/^[1-4]$/.test(String(color))) return <img src={`/art/avatars/${color}.png`} alt="" width={size} height={size} style={{borderRadius: '50%', border: 'var(--border)', background: '#fff', objectFit: 'cover', flex: 'none'}}/>;
   return (
     <span style={{width: size, height: size, borderRadius: '50%', background: color || '#ccc', border: 'var(--border)', display: 'inline-grid', placeItems: 'center',
       fontFamily: 'var(--display)', fontWeight: 900, fontSize: size * .45, color: '#fff', WebkitTextStroke: '1px var(--ink)', flex: 'none'}}>
