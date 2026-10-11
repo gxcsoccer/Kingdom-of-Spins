@@ -9,7 +9,8 @@ export const VARIABLES={
   wings:{label:'翼片数',options:[{value:2,label:'2 片'},{value:3,label:'3 片'},{value:4,label:'4 片'}],get:b=>b.blade.wings,set:(b,v)=>{b.blade.wings=v;}},
   rpm:{label:'发射转速',options:[{value:3500,label:'3,500 rpm'},{value:5000,label:'5,000 rpm'},{value:6500,label:'6,500 rpm'}],launch:true},
 };
-export const TRIALS=3, EXP_MAX_TIME=12;
+// 和正式对战同样的时长（battlePlayer 默认 20 秒）：第 1 次试验发射参数完全相同，“原版”必须重现刚才那一局。
+export const TRIALS=3, EXP_MAX_TIME=20;
 
 let pool=null, seq=1;
 function getPool(){

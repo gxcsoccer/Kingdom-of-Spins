@@ -112,8 +112,8 @@ function ExperimentLabInner({mine,opp,launches,names,suggest,onReward,onUnlock})
 function Results({res,review,variable,change,names,pred,mine,opp,onAgain,onMore}){
   const {trials}=res;
   const beysA=useMemo(()=>[mine,opp],[mine,opp]), beysB=useMemo(()=>[res.variantBey,opp],[res.variantBey,opp]);
-  // Show the longest (most informative) paired trial.
-  const best=trials.reduce((bi,t,i)=>Math.max(t.A.result.time,t.B.result.time)>Math.max(trials[bi].A.result.time,trials[bi].B.result.time)?i:bi,0);
+  // 回放第 1 次试验：它和刚才那一局发射参数完全相同，“原版”就是孩子真实打出来的那一局。
+  const best=0;
   const fullA=trials[best]?.A?.full, fullB=trials[best]?.B?.full;
   return (
     <div className="lab-body lab-done">
