@@ -259,6 +259,9 @@ async function moments(body, env) {
     if (d.relSpeed!=null) bits.push(`相对速度 ${fmtV(d.relSpeed)}`);
     if (d.rpmBefore && d.rpmAfter) [0,1].forEach(i=>{ const drop=Math.abs(d.rpmBefore[i])-Math.abs(d.rpmAfter[i]); bits.push(`${who(i)} ${fmtRpm(d.rpmBefore[i])}→${fmtRpm(d.rpmAfter[i])}${drop>50?`（掉了约 ${(Math.round(drop/100)*100).toLocaleString('en-US')} 转）`:''}`); });
     if (d.drop!=null) bits.push(`转速掉了约 ${(Math.round(Math.abs(d.drop)/100)*100).toLocaleString('en-US')} 转`);
+    if (d.window) bits.push(`在 ${d.window} 秒内`);
+    if (d.cause==='collision') bits.push(`原因：${d.hitTime!=null?fmtT(d.hitTime)+'的':''}一次碰撞（必须说是碰撞导致的）`);
+    if (d.cause==='friction') bits.push('原因：这段时间没有碰撞，是轴尖摩擦消耗（不要说成碰撞）');
     if (d.reason) bits.push(`方式 ${d.reason}`); if (d.winner!=null) bits.push(`胜者 ${who(d.winner)}`);
     return `- id=${m.id} ${fmtT(m.time)} ${m.kind}${m.body!=null?' 主角 '+who(m.body):''}：${bits.join('，')}（建议卡片 ${momentCard(m)}）`;
   };

@@ -226,7 +226,10 @@ export function templateMoment(m={}, names=['A','B']) {
     case 'spin-drop': {
       const b = m.body ?? 0, drop = d.drop ?? drops[b];
       title = '转速大跳水';
-      explain = `${t}${who(b)} 的转速${drop?`掉了${fmtDrop(drop)}`:'掉得很快'}。转速低了角动量变小，陀螺就开始晃，越晃越容易倒。`;
+      const win = d.window ? `${d.window} 秒内` : '很短时间内';
+      explain = d.cause==='collision'
+        ? `${t}${win}${who(b)} 的转速掉了${fmtDrop(drop)}——${d.hitTime!=null?`${fmtT(d.hitTime)}那一撞`:'一次碰撞'}把转动的能量变成了弹开和晃动。`
+        : `${t}${win}${who(b)} 的转速掉了${fmtDrop(drop)}，这段时间没有碰撞——是轴尖和地面的摩擦在慢慢“吃掉”转速。转速越低越容易晃。`;
       break;
     }
     case 'dash':
