@@ -24,31 +24,31 @@ function hint(save){
   return '龙焰火山岛的龙王在等你……准备好你最强的陀螺吧！';
 }
 
-// Region entry points on the 1920×1080 map art: pin = the place on the landscape, card = where the badge floats.
+// Positions in % of the 1536×1024 (3:2) world map art. pin = landmark, card = where the badge floats.
 const REGION_POS={
-  harbor:{pin:[11,73],card:[15,56]},
-  thunder:{pin:[13,20],card:[22,30]},
-  volcano:{pin:[90,16],card:[82,40]},
+  harbor:{pin:[12.5,65],card:[13,40]},    // red-roof harbour town + lighthouse
+  thunder:{pin:[34.5,16],card:[60,14]},   // blue spiral tower; card over the open sea
+  volcano:{pin:[89,12],card:[84,46]},     // dragon castle; card over the lava fields
 };
-const REGION_FOG={thunder:[[5.5,15],[23,12],[8,39],[15,25]],volcano:[[93.5,55],[84,41],[72,9],[88,30],[91,14],[86,8]]};
+const REGION_FOG={thunder:[[14,16],[30,10],[40,25],[24,30],[8,34],[46,14]],volcano:[[74,30],[85,20],[90,9],[84,46],[93,58],[77,60],[96,36],[71,46]]};
 const PLACES=[
-  {id:'shop',label:'盲盒商店',img:'/art/bg/shop.jpg',crop:'3% 42% / auto 240%',at:[38,64],go:'shop'},
-  {id:'fusion',label:'AI 融合工坊',img:'/art/bg/lab.jpg',crop:'4% 60% / auto 210%',at:[50,68],go:'fusion',doctor:true},
-  {id:'versus',label:'对战道场',img:'/art/bg/arena.jpg',crop:'100% 52% / auto 250%',at:[62,64],go:'versus'},
-  {id:'codex',label:'知识图鉴',icon:'scroll',at:[60,87],go:'codex'},
-  {id:'collection',label:'我的陀螺',icon:'bag',at:[73,79],go:'collection'},
+  {id:'shop',label:'盲盒商店',img:'/art/bg/shop.jpg',crop:'50% 50% / cover',at:[43,78],go:'shop'},        // striped-awning stall
+  {id:'fusion',label:'AI 融合工坊',img:'/art/bg/lab.jpg',crop:'50% 50% / cover',at:[47,63],go:'fusion',doctor:true}, // globe-dome lab
+  {id:'versus',label:'对战道场',img:'/art/bg/arena.jpg',crop:'50% 50% / cover',at:[59,68],go:'versus'},  // round red arena hall
+  {id:'codex',label:'知识图鉴',icon:'scroll',at:[68,75],go:'codex'},                                      // domed library
+  {id:'collection',label:'我的陀螺',icon:'bag',at:[54,84],go:'collection'},                               // small pagoda
 ];
 const reduced=()=>typeof matchMedia!=='undefined'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 const baseOf=bey=>(bey?.id||'').includes('-')?bey.id.split('-').pop():bey?.id;
 
-// Stage: fixed 16:9 world that "contains" on landscape screens (map edges are paper-white so the
-// letterbox blends in) and fits height + pans horizontally on portrait phones.
+// Stage: fixed 3:2 world that "contains" on landscape screens (a blurred copy of the map fills the
+// letterbox) and fits height + pans horizontally on portrait phones.
 function useStage(){
   const [st,setSt]=useState({w:1280,h:720,pan:false});
   useLayoutEffect(()=>{
     const f=()=>{const W=window.innerWidth,H=window.innerHeight;
-      if(W/H>=1.15){const s=Math.min(W/16,H/9);setSt({w:s*16,h:s*9,pan:false});}
-      else setSt({w:H*16/9,h:H,pan:true});};
+      if(W/H>=1.15){const s=Math.min(W/3,H/2);setSt({w:s*3,h:s*2,pan:false});}
+      else setSt({w:H*3/2,h:H,pan:true});};
     f();window.addEventListener('resize',f);return()=>window.removeEventListener('resize',f);
   },[]);
   return st;
@@ -112,7 +112,7 @@ function RegionPicker({r,save,closing,onPick,onBack}){
 function EnterCard({r}){
   return (
     <div className="wm-page" style={{'--c':r.color}}>
-      <div className="wm-sheet wm-enter">
+      <div className="wm-sheet wm-enter" style={{backgroundImage:`url(/art/regions/${r.id}.jpg)`}}>
         <div className="wm-burst"/>
         <div className="wm-enter-k">REGION {r.order}</div>
         <div className="wm-enter-name">{r.name}</div>
@@ -211,7 +211,7 @@ export default function MapScreen(){
   };
 
   const team=save.team.map(t=>bladerById(t.bladerId)).filter(Boolean);
-  const pathD=useMemo(()=>REGIONS.map((r,i)=>`${i?'L':'M'}${REGION_POS[r.id].pin[0]*19.2},${REGION_POS[r.id].pin[1]*10.8}`).join(' '),[]);
+  const pathD=useMemo(()=>REGIONS.map((r,i)=>`${i?'L':'M'}${REGION_POS[r.id].pin[0]*15.36},${REGION_POS[r.id].pin[1]*10.24}`).join(' '),[]);
   const overlay=!!(picker||page||entering);
 
   return (
@@ -231,11 +231,10 @@ export default function MapScreen(){
       <div ref={panRef} className={`wm-viewport ${stage.pan?'pan':''}`}>
         <div className={`wm-stage ${focus?'zoom':''} ${overlay&&!closing?'hidden':''}`} style={{width:stage.w,height:stage.h,'--sw':`${stage.w}px`,transformOrigin:focus?`${focus.x}% ${focus.y}%`:'50% 50%'}}>
           <img className="wm-art" src="/art/bg/map.jpg" alt="" draggable={false}/>
-          <svg className="wm-path" viewBox="0 0 1920 1080" preserveAspectRatio="none"><path d={pathD}/></svg>
-          <div className="wm-calli">陀螺王国<small>KINGDOM OF SPINS</small></div>
+          <svg className="wm-path" viewBox="0 0 1536 1024" preserveAspectRatio="none"><path d={pathD}/></svg>
 
           {REGIONS.map(r=>REGION_FOG[r.id]&&(locked(r)||clearing.includes(r.id))&&(
-            <div key={r.id} className={`wm-fog-group ${!locked(r)&&clearing.includes(r.id)?'clearing':''}`}>
+            <div key={r.id} className={`wm-fog-group fog-${r.id} ${!locked(r)&&clearing.includes(r.id)?'clearing':''}`}>
               {REGION_FOG[r.id].map(([x,y],i)=><div key={i} className="wm-fog" style={{left:`${x}%`,top:`${y}%`,animationDelay:`${-i*2.3}s`}}/>)}
             </div>
           ))}

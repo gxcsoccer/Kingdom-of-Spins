@@ -202,3 +202,18 @@
 .wm-pick{background:radial-gradient(circle at 50% 38%,#fff 0 22%,color-mix(in srgb,var(--c) 45%,#fff) 60%,color-mix(in srgb,var(--c) 75%,#111)),#fff}
 .wm-pick::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(-55deg,transparent 0 14px,rgba(255,255,255,.35) 14px 18px)}
 .wm-pick.locked{background:radial-gradient(circle at 50% 38%,#eee,#999)}
+/* new full-colour 3:2 map */
+.wm{background:#2a78c8}
+.wm::before{content:'';position:absolute;inset:-40px;background:url(/art/bg/map.jpg) center/cover;filter:blur(18px) saturate(1.1) brightness(.85)}
+.wm-viewport{z-index:1}
+.wm-stage{box-shadow:0 0 0 4px #111,0 10px 40px rgba(0,0,0,.45)}
+.wm-viewport.pan .wm-stage{box-shadow:none}
+.wm-path path{stroke:#fff;opacity:.75;stroke-width:6;filter:drop-shadow(0 0 2px #111)}
+.wm-fog{background:radial-gradient(ellipse at 50% 50%,rgba(236,240,246,.96) 0 45%,rgba(236,240,246,.88) 58%,rgba(236,240,246,0) 74%)}
+.wm-enter{background-size:cover;background-position:center}
+.wm-enter .wm-burst{opacity:.45;mix-blend-mode:screen}
+.wm-doctor-say{background:#fff}
+.wm-fog{width:calc(var(--sw)*.2);height:calc(var(--sw)*.13)}
+.fog-volcano .wm-fog{background:radial-gradient(ellipse at 50% 50%,rgba(70,62,66,.93) 0 42%,rgba(70,62,66,.8) 56%,rgba(70,62,66,0) 72%)}
+.fog-volcano .wm-fog::after{background:radial-gradient(rgba(0,0,0,.45) 1.3px,transparent 1.8px) 0 0/7px 7px}
+.wm-enter .wm-burst{opacity:.16!important;mix-blend-mode:normal}.wm-enter-name{text-shadow:10px 10px 0 var(--c),0 0 30px rgba(0,0,0,.35)}
