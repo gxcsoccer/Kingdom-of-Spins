@@ -45,7 +45,8 @@ function VsSplash({me,opp,myBey,onPick}){
     const b=setTimeout(()=>{setSaid(true);sfx.say(opp.blader?.line||'来吧！','zh-CN',1.1);},900);
     return()=>{clearTimeout(a);clearTimeout(b);};
   },[]);// eslint-disable-line
-  const oppImg=opp.blader?`/art/bladers/${opp.blader.id}.png`:null;
+  // opp.avatar (optional): a kid-profile avatar id, used by online versus where the opponent is another kid.
+  const oppImg=opp.blader?`/art/bladers/${opp.blader.id}.png`:opp.avatar?`/art/avatars/${opp.avatar}.png`:null;
   return (
     <div className={`ls-vs ${skip?'skip':''}`} onClick={e=>{if(!e.target.closest('.ls-predict'))setSkip(true);}}>
       <div className="ls-vs-lines"/>

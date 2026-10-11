@@ -1,4 +1,4 @@
-import {lazy,Suspense,Component} from 'react';
+import {lazy,Suspense,Component,useEffect} from 'react';
 import {useGame} from './game/store.js';
 import {pathToScreen} from './game/router.js';
 import TitleScreen from './ui/TitleScreen.jsx';
@@ -36,12 +36,19 @@ class ChunkBoundary extends Component{
   }
 }
 
+let inviteUsed=false;
 export default function App(){
   const screen=useGame(s=>s.screen), nonce=useGame(s=>s.nonce);
   if(new URLSearchParams(location.search).has('art'))return <Suspense fallback={<Loading/>}><ArtCheck/></Suspense>;
   const activeKid=useGame(s=>s.activeKid);
   // Gate: every screen except the title requires a signed-in parent + chosen kid profile.
   const Screen=activeKid?(SCREENS[screen]||TitleScreen):TitleScreen;
+  // Invite link (?room=CODE): once a kid profile is chosen, go straight into that online room.
+  useEffect(()=>{
+    const code=new URLSearchParams(location.search).get('room');
+    if(!activeKid||!code||inviteUsed)return;
+    inviteUsed=true;useGame.getState().go('versus',{room:code.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5)});
+  },[activeKid]);
   return <>
     <ChunkBoundary key={screen+(nonce||0)}><Suspense fallback={<Loading/>}><Screen/></Suspense></ChunkBoundary>
     <Suspense fallback={null}><ShowcaseCanvas/></Suspense>
