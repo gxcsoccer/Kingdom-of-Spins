@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import BattleScene from '../scene/BattleScene.jsx';
 import { createReplayPlayer } from '../scene/ReplayViewer.jsx';
 
@@ -59,7 +59,10 @@ function divergence(a = [], b = []) {
   return null;
 }
 
-export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, labels = ['A 原版', 'B 改装'], autoplay = false }) {
+/**
+ * ref: jumpDivergence() — ¼× from just before the first difference; replayFromStart(); pause()
+ */
+const DualReplay = forwardRef(function DualReplay({ beysA, beysB, fullA, fullB, height = 300, labels = ['A 原版', 'B 改装'], autoplay = false }, ref) {
   const { pA, pB, clock } = useMemo(() => {
     const pA = createReplayPlayer({ beys: beysA, samples: fullA?.samples || [], events: fullA?.events || [] });
     const pB = createReplayPlayer({ beys: beysB, samples: fullB?.samples || [], events: fullB?.events || [] });
@@ -80,6 +83,15 @@ export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, l
     }, 500);
     return () => clearTimeout(t);
   }, [autoplay, clock, tHit]);
+  useImperativeHandle(ref, () => ({
+    jumpDivergence() {
+      const t = tDiv ?? tHit ?? 0;
+      auto.current = { phase: 'slow', shown: false };
+      clock.seek(Math.max(0, t - .8)); clock.speed = .25; clock.play();
+    },
+    replayFromStart() { auto.current = { phase: 'off', shown: true }; clock.seek(0); clock.speed = 1; clock.play(); },
+    pause() { clock.pause(); },
+  }), [clock, tDiv, tHit]);
   const [visible, setVisible] = useState(true);
   const rootRef = useRef(), trackRef = useRef(), headRef = useRef(), timeRef = useRef();
   const rpmA = useRef({}), rpmB = useRef({}), drag = useRef(null);
@@ -144,4 +156,5 @@ export default function DualReplay({ beysA, beysB, fullA, fullB, height = 300, l
       </div>
     </div>
   );
-}
+});
+export default DualReplay;

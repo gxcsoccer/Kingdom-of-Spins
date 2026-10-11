@@ -114,16 +114,17 @@ function Results({res,review,variable,change,names,pred,mine,opp,onAgain,onMore}
   const beysA=useMemo(()=>[mine,opp],[mine,opp]), beysB=useMemo(()=>[res.variantBey,opp],[res.variantBey,opp]);
   // 回放第 1 次试验：它和刚才那一局发射参数完全相同，“原版”就是孩子真实打出来的那一局。
   const best=0;
+  const replayRef=useRef(null);
   const fullA=trials[best]?.A?.full, fullB=trials[best]?.B?.full;
   return (
     <div className="lab-body lab-done">
       <div className="lab-dual">
         <div className="lab-dual-h">同一个发射，两种陀螺 <small>A：{variable.from} · B：{variable.to} · 第 {best+1} 次实验</small></div>
-        {fullA&&fullB?<DualReplay beysA={beysA} beysB={beysB} fullA={fullA} fullB={fullB} autoplay/>:<div className="dr-empty">没有回放数据</div>}
+        {fullA&&fullB?<DualReplay ref={replayRef} beysA={beysA} beysB={beysB} fullA={fullA} fullB={fullB} autoplay/>:<div className="dr-empty">没有回放数据</div>}
       </div>
       <aside className="lab-side lab-res">
-        <Explain change={change} mine={mine} variant={res.variantBey} res={res} review={review} onMore={onMore} best={best}/>
-        <div className="lab-res-foot"><button className="lab-run sm" onClick={onAgain}>换个问题再实验</button><span className="lab-model">理想化模型结果，不代表真实比赛</span></div>
+        <Explain change={change} mine={mine} variant={res.variantBey} res={res} review={review} onMore={onMore} onAgain={onAgain} best={best} onReplay={k=>{if(k==='diverge')replayRef.current?.jumpDivergence();}}/>
+        <div className="lab-model">理想化模型结果，不代表真实比赛</div>
       </aside>
     </div>
   );

@@ -93,9 +93,11 @@ function GapChart({trials,k=0}){
   );
 }
 
-export default function Explain({change,mine,variant,res,review,onMore,best=0}){
+export default function Explain({change,mine,variant,res,review,onMore,onAgain,onReplay,best=0}){
   const [i,setI]=useState(0);
   const [voice,setVoice]=useState(false);
+  const [tour,setTour]=useState(false);     // full 6-step tour (optional, auto-plays)
+  const [auto,setAuto]=useState(true);
   const key=change.key, A=useMemo(()=>metricsOf(mine),[mine]), B=useMemo(()=>metricsOf(variant),[variant]);
   const {stats,trials,verdict}=res;
   const exp=expectation(key,A,B), ai=review?.steps||{};
@@ -112,6 +114,14 @@ export default function Explain({change,mine,variant,res,review,onMore,best=0}){
     :agree?`数据和预测一致：B 第 3 秒转速 ${stats.B.avgRpm3.toLocaleString()} vs A ${stats.A.avgRpm3.toLocaleString()}，平均回合 ${stats.B.avgTime}s vs ${stats.A.avgTime}s。这说明在这个模型里，“${M_DEF[SHOW[key][0]].label}”的变化确实起了作用。`
     :`和课本预测相反！可能的原因：${COMPETING[key]}`)
     +(mixed?' 而且这 '+trials.length+' 次结果不一样——次数太少，还不能下结论，再做几次看看规律！':` 这 ${trials.length} 次结果方向一致，但在这个模型里成立，不代表真实比赛一定这样。`);
+  // Short, kid-sized version of ⑤ for the conclusion view (same data logic, fewer words).
+  const lbl=M_DEF[SHOW[key][0]].label;
+  const whyShort=(
+    exp.dir===0?`B ${obsDir>0?'转得更久':obsDir<0?'更早没力气':'和 A 差不多'}。翼片同时改变了形状、碰撞和惯量，几个效果叠在一起。`
+    :obsDir===0?`两边几乎一样（第 3 秒 ${stats.A.avgRpm3.toLocaleString()} vs ${stats.B.avgRpm3.toLocaleString()} 转）。改动可能太小，被碰撞的运气盖住了。`
+    :agree?`和预测一样！${lbl}变了（${pct(A[SHOW[key][0]]||1,B[SHOW[key][0]]||1)}），所以 B 第 3 秒${obsDir>0?'还剩更多':'只剩更少'}转速。`
+    :`和预测相反！${COMPETING[key].split(/[；。]/)[0]}。`)
+    +(mixed?` ${trials.length} 次结果不一样，再多做几次更可靠。`:'');
   const steps=[
     {t:'① 你改了什么',body:<div className="lx-change"><span className="lx-chip a">原版<b>{change.fromLabel}</b></span><b className="lx-arrow">→</b><span className="lx-chip b">改装<b>{change.toLabel}</b></span><p>其他都没变：对手、发射角度和力度、另外两个零件。</p></div>,say:`你把${change.label}从${change.fromLabel}改成了${change.toLabel}，其他都没变。`},
     {t:'② 物理上变了什么',body:<div className="lx-bars">{SHOW[key].map(k=><Bars key={k} k={k} A={A} B={B}/>)}<p className="lx-small">数字由理想化物理模型算出。</p></div>,say:`物理上，${M_DEF[SHOW[key][0]].label}变化了${pct(A[SHOW[key][0]]||1,B[SHOW[key][0]]||1)}。`},
@@ -127,21 +137,55 @@ export default function Explain({change,mine,variant,res,review,onMore,best=0}){
       <div className="lx-life-row">{getCard(CARD[key])&&<KnowledgeChip card={getCard(CARD[key])}/>}<button className="lx-btn" onClick={()=>openFlipbook({chapter:CHAPTER[key]})}>📖 翻开绘本</button><button className="lx-btn more" onClick={onMore}>🔁 再做 5 次看看</button></div></div>,say:ai.life||LIFE[key]},
   ];
   const cur=steps[i];
-  useEffect(()=>{if(voice&&!sfx.isMuted())sfx.say(String(cur.say).replace(/[\u{1F300}-\u{1FAFF}]/gu,''),'zh-CN',1.05);},[i,voice]);// eslint-disable-line
+  // Tour: auto-advance every ~4.5 s (longer cards a bit more); say each card if voice is on; drive the replay.
+  useEffect(()=>{
+    if(!tour)return;
+    if(voice&&!sfx.isMuted())sfx.say(String(cur.say).replace(/[\u{1F300}-\u{1FAFF}]/gu,''),'zh-CN',1.05);
+    if(i===3)onReplay?.('diverge');
+    if(!auto||i>=steps.length-1)return;
+    const t=setTimeout(()=>setI(x=>Math.min(steps.length-1,x+1)),Math.max(4500,String(cur.say).length*(voice?230:120)));
+    return()=>clearTimeout(t);
+  },[tour,i,auto,voice]);// eslint-disable-line
   useEffect(()=>()=>window.speechSynthesis?.cancel(),[]);
   const mood=i===4?(agree?'excited':'thinking'):i===5?'excited':'normal';
+  const V=verdict==='B更好'?{cls:'B',t:'改装更强！',icon:'⬆'}:verdict==='A更好'?{cls:'A',t:'原版更强',icon:'⬇'}:{cls:'eq',t:'差不多',icon:'≈'};
+  const arrow=(a,b)=>b>a?'up':b<a?'down':'same';
+  const card=getCard(CARD[key]);
+  const life=ai.life||LIFE[key];
+
+  if(!tour)return (
+    <div className="lx lx-sum">
+      <div className={`lx-board v-${V.cls}`}><b>{V.t}</b><span className="lx-board-i">{V.icon}</span></div>
+      <div className="lx-nums">
+        <div className="lx-num"><small>赢的次数</small><span>A <b>{stats.A.wins}/{stats.A.trials}</b></span><i className={arrow(stats.A.wins,stats.B.wins)}>→</i><span>B <b>{stats.B.wins}/{stats.B.trials}</b></span></div>
+        <div className="lx-num"><small>第 3 秒转速</small><span>A <b>{stats.A.avgRpm3.toLocaleString()}</b></span><i className={arrow(stats.A.avgRpm3*1.05,stats.B.avgRpm3)}>→</i><span>B <b>{stats.B.avgRpm3.toLocaleString()}</b></span></div>
+      </div>
+      <div className="lx-why"><div className="lx-why-h"><DoctorFace mood={agree?'excited':'thinking'} size={40}/><b>为什么？</b></div><p>{whyShort}</p><p className="lx-life-l">🌏 {life}</p></div>
+      <div className="lx-learn">
+        {card&&<KnowledgeChip card={card}/>}
+        <button className="lx-big" onClick={()=>openFlipbook({chapter:CHAPTER[key]})}>📖 翻开绘本</button>
+      </div>
+      <div className="lx-acts">
+        <button className="lx-big go" onClick={()=>{setI(0);setAuto(true);setTour(true);}}>▶ 博士带你看<span className="lx-long">完整</span>讲解</button>
+        <button className="lx-big" onClick={onAgain}>换个问题<span className="lx-long">再实验</span></button>
+      </div>
+    </div>
+  );
   return (
-    <div className="lx">
-      <div className={`lx-verdict v-${verdict==='B更好'?'B':verdict==='A更好'?'A':'eq'}`}>{verdict==='B更好'?'改装版更强！':verdict==='A更好'?'原版更强！':'差不多！'}<small>原理讲解 {i+1}/6</small></div>
+    <div className="lx lx-tour">
+      <div className={`lx-verdict v-${V.cls}`}>{V.t} {V.icon}<small>完整讲解 {i+1}/6</small></div>
       <div className="lx-card" key={i}>
         <div className="lx-card-h"><DoctorFace mood={mood} size={44}/><b>{cur.t}</b></div>
         <div className="lx-card-b">{cur.body}</div>
+        {auto&&i<steps.length-1&&<div className="lx-timer" key={'t'+i}/>}
       </div>
       <div className="lx-nav">
-        <button onClick={()=>setI(x=>Math.max(0,x-1))} disabled={i===0}>◀</button>
-        <span className="lx-dots">{steps.map((_,k)=><i key={k} className={k===i?'on':k<i?'past':''} onClick={()=>setI(k)}/>)}</span>
-        <button className="next" onClick={()=>setI(x=>Math.min(steps.length-1,x+1))} disabled={i===steps.length-1}>下一步 ▶</button>
+        <button onClick={()=>{setAuto(false);setI(x=>Math.max(0,x-1));}} disabled={i===0}>◀</button>
+        <button onClick={()=>setAuto(a=>!a)}>{auto?'⏸':'▶'}</button>
+        <span className="lx-dots">{steps.map((_,k)=><i key={k} className={k===i?'on':k<i?'past':''} onClick={()=>{setAuto(false);setI(k);}}/>)}</span>
+        <button className="next" onClick={()=>{setAuto(false);setI(x=>Math.min(steps.length-1,x+1));}} disabled={i===steps.length-1}>▶</button>
         <button className={`lx-voice ${voice?'on':''}`} onClick={()=>{setVoice(v=>!v);window.speechSynthesis?.cancel();}} title="朗读">{voice?'🔊':'🔈'}</button>
+        <button className="lx-close" onClick={()=>{window.speechSynthesis?.cancel();setTour(false);}}>✕ 回到结论</button>
       </div>
     </div>
   );
