@@ -67,9 +67,9 @@ const LIFE={
 function Bars({k,A,B}){
   const d=M_DEF[k],mx=Math.max(A[k],B[k])||1,ch=A[k]?Math.round((B[k]/A[k]-1)*100):0;
   return (
-    <div className="ex-bar">
-      <div className="ex-bar-h"><b>{d.label}</b><em className={ch>0?'up':ch<0?'down':''}>{ch>0?'+':''}{ch}%</em></div>
-      {[['A 原版',A[k],'a'],['B 改装',B[k],'b']].map(([l,v,c])=><div key={c} className={`ex-bar-row ${c}`}><span>{l}</span><span className="ex-bar-t"><i style={{width:`${Math.max(4,v/mx*100)}%`}}/></span><span className="ex-bar-v">{d.fmt(v)} <small>{d.unit}</small></span></div>)}
+    <div className="lx-bar">
+      <div className="lx-bar-h"><b>{d.label}</b><em className={ch>0?'up':ch<0?'down':''}>{ch>0?'+':''}{ch}%</em></div>
+      {[['A 原版',A[k],'a'],['B 改装',B[k],'b']].map(([l,v,c])=><div key={c} className={`lx-bar-row ${c}`}><span>{l}</span><span className="lx-bar-t"><i style={{width:`${Math.max(4,v/mx*100)}%`}}/></span><span className="lx-bar-v">{d.fmt(v)} <small>{d.unit}</small></span></div>)}
     </div>
   );
 }
@@ -82,7 +82,7 @@ function GapChart({trials,k=0}){
   const line=p=>p.map((q,i)=>`${i?'L':'M'}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('');
   const gap=pa.length&&pb.length?line(pa)+pb.slice().reverse().map(q=>`L${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('')+'Z':'';
   return (
-    <svg className="ex-chart" viewBox={`0 0 ${W} ${H}`}>
+    <svg className="lx-chart" viewBox={`0 0 ${W} ${H}`}>
       <rect x="6" y="6" width={W-12} height={H-20} fill="#fff" stroke="#111" strokeWidth="2"/>
       <path d={gap} fill="rgba(255,212,0,.45)"/>
       <path d={line(pa)} fill="none" stroke="#2f7bff" strokeWidth="3"/>
@@ -113,35 +113,35 @@ export default function Explain({change,mine,variant,res,review,onMore,best=0}){
     :`和课本预测相反！可能的原因：${COMPETING[key]}`)
     +(mixed?' 而且这 '+trials.length+' 次结果不一样——次数太少，还不能下结论，再做几次看看规律！':` 这 ${trials.length} 次结果方向一致，但在这个模型里成立，不代表真实比赛一定这样。`);
   const steps=[
-    {t:'① 你改了什么',body:<div className="ex-change"><span className="ex-chip a">原版<b>{change.fromLabel}</b></span><b className="ex-arrow">→</b><span className="ex-chip b">改装<b>{change.toLabel}</b></span><p>其他都没变：对手、发射角度和力度、另外两个零件。</p></div>,say:`你把${change.label}从${change.fromLabel}改成了${change.toLabel}，其他都没变。`},
-    {t:'② 物理上变了什么',body:<div className="ex-bars">{SHOW[key].map(k=><Bars key={k} k={k} A={A} B={B}/>)}<p className="ex-small">数字由理想化物理模型算出。</p></div>,say:`物理上，${M_DEF[SHOW[key][0]].label}变化了${pct(A[SHOW[key][0]]||1,B[SHOW[key][0]]||1)}。`},
-    {t:'③ 预测会怎样',body:<p className="ex-text">{exp.text}</p>,say:exp.text},
-    {t:'④ 实验看到了什么',body:<div className="ex-data">
+    {t:'① 你改了什么',body:<div className="lx-change"><span className="lx-chip a">原版<b>{change.fromLabel}</b></span><b className="lx-arrow">→</b><span className="lx-chip b">改装<b>{change.toLabel}</b></span><p>其他都没变：对手、发射角度和力度、另外两个零件。</p></div>,say:`你把${change.label}从${change.fromLabel}改成了${change.toLabel}，其他都没变。`},
+    {t:'② 物理上变了什么',body:<div className="lx-bars">{SHOW[key].map(k=><Bars key={k} k={k} A={A} B={B}/>)}<p className="lx-small">数字由理想化物理模型算出。</p></div>,say:`物理上，${M_DEF[SHOW[key][0]].label}变化了${pct(A[SHOW[key][0]]||1,B[SHOW[key][0]]||1)}。`},
+    {t:'③ 预测会怎样',body:<p className="lx-text">{exp.text}</p>,say:exp.text},
+    {t:'④ 实验看到了什么',body:<div className="lx-data">
       <table className="lab-table sm"><thead><tr><th></th><th>A 原版</th><th>B 改装</th></tr></thead><tbody>
         <tr><th>赢几次</th><td>{stats.A.wins}/{stats.A.trials}</td><td>{stats.B.wins}/{stats.B.trials}</td></tr>
         <tr><th>第 3 秒转速</th><td>{stats.A.avgRpm3.toLocaleString()}</td><td>{stats.B.avgRpm3.toLocaleString()}</td></tr>
         <tr><th>平均回合</th><td>{stats.A.avgTime}s</td><td>{stats.B.avgTime}s</td></tr></tbody></table>
       <GapChart trials={trials} k={best}/></div>,say:`实验结果：A 赢了${stats.A.wins}次，B 赢了${stats.B.wins}次。`},
-    {t:'⑤ 为什么结果是这样',body:<p className="ex-text">{whyText}</p>,say:whyText},
-    {t:'⑥ 生活里也一样',body:<div className="ex-life"><p className="ex-text">🌏 {ai.life||LIFE[key]}</p>
-      <div className="ex-life-row">{getCard(CARD[key])&&<KnowledgeChip card={getCard(CARD[key])}/>}<button className="ex-btn" onClick={()=>openFlipbook({chapter:CHAPTER[key]})}>📖 翻开绘本</button><button className="ex-btn more" onClick={onMore}>🔁 再做 5 次看看</button></div></div>,say:ai.life||LIFE[key]},
+    {t:'⑤ 为什么结果是这样',body:<p className="lx-text">{whyText}</p>,say:whyText},
+    {t:'⑥ 生活里也一样',body:<div className="lx-life"><p className="lx-text">🌏 {ai.life||LIFE[key]}</p>
+      <div className="lx-life-row">{getCard(CARD[key])&&<KnowledgeChip card={getCard(CARD[key])}/>}<button className="lx-btn" onClick={()=>openFlipbook({chapter:CHAPTER[key]})}>📖 翻开绘本</button><button className="lx-btn more" onClick={onMore}>🔁 再做 5 次看看</button></div></div>,say:ai.life||LIFE[key]},
   ];
   const cur=steps[i];
   useEffect(()=>{if(voice&&!sfx.isMuted())sfx.say(String(cur.say).replace(/[\u{1F300}-\u{1FAFF}]/gu,''),'zh-CN',1.05);},[i,voice]);// eslint-disable-line
   useEffect(()=>()=>window.speechSynthesis?.cancel(),[]);
   const mood=i===4?(agree?'excited':'thinking'):i===5?'excited':'normal';
   return (
-    <div className="ex">
-      <div className={`ex-verdict v-${verdict==='B更好'?'B':verdict==='A更好'?'A':'eq'}`}>{verdict==='B更好'?'改装版更强！':verdict==='A更好'?'原版更强！':'差不多！'}<small>原理讲解 {i+1}/6</small></div>
-      <div className="ex-card" key={i}>
-        <div className="ex-card-h"><DoctorFace mood={mood} size={44}/><b>{cur.t}</b></div>
-        <div className="ex-card-b">{cur.body}</div>
+    <div className="lx">
+      <div className={`lx-verdict v-${verdict==='B更好'?'B':verdict==='A更好'?'A':'eq'}`}>{verdict==='B更好'?'改装版更强！':verdict==='A更好'?'原版更强！':'差不多！'}<small>原理讲解 {i+1}/6</small></div>
+      <div className="lx-card" key={i}>
+        <div className="lx-card-h"><DoctorFace mood={mood} size={44}/><b>{cur.t}</b></div>
+        <div className="lx-card-b">{cur.body}</div>
       </div>
-      <div className="ex-nav">
+      <div className="lx-nav">
         <button onClick={()=>setI(x=>Math.max(0,x-1))} disabled={i===0}>◀</button>
-        <span className="ex-dots">{steps.map((_,k)=><i key={k} className={k===i?'on':k<i?'past':''} onClick={()=>setI(k)}/>)}</span>
+        <span className="lx-dots">{steps.map((_,k)=><i key={k} className={k===i?'on':k<i?'past':''} onClick={()=>setI(k)}/>)}</span>
         <button className="next" onClick={()=>setI(x=>Math.min(steps.length-1,x+1))} disabled={i===steps.length-1}>下一步 ▶</button>
-        <button className={`ex-voice ${voice?'on':''}`} onClick={()=>{setVoice(v=>!v);window.speechSynthesis?.cancel();}} title="朗读">{voice?'🔊':'🔈'}</button>
+        <button className={`lx-voice ${voice?'on':''}`} onClick={()=>{setVoice(v=>!v);window.speechSynthesis?.cancel();}} title="朗读">{voice?'🔊':'🔈'}</button>
       </div>
     </div>
   );
