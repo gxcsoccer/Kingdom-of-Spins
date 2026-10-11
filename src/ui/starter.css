@@ -1,0 +1,60 @@
+/* Starter "choose your partner" — one screen. */
+.st{position:relative;height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:16px clamp(12px,3vw,40px) 16px;gap:clamp(8px,1.6vh,16px);background:#fbf8f1;color:#111}
+.st-bg{position:absolute;inset:-50%;background:repeating-conic-gradient(from 0deg at 50% 55%,rgba(17,17,17,.08) 0 1deg,transparent 1deg 6deg);animation:st-spin 80s linear infinite;pointer-events:none}
+.st-head{position:relative;text-align:center;flex:none}
+.st-kicker{font-weight:900;letter-spacing:.2em;font-size:13px;background:#111;color:#fff;padding:2px 12px}
+.st-title{margin:6px 0 4px;font-family:"Arial Black",sans-serif;font-size:clamp(30px,5.4vh,60px);line-height:1;color:#fff;-webkit-text-stroke:5px #111;paint-order:stroke fill;text-shadow:6px 6px 0 #ffd400;transform:skew(-6deg)}
+.st-title b{color:#ff2d4a}
+.st-parts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.st-parts span{font-size:12px;font-weight:800;border:2px solid #111;background:#fff;padding:1px 8px}
+.st-cards{position:relative;flex:1;min-height:0;width:min(1120px,100%);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,2vw,26px)}
+.st-card{position:relative;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto auto auto auto;justify-items:center;gap:4px;padding:12px 14px 14px;font:inherit;color:#111;text-align:center;cursor:pointer;overflow:hidden;
+  background:radial-gradient(circle at 50% 32%,#fff 0 22%,color-mix(in srgb,var(--c) 30%,#fff) 60%,color-mix(in srgb,var(--c) 55%,#fff)),#fff;border:5px solid #111;box-shadow:8px 8px 0 #111;
+  transform:skew(-2deg);transition:transform .18s,box-shadow .18s,filter .18s;animation:st-in .45s calc(var(--i)*.08s) cubic-bezier(.2,1.4,.4,1) both}
+.st-card:hover{transform:skew(-2deg) translateY(-8px)}
+.st-card.on{transform:skew(-2deg) translateY(-10px) scale(1.03);box-shadow:10px 10px 0 var(--c),10px 10px 0 4px #111}
+.st-card.dim{filter:saturate(.45) brightness(.92)}
+.st-card-burst{position:absolute;inset:0;background:repeating-conic-gradient(from 0deg at 50% 32%,rgba(255,255,255,.6) 0 3deg,transparent 3deg 10deg);pointer-events:none}
+.st-card.on .st-card-burst{animation:st-spin 12s linear infinite;inset:-30%}
+.st-art{position:relative;width:100%;height:100%;min-height:0;display:grid;place-items:center}
+.st-art .ks-showcase{position:absolute;inset:0;background:transparent;min-height:0}
+.st-png{max-width:86%;max-height:100%;height:100%;width:auto;object-fit:contain;filter:drop-shadow(6px 7px 0 rgba(0,0,0,.5));animation:st-float 2.6s ease-in-out infinite}
+.st-name{position:relative;font-family:"Arial Black",sans-serif;font-size:clamp(22px,3.2vh,32px);line-height:1}
+.st-name small{display:block;font-family:inherit;font-size:13px;color:#555}
+.st-row{position:relative;display:flex;gap:6px;align-items:center}
+.st-parts-l{font-size:11px;font-weight:900}
+.st-lore{position:relative;font-size:13px;font-weight:700;line-height:1.45;min-height:2.9em}
+.st-stats{position:relative;width:100%;text-align:left}
+.st-stats .stat{font-size:11px}
+.st-stamp{position:absolute;top:12px;right:10px;border:5px double #d2102c;color:#d2102c;background:rgba(255,255,255,.9);font-weight:900;font-size:22px;padding:2px 10px;transform:rotate(12deg);animation:st-stamp .35s cubic-bezier(.2,1.8,.4,1) both}
+.st-foot{position:relative;flex:none}
+.st-go{font:inherit;font-weight:900;font-size:clamp(20px,3vh,28px);padding:10px 36px;border:5px solid #111;background:#ff2d4a;color:#fff;box-shadow:7px 7px 0 #ffd400,7px 7px 0 3px #111;transform:skew(-8deg);cursor:pointer}
+.st-go b{color:#ffd400}
+.st-go:disabled{background:#bbb;box-shadow:5px 5px 0 #111;cursor:default}
+.st-go:not(:disabled){animation:st-pulse 1.3s ease-in-out infinite}
+/* confirm cut-in */
+.st-cut{position:fixed;inset:0;z-index:30;pointer-events:none;background:rgba(0,0,0,.55);animation:st-fade 1.5s both}
+.st-cut-band{position:absolute;left:-15%;right:-15%;top:28%;height:44%;transform:skewY(-8deg);overflow:hidden;border-top:8px solid #fff;border-bottom:8px solid #fff;box-shadow:0 0 0 6px #000;
+  background:linear-gradient(90deg,#000,var(--c) 45%,#000);animation:st-band 1.5s cubic-bezier(.2,1,.3,1) both}
+.st-cut-lines{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 46px,rgba(255,255,255,.35) 46px 50px);animation:st-lines .2s linear infinite}
+.st-cut-art{position:absolute;left:18%;top:50%;height:120%;aspect-ratio:1;transform:translateY(-50%) skewY(8deg);display:grid;place-items:center}
+.st-cut-art img{height:100%;animation:st-spin .3s linear infinite;filter:drop-shadow(0 0 30px #fff)}
+.st-cut-text{position:absolute;right:16%;top:50%;transform:translateY(-50%) skewY(8deg) rotate(-6deg);text-align:right;font-family:"Arial Black",sans-serif;font-style:italic;font-size:clamp(50px,8vw,120px);line-height:.9;color:#fff;-webkit-text-stroke:6px #000;paint-order:stroke fill;text-shadow:8px 8px 0 #ff2d4a}
+.st-cut-text small{display:block;font-size:.38em;color:#ffd400}
+.st-cut-flash{position:absolute;inset:0;background:#fff;animation:st-white 1.5s both}
+@keyframes st-spin{to{rotate:360deg}}
+@keyframes st-in{0%{transform:skew(-2deg) translateY(60px);opacity:0}100%{opacity:1}}
+@keyframes st-float{0%,100%{translate:0 0}50%{translate:0 -8px}}
+@keyframes st-stamp{0%{transform:rotate(12deg) scale(3);opacity:0}100%{transform:rotate(12deg);opacity:1}}
+@keyframes st-pulse{0%,100%{scale:1}50%{scale:1.05}}
+@keyframes st-fade{0%{opacity:0}10%{opacity:1}100%{opacity:1}}
+@keyframes st-band{0%{transform:skewY(-8deg) translateX(110%)}20%{transform:skewY(-8deg) translateX(0)}100%{transform:skewY(-8deg) translateX(-3%)}}
+@keyframes st-lines{to{background-position:-50px 0}}
+@keyframes st-white{0%{opacity:.9}10%{opacity:0}88%{opacity:0}100%{opacity:1}}
+@media (max-width:760px),(max-aspect-ratio:3/4){
+  .st-cards{grid-template-columns:1fr;grid-template-rows:repeat(3,minmax(0,1fr));gap:10px}
+  .st-card{grid-template-columns:40% 1fr;grid-template-rows:auto auto auto;grid-template-areas:"art name" "art row" "art lore";text-align:left;justify-items:start;padding:8px 10px}
+  .st-art{grid-area:art}.st-name{grid-area:name}.st-row{grid-area:row}.st-lore{grid-area:lore;font-size:12px;min-height:0}
+  .st-stats,.st-parts{display:none}
+}
+@media (prefers-reduced-motion:reduce){.st *{animation:none!important}}
