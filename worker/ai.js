@@ -554,6 +554,43 @@ function scenePageFor(region, sceneKey, raw={}) {
   page.exits = scene.exits.map(k=>({key:k, title:sceneByKey(region.id,k)?.title||k}));
   return page;
 }
+// 寻宝 v2: outcomes are decided in the client (quest.js); the GM only writes flavour for what already happened.
+async function exploreFlavor(body, env) {
+  const region = regionById(body.regionId);
+  if (!region) return json({error:'unknown region'}, 400);
+  const sc = sceneByKey(region.id, body.scene) || sceneByKey(region.id, START_SCENE[region.id]);
+  const a = body.action || {}, o = body.outcome || {};
+  const spot = Number.isInteger(+a.spot) ? sc.spots[+a.spot] : null;
+  const what = a.type==='inspect' ? `孩子仔细查看了「${spot?.label||'某处'}」。` : a.type==='move' ? `孩子从「${sceneByKey(region.id,a.from)?.title||'别处'}」走到了「${sc.title}」。` : `孩子刚来到${region.name}的「${sc.title}」${body.firstRun?'（第一次来）':''}。`;
+  const res = o.type==='found' ? `结果（已决定）：在这里${BEYS[o.id]?'找到了陀螺':'遇见了陀螺手'}「${o.name}」！写出发现的一刻。`
+    : o.type==='heat' ? `结果（已决定）：这里没有要找的东西（${o.level==='hot'?'不过目标就在这个地方的别处':o.level==='warm'?'目标就在旁边的地方':'目标还很远'}）。只描写这个东西本身，可以顺带讲一点和它有关的真实知识，不要说找到了什么。`
+    : '描写到达时看到的景象。';
+  const geo = CARDS.filter(c=>c.layer==='geo' && c.region===region.id);
+  const proto = prototypeOf(region.id);
+  const noGate = a.type!=='inspect' || o.type==='found' || (+body.sinceGate||0) < 5;
+  const user = `地区：${region.name}（${region.landform}）。当前场景：「${sc.title}」——${sc.desc}${sc.alt?`（海拔约 ${sc.alt} 米）`:''}
+${what}
+${res}
+当前任务提示（系统已给孩子看过，不要改动方向）：${String(body.clue||'').slice(0,80)}
+${proto ? `真实原型：${proto.name}，提到真实地点只能用这些事实：${proto.facts.join(' / ')}` : ''}
+你的记忆：${String(body.memory||'').slice(0,300)||'（无）'}
+地理知识卡（geo_fact${noGate?'':' / gate'} 只能用这些 id）：
+${cardLines(geo)}
+规则：中文，给 10 岁孩子，热血冒险漫画风；panel ≤36字；line ≤30字（对刚才那件事的一句话点评）；涉及真实危险要说安全做法。events 可选：geo_fact（和画面有关时）${noGate?'':'、gate（只给 cardId 和 lead）'}，最多 1 个。
+只输出 JSON：{"title":"≤10字","panel":"≤36字","line":"≤30字","narration":"博士的一句话≤24字","events":[],"gmMemory":"≤200字"}`;
+  try {
+    const out = await llm(env, {system:'你是“融合博士”，寻宝漫画冒险的旁白。只为已经发生的事写有趣的文字，绝不决定找没找到东西。只输出 JSON。', user, maxTokens:350, kind:'explore'});
+    const events = [];
+    for (const e of Array.isArray(out.events)?out.events.slice(0,2):[]) {
+      if (e?.type==='geo_fact' && getCard(e.cardId)?.layer==='geo' && !events.length) events.push({type:'geo_fact', cardId:e.cardId});
+      else if (e?.type==='gate' && !noGate && GATE_BANK[e.cardId] && !events.length) events.push(bankGate(e.cardId, '', clean2(e.lead||'',40), Array.isArray(body.quizSeen)?body.quizSeen:[]));
+    }
+    return json({title:clean2(out.title||sc.title,12), panel:clip(String(out.panel||''),44), line:clip(String(out.line||''),36), narration:clip(String(out.narration||''),30), events, gmMemory:String(out.gmMemory||body.memory||'').slice(0,400), via:out.__via});
+  } catch (e) {
+    return json({title:sc.title, panel:o.type==='found'?`就在这里！`:a.type==='inspect'?`「${spot?.label||'这里'}」看起来很普通……`:`来到了${sc.title}。`, line:'', narration:'', events:[], gmMemory:String(body.memory||''), fallback:true});
+  }
+}
+
 async function exploreStep(body, env) {
   const region = regionById(body.regionId);
   if (!region) return json({error:'unknown region'}, 400);
@@ -682,6 +719,7 @@ export async function handle(request, env) {
   if (path.endsWith('/flip/image')) return flipImage(body, env);
   if (path.endsWith('/flip/locate')) return flipLocate(body, env);
   if (path.endsWith('/explore/step')) return exploreStep(body, env);
+  if (path.endsWith('/explore/flavor')) return exploreFlavor(body, env);
   return json({error:'not found'}, 404);
 }
 export {CARDS};
