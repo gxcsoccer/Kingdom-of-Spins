@@ -56,17 +56,37 @@ export function questClue(regionId, target, here, hintLevel = 0) {
   const path = shortestPath(regionId, here, target.scene) || [];
   const dir = compass(regionId, here, target.scene), n = path.length - 1, next = sceneOf(regionId, path[1]);
   let text = `${name} 藏在你的「${dir}」边，大约要走 ${n} 站。`;
-  if (hintLevel >= 1 && next && !(hintLevel >= 2 && path[1] === target.scene)) text += `先往「${next.title}」走。`;
+  // 要绕路时先说第一步的方向（和出口按钮上的方向一致）；提示 1 级起再点出下一站的名字。
+  const firstDir = n >= 2 ? compass(regionId, here, path[1]) : null;
+  if (hintLevel >= 1 && next && !(hintLevel >= 2 && path[1] === target.scene)) text += `先往「${firstDir ? firstDir + '」边的「' : ''}${next.title}」走。`;
+  else if (firstDir) text += `第一步先往「${firstDir}」走。`;
   if (hintLevel >= 2 && scene) text += `目的地是「${scene.title}」${spotLabel ? `，在「${spotLabel}」附近` : ''}。`;
   return {title: `找到${what}`, text, dir, steps: n, next: path[1], here: false};
 }
+
+/** 画面里的方向（屏幕坐标，y 向下）：上 / 右上 / 右 … */
+export function screenDir(dx, dy) {
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (ax < .08 && ay < .08) return '旁';
+  const h = dx > 0 ? '右' : '左', v = dy > 0 ? '下' : '上';
+  if (ax > ay * 2) return h;
+  if (ay > ax * 2) return v;
+  return h + v;
+}
+/** 罗盘方向对应的箭头。 */
+export const DIR_ARROW = {东: '→', 东北: '↗', 北: '↑', 西北: '↖', 西: '←', 西南: '↙', 南: '↓', 东南: '↘'};
 
 /** 冷热提示：点了一个物体后告诉孩子离最近的目标有多远。 */
 export function heat(regionId, target, here, tappedSpot) {
   if (!target) return null;
   if (here === target.scene && tappedSpot === target.spot) return {level: 'found', text: '找到了！'};
   const d = hops(regionId, here, target.scene);
-  if (d === 0) return {level: 'hot', text: '🔥🔥 超级近！就在这个地方，换个东西点点看'};
+  if (d === 0) {
+    // 已经在目标场景：告诉孩子在画面里往哪个方向找（上下左右），每点一次都有新信息。
+    const sp = sceneOf(regionId, here)?.spots || [], a = sp[tappedSpot], t = sp[target.spot];
+    const dir = a && t ? screenDir(t.x - a.x, t.y - a.y) : '';
+    return {level: 'hot', text: dir ? `🔥🔥 超级近！不在这儿，往画面的「${dir}」边找找` : '🔥🔥 超级近！就在这个地方，换个东西点点看'};
+  }
   if (d === 1) return {level: 'warm', text: '🔥 很近了！就在旁边的地方'};
   if (d === 2) return {level: 'mild', text: '🌤 有点远，再走两站'};
   return {level: 'cold', text: '❄️ 很远哦，看看小地图的方向'};

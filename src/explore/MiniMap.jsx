@@ -22,12 +22,12 @@ export default function MiniMap({regionId, here, visited = [], hintScene, onGo, 
           const isHere = s.key === here, v = seen.has(s.key), n = near.has(s.key), can = !isHere && (v || n);
           if (!v && !n) return null;
           return <g key={s.key} transform={`translate(${X(s.pos)} ${Y(s.pos)})`} style={{cursor: can ? 'pointer' : 'default'}} onClick={() => can && onGo?.(s.key)}>
-            <title>{v ? s.title : '没去过的地方'}{s.alt ? ` · 海拔约 ${s.alt} 米` : ''}</title>
+            <title>{s.title}{v ? '' : '（还没去过）'}{s.alt ? ` · 海拔约 ${s.alt} 米` : ''}</title>
             {hintScene === s.key && <circle r="15" fill="none" stroke="#ff2d4a" strokeWidth="3" className="mm-pulse"/>}
             <circle r={isHere ? 9 : 7} fill={isHere ? '#ff2d4a' : v ? '#ffd400' : '#3a4b5e'} stroke="#111" strokeWidth="2"/>
-            {!v && <text y="4" textAnchor="middle" fontSize="9" fontWeight="900" fill="#fff">?</text>}
-            {(v || isHere) && !compact && <text y={-12} textAnchor="middle" fontSize="10" fontWeight="900" fill="#fff" stroke="#111" strokeWidth="3" paintOrder="stroke">{s.title}</text>}
-            {isHere && <text y={22} textAnchor="middle" fontSize="9" fontWeight="900" fill="#ffd400" stroke="#111" strokeWidth="3" paintOrder="stroke">你在这里</text>}
+            {/* 相邻地点和“走去”按钮一样显示名字，孩子才能把线索里的方向和地图对上 */}
+            {!compact && <text y={-12} textAnchor="middle" fontSize="13" fontWeight="900" fill={v || isHere ? '#fff' : '#9fd8ff'} stroke="#111" strokeWidth="3.5" paintOrder="stroke">{s.title}</text>}
+            {isHere && <text y={24} textAnchor="middle" fontSize="11" fontWeight="900" fill="#ffd400" stroke="#111" strokeWidth="3" paintOrder="stroke">你在这里</text>}
           </g>;
         })}
         <g transform={`translate(${W - 26} 26)`} aria-hidden="true">

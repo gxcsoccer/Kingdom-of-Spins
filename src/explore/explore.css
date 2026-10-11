@@ -111,3 +111,7 @@ button.ex-item:not(:disabled){cursor:pointer}
 .ex2 .mm{flex:none}
 .ex2 .ex-quest{padding:8px 10px}.ex2 .ex-quest .ex-item{padding:2px}
 .ex2 .ex-clues{flex:none}
+
+/* 出口按钮上的罗盘方向，和线索里的「东南」等对应 */
+.ex-exit-dir{font-size:12px;background:#111;color:#ffd400;padding:0 5px;margin-right:2px;border-radius:3px}
+.ex-exit.hint .ex-exit-dir{background:#fff;color:#ff2d4a}

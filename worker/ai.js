@@ -563,7 +563,7 @@ async function exploreFlavor(body, env) {
   const spot = Number.isInteger(+a.spot) ? sc.spots[+a.spot] : null;
   const what = a.type==='inspect' ? `孩子仔细查看了「${spot?.label||'某处'}」。` : a.type==='move' ? `孩子从「${sceneByKey(region.id,a.from)?.title||'别处'}」走到了「${sc.title}」。` : `孩子刚来到${region.name}的「${sc.title}」${body.firstRun?'（第一次来）':''}。`;
   const res = o.type==='found' ? `结果（已决定）：在这里${BEYS[o.id]?'找到了陀螺':'遇见了陀螺手'}「${o.name}」！写出发现的一刻。`
-    : o.type==='heat' ? `结果（已决定）：这里没有要找的东西（${o.level==='hot'?'不过目标就在这个地方的别处':o.level==='warm'?'目标就在旁边的地方':'目标还很远'}）。只描写这个东西本身，可以顺带讲一点和它有关的真实知识，不要说找到了什么。`
+    : o.type==='heat' ? `结果（已决定）：这里没有要找的东西（${o.level==='hot'?'不过目标就在这个地方的别处':o.level==='warm'?'目标就在旁边的地方':'目标还很远'}）。只描写这个东西本身，可以顺带讲一点和它有关的真实知识，不要说找到了什么。${o.level==='hot'?'目标就在这个画面里：绝对不要叫孩子“去别处/离开/去别的地方找”，可以鼓励他再看看画里别的东西。':''}方向、去哪里由系统提示负责，line 和 narration 都不要自己给方向或路线。`
     : '描写到达时看到的景象。';
   const geo = CARDS.filter(c=>c.layer==='geo' && c.region===region.id);
   const proto = prototypeOf(region.id);

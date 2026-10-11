@@ -6,7 +6,7 @@ import {BLADERS} from '../game/story.js';
 import {getCard} from '../knowledge/cards.js';
 import KnowledgeCard from '../knowledge/KnowledgeCard.jsx';
 import {SCENES,sceneUrl,sceneByKey,START_SCENE} from '../game/scenes.js';
-import {openTargets,questClue,heat,targetName} from './quest.js';
+import {openTargets,questClue,heat,targetName,compass,DIR_ARROW} from './quest.js';
 import MiniMap from './MiniMap.jsx';
 import {speak,stopSpeaking,ttsSupported} from '../fusion/voice.js';
 import BeyArt from '../ui/BeyArt.jsx';
@@ -158,8 +158,6 @@ export default function ExploreScreen(){
 
   if(region.comingSoon)return <div className="page dark ex-soon"><div className="panel" style={{padding:30,color:'#111',textAlign:'center'}}><div className="sfx" style={{fontSize:56}}>即将开放！</div><p style={{fontWeight:800}}>{region.name}（{region.landform}）还在建造中，敬请期待～</p><button className="btn primary big" onClick={()=>go('map')}>回到地图</button></div></div>;
 
-  // Filmstrip: one entry per scene visit.
-  const visits=[];trail.forEach((p,i)=>{const last=visits[visits.length-1];if(last&&last.key===p.sceneKey){last.last=i;}else visits.push({key:p.sceneKey,first:i,last:i});});
   const found=new Set(ex.found),met=new Set(ex.met);
   return (
     <div className="ex ex2 page dark" style={{'--rc':region.color}}>
@@ -188,13 +186,9 @@ export default function ExploreScreen(){
               {viewIdx==null&&view.hotspots.map((h,i)=><div key={i} title={h.label} className="fb-hot" style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.2+i*.12}s`}}><i/><span>{h.label}</span></div>)}
               {chip&&<div key={chip.key} className={`ex-chip ${chip.kind} ${chip.level||''}`}>{chip.text}</div>}
             </div>
-            {viewIdx==null&&<div className="ex-exits"><span className="ex-exits-l">走去：</span>{view.exits.map(x=><button key={x.key} className={`ex-exit ${clue&&!clue.here&&clue.next===x.key&&hintLevel>=1?'hint':''}`} disabled={blocking} onClick={()=>moveTo(x.key)}>→ {x.title}</button>)}</div>}
+            {viewIdx==null&&<div className="ex-exits"><span className="ex-exits-l">走去：</span>{view.exits.map(x=><button key={x.key} className={`ex-exit ${clue&&!clue.here&&clue.next===x.key&&hintLevel>=1?'hint':''}`} disabled={blocking} onClick={()=>moveTo(x.key)}>{(()=>{const d=compass(region.id,here,x.key);return d?<><b className="ex-exit-dir">{DIR_ARROW[d]} {d}</b> </>:'→ ';})()}{x.title}</button>)}</div>}
           </div>}
         </div>
-        <div className="fb-strip ex-strip">{visits.map((v,j)=>{const p=trail[v.last];const on=(viewIdx??trail.length-1)>=v.first&&(viewIdx??trail.length-1)<=v.last;return (
-          <button key={p.id+j} className={`fb-thumb ${on?'on':''}`} onClick={()=>setViewIdx(v.last===trail.length-1?null:v.last)}>
-            <img src={sceneUrl(region.id,p.sceneKey)} alt=""/><span className="fb-thumb-t">{j+1}. {sceneByKey(region.id,p.sceneKey)?.title||p.title}</span>
-          </button>);})}</div>
       </div>
 
       <aside className="ex-side">
