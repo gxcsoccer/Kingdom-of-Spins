@@ -24,7 +24,7 @@ import './result.css';
 const PREDICT=[{id:'ko',label:'把对手撞出界（OVER / XTREME）',match:r=>r==='over'||r==='xtreme'},{id:'spin',label:'比谁转得久（SPIN / 判定）',match:r=>r==='spin'||r==='judge'},{id:'lose',label:'我觉得会输……',match:null}];
 const REWARD={normal:[120,60],pro:[160,80],super:[220,100],boss:[400,150]};
 const MOMENT_TITLE={'first-hit':'第一次碰撞','big-hit':'最猛的一撞','spin-drop':'转速大跳水','dash':'冲刺！','finish':'决胜时刻'};
-const PAGES=[{id:'result',label:'结果'},{id:'review',label:'复盘'},{id:'lab',label:'实验室'},{id:'next',label:'下一步'}];
+const PAGES=[{id:'result',label:'结果'},{id:'review',label:'复盘'},{id:'lab',label:'实验室'},{id:'next',label:'接下来去哪'}];
 const NUM='①②③④⑤';
 const HIGHLIGHT_MS=4200;
 const REPLAY_BAR_PX=150;   // ReplayViewer's control bar + scrubber below the 3D view   // the slow-mo highlight is ~7 s; the quiz pops once the key instant has played
@@ -116,9 +116,10 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
         </div>
       </div>
       <div className="rp-nav">
-        <button className="rp-arrow" disabled={page===0} onClick={()=>goPage(p=>p-1)} aria-label="上一页">◀</button>
-        <div className="rp-dots">{PAGES.map((p,i)=><button key={p.id} className={i===page?'on':''} onClick={()=>goPage(i)} aria-label={p.label}/>)}</div>
-        <button className="rp-arrow next" disabled={page===PAGES.length-1} onClick={()=>goPage(p=>p+1)} aria-label="下一页">{page<PAGES.length-1?`${PAGES[page+1].label} ▶`:'▶'}</button>
+        {page>0?<button className="rp-arrow" onClick={()=>goPage(p=>p-1)} aria-label="上一页">◀ {PAGES[page-1].label}</button>:<span/>}
+        <span/>
+        {page===1&&<button className="rp-arrow next" onClick={()=>goPage(2)} aria-label="去实验室">试着改一个零件 ▶</button>}
+        {page===2&&<button className="rp-arrow next" onClick={()=>goPage(3)} aria-label="接下来去哪">离开实验室 · 接下来去哪 ▶</button>}
       </div>
       {recruitOpen&&<RecruitModal blader={blader} save={save} onDone={(uid)=>{recruit(blader.id,uid);setRecruited(true);setRecruitOpen(false);}} onClose={()=>setRecruitOpen(false)}/>}
     </div>
@@ -169,7 +170,7 @@ function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRec
           <Portrait blader={blader} size={96}/>
           <div><div className="sfx" style={{fontSize:30,color:'var(--yellow)'}}>{recruited?'入队！':'招募！'}</div><div style={{fontWeight:800}}>{recruited?`${blader.name} 加入了你的队伍`:`${blader.name} 想加入你的队伍！`}</div>{!recruited&&<button className="btn small yellow" style={{marginTop:6}}>点我招募</button>}</div>
         </div>}
-        <button className="btn primary big rp-cta" onClick={onNext}>看复盘 ▶</button>
+        <button className="btn primary big rp-cta" onClick={onNext}>{won?'看看为什么赢了 ▶':'看看为什么输了 ▶'}</button>
         {fromExp&&<button className="btn yellow big" onClick={backToExplore}>🧭 回到探索 ▶</button>}
       </div>
     </div>

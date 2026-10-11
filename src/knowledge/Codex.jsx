@@ -24,9 +24,19 @@ function usePageSize() {
   return [ref, n];
 }
 
+// 未解锁卡给出“主题 + 去哪里拿”，引导下一步行动。
+const WHERE_GEO={harbor:'去新手港湾，点画里带 💡 的东西',thunder:'去雷霆山脉，点画里带 💡 的东西',volcano:'龙焰火山岛开放后就能找到'};
+function lockedHint(c){
+  const topic=(c.tags||[]).find(t=>/[\u4e00-\u9fa5]/.test(t));const t=topic?`主题「${topic}」· `:'';
+  if(c.layer==='geo')return t+(WHERE_GEO[c.region]||'在探索地图里找找');
+  if(c.layer==='physics')return t+'打完比赛去复盘、实验室，或翻开科学绘本';
+  if(c.layer==='design')return t+'去 AI 融合工坊设计一只陀螺';
+  return t+'多打几场比赛、试试融合';
+}
 /** 知识图鉴 — paged card binder. unlocked: card ids; newIds: ids flagged NEW. */
 export default function Codex({unlocked=[], newIds=[], onClose}) {
-  const [tab, setTab] = useState('official');
+  // 默认打开“拿到最多卡”的那一类，第一眼看到的是自己的发现，而不是一排问号。
+  const [tab, setTab] = useState(()=>{const g=new Set(unlocked);let best='official',n=-1;for(const l of ['official','physics','geo','design']){const k=CARDS.filter(c=>c.layer===l&&g.has(c.id)).length;if(k>n){n=k;best=l;}}return best;});
   const [pageNo, setPageNo] = useState(0);
   const [open, setOpen] = useState(null);
   const [arch, setArch] = useState(null);
@@ -36,7 +46,7 @@ export default function Codex({unlocked=[], newIds=[], onClose}) {
   const regionDone = r => { const e = explore[r.id]; return !!e && r.beys.every(id=>e.found?.includes(id)) && r.bladers.every(id=>e.met?.includes(id)); };
   const protoRegions = REGIONS.filter(r=>prototypeOf(r.id));
   const count = id => id==='proto' ? [protoRegions.filter(regionDone).length, protoRegions.length] : (l=>[l.filter(c=>got.has(c.id)).length, l.length])(CARDS.filter(c=>c.layer===id));
-  const items = tab==='proto' ? protoRegions : CARDS.filter(c=>c.layer===tab);
+  const items = tab==='proto' ? protoRegions : CARDS.filter(c=>c.layer===tab).sort((a,b)=>(got.has(b.id)?1:0)-(got.has(a.id)?1:0));   // 已获得的排前面
   const pages = Math.max(1, Math.ceil(items.length / perPage));
   const pg = Math.min(pageNo, pages-1);
   const shown = items.slice(pg*perPage, pg*perPage+perPage);
@@ -71,7 +81,7 @@ export default function Codex({unlocked=[], newIds=[], onClose}) {
               <div className="codex-tile-b">{c.body}</div>
             </button>
           ) : (
-            <div key={c.id} className="codex-tile locked"><div className="codex-tile-t">？？？</div><div className="codex-tile-b">在对战、融合或探索中发现这张卡！</div><span className="codex-tile-icon">?</span></div>
+            <div key={c.id} className="codex-tile locked"><div className="codex-tile-t">？？？</div><div className="codex-tile-b">{lockedHint(c)}</div><span className="codex-tile-icon">?</span></div>
           ))}
         </div>
       </div>

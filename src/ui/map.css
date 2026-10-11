@@ -235,3 +235,4 @@
 .wm-state-main{white-space:nowrap}
 .wm-state-dots{align-items:center}
 .wm-state-dots em{font-style:normal;font-weight:900;font-size:calc(var(--fs)*.95);margin-left:4px}
+.wm-mini{position:relative}.wm-mini.joined::after{content:"✓";position:absolute;right:-4px;bottom:-4px;width:15px;height:15px;border-radius:50%;background:#14c9a5;color:#fff;border:2px solid #111;font-size:10px;font-weight:900;display:grid;place-items:center;line-height:1}

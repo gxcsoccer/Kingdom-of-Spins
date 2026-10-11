@@ -55,8 +55,8 @@ function useStage(){
 }
 
 function Face({id,lit,size}){
-  const b=BLADERS.find(x=>x.id===id);
-  return <span className={`wm-mini ${lit?'lit':''}`} title={lit?b?.name:'？？？'} style={{'--c':b?.color,width:size,height:size}}><img src={`/art/bladers/${id}.png`} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></span>;
+  const b=BLADERS.find(x=>x.id===id),joined=useGame(st=>st.save.team.some(t=>t.bladerId===id));
+  return <span className={`wm-mini ${lit?'lit':''} ${joined?'joined':''}`} title={joined?`${b?.name}（已入队）`:lit?`${b?.name}（已认识）`:'？？？'} style={{'--c':b?.color,width:size,height:size}}><img src={`/art/bladers/${id}.png`} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></span>;
 }
 function BeyChip({id,lit}){
   return <span className={`wm-beychip ${lit?'lit':''}`} title={lit?BEYS[id]?.name:'？？？'}><img src={`/art/beys/${id}.png`} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></span>;
@@ -74,7 +74,7 @@ function regionState(r,save,locked){
   if(locked&&r.unlock?.beys){const n=Math.min(r.unlock.beys,save.collection.length);
     return {tone:'lock',icon:'🔒',main:`收集 ${r.unlock.beys} 只陀螺解锁`,now:`现在 ${n}/${r.unlock.beys}`,dots:[n,r.unlock.beys]};}
   const mates=(r.recruitable||[]).filter(id=>save.team.some(t=>t.bladerId===id)).length;
-  const stats=r.recruitable?.length?`${treasure} · 队员 ${mates}/${r.recruitable.length}`:`${treasure} · 打败 ${beat}/${r.bladers.length}`;
+  const stats=r.recruitable?.length?`${treasure} · 已入队 ${mates}/${r.recruitable.length}`:`${treasure} · 打败 ${beat}/${r.bladers.length}`;
   const done=p.found>=r.beys.length&&beat>=r.bladers.length;
   return {tone:done?'done':'open',icon:done?'🏅':'🧭',main:done?'全部完成！':'可以探险',stats,go:'进入探险 ▶'};
 }
@@ -100,7 +100,7 @@ function RegionBadge({r,save,locked,onClick}){
         <span className="wm-region-name">{r.name}</span>
         <span className="wm-region-sub">{r.en} · {r.landform}</span>
         <span className="wm-region-row"><em>陀螺 {p.found}/{r.beys.length}</em>{r.beys.map(id=><BeyChip key={id} id={id} lit={p.foundSet.has(id)}/>)}</span>
-        <span className="wm-region-row"><em>{r.recruitable?.length?'队员':'对手'} {p.met}/{r.bladers.length}</em>{r.bladers.map(id=><Face key={id} id={id} lit={p.metSet.has(id)}/>)}</span>
+        <span className="wm-region-row"><em>已认识 {p.met}/{r.bladers.length}</em>{r.bladers.map(id=><Face key={id} id={id} lit={p.metSet.has(id)}/>)}</span>
         <RegionState st={regionState(r,save,locked)}/>
       </button>
     </>
@@ -245,7 +245,7 @@ export default function MapScreen(){
         <div className="wm-hud-chips">
           <span>🪙 {save.coins}</span>
           <span>陀螺 {save.collection.length}</span>
-          <span>队员 {save.team.length}/3</span>
+          <span>已入队 {save.team.length}/3</span>
           {team.length>0&&<span className="wm-hud-team">{team.map(b=><img key={b.id} src={`/art/bladers/${b.id}.png`} alt={b.name} title={b.name}/>)}</span>}
           <label className="wm-hud-demo" title="演示模式：解锁全部区域和对手"><input type="checkbox" checked={!!save.demo} onChange={e=>setDemo(e.target.checked)}/>演示</label>
         </div>

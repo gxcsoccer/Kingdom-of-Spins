@@ -67,7 +67,7 @@ export default function ShopScreen(){
             {stage==='crack'&&<span className="bx-leak"/>}
           </button>}
           {stage==='idle'&&<div className="bx-prompt">
-            {can?(taps===0?<>点盲盒 <b>{TAPS}</b> 下打开！</>:<>再点 <b>{TAPS-taps}</b> 下！</>):<>金币不够啦（需要 🪙 {BLIND_BOX_COST}），去打比赛赚金币吧！</>}
+            {can?(taps===0?<>点盲盒 <b>{TAPS}</b> 下打开！</>:<>再点 <b>{TAPS-taps}</b> 下！</>):<>还差 <b>🪙 {BLIND_BOX_COST-(useGame.getState().save.coins||0)}</b> 金币 <button className="btn primary small" style={{marginLeft:8}} onClick={e=>{e.stopPropagation();useGame.getState().go('map');}}>⚔️ 去比赛赚金币</button></>}
             {can&&<span className="bx-cost">每盒 🪙 {BLIND_BOX_COST}</span>}
           </div>}
           {stage==='idle'&&can&&<div className="bx-pips">{Array.from({length:TAPS},(_,i)=><i key={i} className={i<taps?'on':''}/>)}</div>}
