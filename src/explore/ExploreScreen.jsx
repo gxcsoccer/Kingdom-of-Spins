@@ -139,7 +139,7 @@ export default function ExploreScreen(){
       if(target&&here===target.scene){g.tries={...(g.tries||{}),[target.id]:((g.tries||{})[target.id]||0)+1};if(g.tries[target.id]>=3&&(g.hint?.[target.id]||0)<1)g.hint={...(g.hint||{}),[target.id]:1};}
       if(target&&g.sinceFind>=8)g.hint={...(g.hint||{}),[target.id]:2};
       const p=(g.trail||[]).at(-1);if(p){p.tapped=label;p.line='';p.tried=[...new Set([...(p.tried||[]),spot])];}});
-    if(h)flash({kind:'heat',level:h.level,text:`「${label}」：${h.text}`});
+    if(h)flash({kind:'heat',level:h.level,text:`👆「${label}」${h.text}`});
     sfx.beep?.(h?.level==='hot');
     writeFlavor({type:'inspect',spot},{type:'heat',level:h?.level},live.id);
   }

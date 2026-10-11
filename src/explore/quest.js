@@ -80,14 +80,15 @@ export const DIR_ARROW = {东: '→', 东北: '↗', 北: '↑', 西北: '↖', 
 export function heat(regionId, target, here, tappedSpot) {
   if (!target) return null;
   if (here === target.scene && tappedSpot === target.spot) return {level: 'found', text: '找到了！'};
-  const d = hops(regionId, here, target.scene);
+  // 提示说的是“要找的目标离这里多远”，不是“你点的东西多远”，避免孩子以为点的东西本身很远或找到了。
+  const d = hops(regionId, here, target.scene), name = targetName(target);
   if (d === 0) {
     // 已经在目标场景：告诉孩子在画面里往哪个方向找（上下左右），每点一次都有新信息。
     const sp = sceneOf(regionId, here)?.spots || [], a = sp[tappedSpot], t = sp[target.spot];
     const dir = a && t ? screenDir(t.x - a.x, t.y - a.y) : '';
-    return {level: 'hot', text: dir ? `🔥🔥 超级近！不在这儿，往画面的「${dir}」边找找` : '🔥🔥 超级近！就在这个地方，换个东西点点看'};
+    return {level: 'hot', text: dir ? `不在这里！${name} 就在这幅画里 🔥🔥 往「${dir}」边找找` : `不在这里！${name} 就在这幅画里 🔥🔥 换个东西点点看`};
   }
-  if (d === 1) return {level: 'warm', text: '🔥 很近了！就在旁边的地方'};
-  if (d === 2) return {level: 'mild', text: '🌤 有点远，再走两站'};
-  return {level: 'cold', text: '❄️ 很远哦，看看小地图的方向'};
+  if (d === 1) return {level: 'warm', text: `不在这里～${name} 就在隔壁 🔥 只差 1 站`};
+  if (d === 2) return {level: 'mild', text: `不在这里～${name} 还要走 2 站 🌤`};
+  return {level: 'cold', text: `不在这里～${name} 还很远 ❄️ 看看小地图的方向`};
 }
