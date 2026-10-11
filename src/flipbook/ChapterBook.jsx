@@ -54,7 +54,7 @@ function Picture({imgKey, staticSrc, prompt, context, onTap, busy, tapMark}) {
       {src && !failed ? <img src={src} alt="" draggable={false} onLoad={()=>setLoaded(true)} onError={onError}/>
         : failed ? <div className="fb-sketch"><span>{context.title}</span></div>
         : <div className="fb-shimmer"><span>博士正在画画…</span></div>}
-      {loaded && spots?.map((h,i)=><div key={i} className="fb-hot" style={{left:`${h.x*100}%`, top:`${h.y*100}%`, animationDelay:`${i*.15}s`}}><i/><span>{h.label}</span></div>)}
+      {onTap && loaded && spots?.map((h,i)=><div key={i} className="fb-hot" style={{left:`${h.x*100}%`, top:`${h.y*100}%`, animationDelay:`${i*.15}s`}}><i/><span>{h.label}</span></div>)}
       {tapMark && <div className="fb-tap" style={{left:`${tapMark.x*100}%`, top:`${tapMark.y*100}%`}}/>}
       {busy && <div className="fb-wait"><div className="fb-doodle small"/><b>博士正在翻书…</b></div>}
     </div>
@@ -127,10 +127,12 @@ export default function ChapterBook({chapter, onClose, onUnlock}) {
             <h2 className="cb-title">{bp ? bp.title : page.title}</h2>
             <div className="cb-texts">{texts.map((t,i)=><div key={i} className={`cb-text ${i===0?'caption':'bubble'}`} style={{animationDelay:`${.1+i*.2}s`}}>{t}</div>)}</div>
             {!bp && page.kind==='hook' && <div className="cb-guess">{page.guess.map((g,i)=><button key={i} className={`btn ${guess===i?'ink':''}`} onClick={()=>setGuess(i)}>{g}</button>)}
-              {guess!=null && <div className="cb-guess-note slidein">记住你的猜测，看完这本书再对答案！</div>}</div>}
+              {guess!=null && <div className="cb-guess-note slidein">记住你的猜测，看完这本书再对答案！</div>}
+              {guess!=null && <button className="btn primary big cb-next-inline pop-in" onClick={()=>go(n+1)}>翻到下一页：{KIND_LABEL[chapter.pages[n+1].kind]} ▶</button>}</div>}
             {!bp && page.kind==='wrap' && guess!=null && <div className={`cb-check ${guess===page.answer||guess===chapter.pages[0].answer?'ok':'no'}`}>{guess===chapter.pages[0].answer ? '✅ 你一开始就猜对了！' : `开头你猜的是「${chapter.pages[0].guess[guess]}」，现在你知道为什么不是啦！`}</div>}
             {!bp && (page.kind==='observe'||page.kind==='analogy') && <div className="cb-hint">👆 点画里你好奇的东西，打开「好奇心支线」</div>}
             {!bp && page.kind==='experiment' && <div className="cb-hint">{expDone ? '✅ 实验做完了！发现了什么？' : '🧪 做完实验再往下翻'}</div>}
+            {!bp && canNext && page.kind!=='hook' && <button className="btn primary cb-next-inline" onClick={()=>go(n+1)}>下一页：{KIND_LABEL[chapter.pages[n+1].kind]} ▶</button>}
             {bp && <div className="cb-branch-nav">
               <button className="btn" onClick={()=>setBranch(null)}>↩ 回到主线</button>
               {branch.i>0 && <button className="btn small" onClick={()=>setBranch(b=>({...b, i:b.i-1}))}>◀ 支线上一页</button>}
