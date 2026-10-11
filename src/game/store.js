@@ -1,13 +1,14 @@
 import {create} from 'zustand';
 import {BEYS} from './beys.js';
 import {BLADERS} from './story.js';
+import {emptyExplore} from './regions.js';
 
 const KEY='kos-save-v1';
 export const BLIND_BOX_COST=100;
 export const BLIND_BOX_POOL=[
   {id:'dragoon',weight:20},{id:'fish',weight:20},{id:'goatpuff',weight:20},{id:'ninjamight',weight:25},{id:'titan',weight:15},
 ];
-export const freshSave=()=>({version:1,profile:null,coins:0,collection:[],team:[],defeated:[],wins:{},cards:[],predictions:[],battles:0,demo:false});
+export const freshSave=()=>({version:1,profile:null,coins:0,collection:[],team:[],defeated:[],wins:{},cards:[],predictions:[],battles:0,demo:false,explore:{}});
 
 function loadLocal(key){try{const s=JSON.parse(localStorage.getItem(key));return s&&s.version===1?{...freshSave(),...s}:freshSave();}catch{return freshSave();}}
 const uid=()=>Math.random().toString(36).slice(2,8);
@@ -56,6 +57,11 @@ export const useGame=create((set,get)=>({
   },
   recruit(bladerId,beyUid){get().update(s=>{if(!s.team.some(t=>t.bladerId===bladerId))s.team.push({bladerId,beyUid});});},
   setDemo(on){get().update(s=>{s.demo=on;});},
+  // Exploration progress per region (see regions.js). patch(e) mutates the region record.
+  updateExplore(regionId,patch){get().update(s=>{s.explore=s.explore||{};const e=s.explore[regionId]||(s.explore[regionId]=emptyExplore());patch(e);});},
+  findBey(regionId,beyId){let added=null;get().update(s=>{s.explore=s.explore||{};const e=s.explore[regionId]||(s.explore[regionId]=emptyExplore());
+    if(!e.found.includes(beyId)){e.found.push(beyId);if(!s.collection.some(b=>b.id===beyId)&&BEYS[beyId]){added={...structuredClone(BEYS[beyId]),uid:Math.random().toString(36).slice(2,8),origin:'explore',foundIn:regionId};s.collection.push(added);}}});return added;},
+  meetBlader(regionId,bladerId){get().update(s=>{s.explore=s.explore||{};const e=s.explore[regionId]||(s.explore[regionId]=emptyExplore());if(!e.met.includes(bladerId))e.met.push(bladerId);});},
   reset(){get().update(s=>{Object.assign(s,freshSave(),{profile:s.profile});});},
 }));
 
