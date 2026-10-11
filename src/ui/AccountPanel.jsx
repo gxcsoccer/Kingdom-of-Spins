@@ -1,7 +1,8 @@
 import {useEffect, useState} from 'react';
 import {useGame} from '../game/store.js';
-import {isConfigured, providerEnabled, getSession, onAuthChange, signInWithGoogle, signOut, listKids, createKid, deleteKid} from '../net/auth.js';
+import {isConfigured, providerEnabled, getSession, onAuthChange, signInWithGoogle, signOut, listKids, createKid} from '../net/auth.js';
 import {activateKid, deactivateKid, restoreLastKid} from '../game/sync.js';
+import ParentManager from './ParentManager.jsx';
 
 const AVATARS = ['1', '2', '3', '4']; // /art/avatars/<n>.png; older profiles may hold a hex colour
 const inputStyle = {border: 'var(--border)', padding: '8px 12px', font: 'inherit', fontWeight: 800};
@@ -14,21 +15,6 @@ function Avatar({color, name, size = 44}) {
       fontFamily: 'var(--display)', fontWeight: 900, fontSize: size * .45, color: '#fff', WebkitTextStroke: '1px var(--ink)', flex: 'none'}}>
       {(name || '?').slice(0, 1).toUpperCase()}
     </span>
-  );
-}
-
-function GuestPanel({googleReady}) {
-  const profile = useGame(s => s.save.profile), setProfile = useGame(s => s.setProfile);
-  return (
-    <div className="panel mt2" style={{padding: '12px 18px'}}>
-      <div className="row wrap center">
-        <span style={{fontWeight: 800}}>玩家名</span>
-        <input defaultValue={profile?.nickname || ''} placeholder="输入你的名字" maxLength={12} style={{...inputStyle, width: 160}}
-          onBlur={e => setProfile({nickname: e.target.value.trim() || '小陀螺手'})}/>
-        <span className="muted" style={{fontSize: 13}}>游客模式 · 存档保存在本机</span>
-        {googleReady ? null : <button className="btn small" disabled title="项目还没有配置 Google 登录">家长登录（需要配置 Google）</button>}
-      </div>
-    </div>
   );
 }
 
@@ -92,6 +78,7 @@ function ParentPanel({session}) {
   const activeKid = useGame(s => s.activeKid);
   const [kids, setKids] = useState(null), [err, setErr] = useState(''), [adding, setAdding] = useState(false);
   const [pinFor, setPinFor] = useState(null), [busyId, setBusyId] = useState(null);
+  const [managing, setManaging] = useState(false);
 
   async function refresh() {
     const {data, error} = await listKids();
@@ -105,13 +92,7 @@ function ParentPanel({session}) {
     setBusyId(null);
     if (error) setErr('云存档读取失败，先用本机存档：' + error.message);
   }
-  async function remove(kid) {
-    if (!confirm(`确定删除「${kid.nickname}」的档案和云存档吗？此操作不能撤销。`)) return;
-    const {error} = await deleteKid(kid.id);
-    if (error) return setErr('删除失败：' + error.message);
-    if (activeKid?.id === kid.id) deactivateKid();
-    refresh();
-  }
+
 
   return (
     <div className="panel mt2 col" style={{padding: '14px 18px', textAlign: 'left'}}>
@@ -135,13 +116,14 @@ function ParentPanel({session}) {
                   <span className="muted" style={{fontSize: 12}}>{busyId === kid.id ? '读取存档…' : active ? '正在玩 ✓' : kid.pin ? '🔒 有 PIN' : '点我开始'}</span>
                 </div>
               </div>
-              <button className="btn small ghost" style={{marginTop: 6, padding: '2px 6px', fontSize: 12}} onClick={e => { e.stopPropagation(); remove(kid); }}>删除</button>
             </div>
           );
         })}
         {!adding && <button className="btn" onClick={() => setAdding(true)}>＋ 新建孩子档案</button>}
+        {kids?.length > 0 && <button className="btn ghost" onClick={() => setManaging(true)}>⚙ 管理档案</button>}
       </div>
       {adding && <NewKidForm onCancel={() => setAdding(false)} onDone={kid => { setAdding(false); refresh(); choose(kid); }}/>}
+      {managing && <ParentManager onClose={() => { setManaging(false); refresh(); }}/>}
       {pinFor && <PinPrompt kid={pinFor} onCancel={() => setPinFor(null)} onOk={() => { const k = pinFor; setPinFor(null); choose(k); }}/>}
     </div>
   );
@@ -164,18 +146,15 @@ export default function AccountPanel() {
     return () => { live = false; off(); };
   }, []);
 
-  if (googleReady === false && !session) return <GuestPanel googleReady={false}/>;
+  // No guest mode: a parent must sign in with Google and pick a kid profile before playing.
   if (session) return <ParentPanel session={session}/>;
-  if (googleReady === null || session === undefined) return <GuestPanel googleReady/>;
+  if (googleReady === null || session === undefined) return <div className="panel mt2" style={{padding: '14px 20px', fontWeight: 800}}>正在检查登录状态…</div>;
+  if (googleReady === false) return <div className="panel mt2" style={{padding: '14px 20px', fontWeight: 800, color: 'var(--red)'}}>登录服务暂时不可用，请稍后刷新。</div>;
   return (
-    <div className="col">
-      <div className="panel mt2" style={{padding: '12px 18px'}}>
-        <div className="row wrap center">
-          <button className="btn yellow" onClick={() => signInWithGoogle()}>家长用 Google 登录</button>
-          <span className="muted" style={{fontSize: 13}}>登录后可以给孩子建档案、云端保存进度</span>
-        </div>
-      </div>
-      <GuestPanel googleReady/>
+    <div className="panel mt2 col" style={{padding: '18px 22px', alignItems: 'center', textAlign: 'center'}}>
+      <div className="kicker">家长先登录</div>
+      <button className="btn yellow big" onClick={() => signInWithGoogle()}>用 Google 登录</button>
+      <span className="muted" style={{fontSize: 13, maxWidth: 360}}>登录后给孩子建一个档案（只需昵称，不用真名），进度会自动保存在云端。</span>
     </div>
   );
 }

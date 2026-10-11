@@ -18,7 +18,9 @@ const SCREENS={title:TitleScreen,starter:StarterScreen,map:MapScreen,shop:ShopSc
 export default function App(){
   const screen=useGame(s=>s.screen), nonce=useGame(s=>s.nonce);
   if(new URLSearchParams(location.search).has('art'))return <Suspense fallback={<Loading/>}><ArtCheck/></Suspense>;
-  const Screen=SCREENS[screen]||TitleScreen;
+  const activeKid=useGame(s=>s.activeKid);
+  // Gate: every screen except the title requires a signed-in parent + chosen kid profile.
+  const Screen=activeKid?(SCREENS[screen]||TitleScreen):TitleScreen;
   return <>
     <Suspense fallback={<Loading/>}><Screen key={screen+(nonce||0)}/></Suspense>
     <Suspense fallback={null}><ShowcaseCanvas/></Suspense>

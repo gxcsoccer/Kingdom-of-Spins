@@ -44,6 +44,8 @@ export const createKid = ({nickname, avatar = null, pin = null}) => safe(sb =>
   sb.from('kid_profiles').insert({nickname, avatar, pin: pin || null}).select('id,nickname,avatar,pin,created_at').single());
 
 export const deleteKid = id => safe(sb => sb.from('kid_profiles').delete().eq('id', id));
+export const updateKid = (id, patch) => safe(sb =>
+  sb.from('kid_profiles').update(patch).eq('id', id).select('id,nickname,avatar,pin,created_at').single());
 
 export const loadSave = kidId => safe(async sb => {
   const {data, error} = await sb.from('saves').select('data,updated_at').eq('kid_id', kidId).maybeSingle();
