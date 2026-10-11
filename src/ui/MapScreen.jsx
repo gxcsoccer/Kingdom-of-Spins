@@ -289,7 +289,9 @@ export default function MapScreen(){
 }
 
 export function DoctorFace({mood='normal',size=72}){
-  const [failed,setFailed]=useState(false);
-  if(!failed)return <img src={`/art/doctor/${mood}.png`} width={size} height={size} alt="融合博士" style={{objectFit:'contain',flex:'none'}} onError={()=>setFailed(true)}/>;
+  // 加载失败先重试两次（部署切换、网络抖动），仍失败才用兜底画法；换心情时重新尝试
+  const [tries,setTries]=useState(0);
+  useEffect(()=>setTries(0),[mood]);
+  if(tries<3)return <img key={mood+tries} src={`/art/doctor/${mood}.png${tries?`?r=${tries}`:''}`} width={size} height={size} alt="融合博士" style={{objectFit:'contain',flex:'none'}} onError={()=>setTimeout(()=>setTries(t=>t+1),400*(tries+1))}/>;
   return <div style={{width:size,height:size,flex:'none',borderRadius:'50%',border:'var(--border)',background:'radial-gradient(circle at 35% 40%, #111 0 6%, transparent 7%), radial-gradient(circle at 65% 40%, #111 0 6%, transparent 7%), radial-gradient(ellipse at 50% 70%, #111 0 10%, transparent 11%), var(--yellow)',display:'grid',placeItems:'end center'}}><span style={{fontSize:10,fontWeight:900,background:'#fff',border:'2px solid #111',padding:'0 4px',marginBottom:-8}}>博士</span></div>;
 }
