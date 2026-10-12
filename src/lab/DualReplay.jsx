@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import BattleScene from '../scene/BattleScene.jsx';
 import { createReplayPlayer } from '../scene/ReplayViewer.jsx';
@@ -62,7 +63,7 @@ function divergence(a = [], b = []) {
 /**
  * ref: jumpDivergence() — ¼× from just before the first difference; replayFromStart(); pause()
  */
-const DualReplay = forwardRef(function DualReplay({ beysA, beysB, fullA, fullB, height = 300, labels = ['A 原版', 'B 改装'], autoplay = false }, ref) {
+const DualReplay = forwardRef(function DualReplay({ beysA, beysB, fullA, fullB, height = 300, labels = [tr("A 原版"), tr("B 改装")], autoplay = false }, ref) {
   const { pA, pB, clock } = useMemo(() => {
     const pA = createReplayPlayer({ beys: beysA, samples: fullA?.samples || [], events: fullA?.events || [] });
     const pB = createReplayPlayer({ beys: beysB, samples: fullB?.samples || [], events: fullB?.events || [] });
@@ -110,7 +111,7 @@ const DualReplay = forwardRef(function DualReplay({ beysA, beysB, fullA, fullB, 
       for (const [p, r] of [[pA, rpmA], [pB, rpmB]]) {
         const st = p.getState(Math.min(t, p.duration)), rpm = Math.abs(st?.bodies?.[0]?.rpm || 0);
         if (r.current.bar) { r.current.bar.style.width = `${Math.min(100, (rpm / maxRpm) * 100)}%`; r.current.bar.style.background = rpm < 1200 ? '#ff2d4a' : '#ffd400'; }
-        if (r.current.val) r.current.val.textContent = `${Math.round(rpm).toLocaleString()} rpm${t >= p.duration - 1e-3 && p.duration > 0 ? ' · 结束' : ''}`;
+        if (r.current.val) r.current.val.textContent = `${Math.round(rpm).toLocaleString()} rpm${t >= p.duration - 1e-3 && p.duration > 0 ? tr(" · 结束") : ''}`;
       }
       raf = requestAnimationFrame(loop);
     };
@@ -129,28 +130,28 @@ const DualReplay = forwardRef(function DualReplay({ beysA, beysB, fullA, fullB, 
   const onUp = e => { if (!drag.current) return; trackRef.current.releasePointerCapture?.(e.pointerId); if (drag.current.was) clock.play(); drag.current = null; };
 
   const finA = (fullA?.events || []).find(e => e.type === 'finish'), finB = (fullB?.events || []).find(e => e.type === 'finish');
-  if (!fullA?.samples?.length || !fullB?.samples?.length) return <div className="dr-empty">没有可回放的数据</div>;
+  if (!fullA?.samples?.length || !fullB?.samples?.length) return <div className="dr-empty">{tr("没有可回放的数据")}</div>;
   return (
     <div ref={rootRef} className="dr">
       <div className="dr-row" style={{ '--dr-h': `${height}px` }}>
-        {cap && <div key={cap.key} className="dr-diverge">从这里开始不一样了！</div>}
+        {cap && <div key={cap.key} className="dr-diverge">{tr("从这里开始不一样了！")}</div>}
         <Side label={labels[0]} tone="a" player={pA} visible={visible} rpmRef={rpmA} kidName={beysA[0]?.name} />
         <Side label={labels[1]} tone="b" player={pB} visible={visible} rpmRef={rpmB} kidName={beysB[0]?.name} />
       </div>
       <div className="dr-bar">
         <div className="ks-rv-buttons">
-          <button className="ks-rv-btn" onClick={() => (clock.paused ? clock.play() : clock.pause())}>{ui.paused ? '▶ 同时播放' : '⏸ 暂停'}</button>
-          <button className={`ks-rv-btn ${ui.speed < 1 ? 'on' : ''}`} onClick={() => clock.setSpeed(clock.speed < 1 ? 1 : .25)}>¼× 慢动作</button>
-          <button className="ks-rv-btn" onClick={() => { auto.current = { phase: 'off', shown: false }; clock.seek(0); clock.speed = 1; clock.play(); }}>⟲ 重播</button>
+          <button className="ks-rv-btn" onClick={() => (clock.paused ? clock.play() : clock.pause())}>{ui.paused ? tr("▶ 同时播放") : tr("⏸ 暂停")}</button>
+          <button className={`ks-rv-btn ${ui.speed < 1 ? 'on' : ''}`} onClick={() => clock.setSpeed(clock.speed < 1 ? 1 : .25)}>{tr("¼× 慢动作")}</button>
+          <button className="ks-rv-btn" onClick={() => { auto.current = { phase: 'off', shown: false }; clock.seek(0); clock.speed = 1; clock.play(); }}>{tr("⟲ 重播")}</button>
           <span ref={timeRef} className="ks-rv-time">0.0s</span>
         </div>
         <div ref={trackRef} className="ks-rv-track dr-track" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
           {(fullA.events || []).filter(e => e.type === 'collision').map((e, i) => <div key={'a' + i} className="dr-hit a" style={{ left: `${(e.time / clock.end) * 100}%` }} />)}
           {(fullB.events || []).filter(e => e.type === 'collision').map((e, i) => <div key={'b' + i} className="dr-hit b" style={{ left: `${(e.time / clock.end) * 100}%` }} />)}
-          {[[finA, 'a', 'A 结束'], [finB, 'b', 'B 结束']].map(([f, k, txt]) => f && (
+          {[[finA, 'a', tr("A 结束")], [finB, 'b', tr("B 结束")]].map(([f, k, txt]) => f && (
             <div key={k} className={`dr-fin ${k} ${f.time > clock.end * .9 ? 'end' : ''}`} style={{ left: `${(f.time / clock.end) * 100}%` }}>{txt}</div>
           ))}
-          {tDiv != null && <div className="dr-div-mark" style={{ left: `${(tDiv / clock.end) * 100}%` }} title="从这里开始不一样">⚡</div>}
+          {tDiv != null && <div className="dr-div-mark" style={{ left: `${(tDiv / clock.end) * 100}%` }} title={tr("从这里开始不一样")}>⚡</div>}
           <div ref={headRef} className="ks-rv-head" />
         </div>
       </div>

@@ -1,3 +1,4 @@
+import {tr, getLocale} from '../i18n/index.js';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useTaskScope} from '../game/useTaskScope.js';
 import {flipStartOnce, flipTapFree as flipTap, flipImage, markTap} from './api.js';
@@ -8,7 +9,7 @@ import {speak, stopSpeaking, ttsSupported} from '../fusion/voice.js';
 import {LayerBadge} from '../knowledge/KnowledgeCard.jsx';
 import './flipbook.css';
 
-const HISTORY_KEY = 'kos.flip.history';
+const HISTORY_KEY = 'kos.flip.history.' + getLocale();
 function remember(page) {
   try {
     const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]').filter(p=>p.id!==page.id);
@@ -84,20 +85,20 @@ export default function Flipbook({start, onClose, onUnlock}) {
   }
 
   return (
-    <div className="flipbook" role="dialog" aria-label="AI 科学绘本">
+    <div className="flipbook" role="dialog" aria-label={tr("AI 科学绘本")}>
       <div className="fb-top">
         <div className="row" style={{gap:12}}>
-          <button className="btn small" onClick={onClose}>✕ 合上</button>
-          <div><div className="kicker" style={{color:'#ffd400'}}>AI SCIENCE MANGA</div><div className="fb-brand">科学绘本</div></div>
+          <button className="btn small" onClick={onClose}>{tr("✕ 合上")}</button>
+          <div><div className="kicker" style={{color:'#ffd400'}}>AI SCIENCE MANGA</div><div className="fb-brand">{tr("科学绘本")}</div></div>
         </div>
         <div className="row" style={{gap:8}}>
           {cur && <LayerBadge layer={cur.page.layer}/>}
-          {ttsSupported && <button className="btn small" onClick={()=>{ setVoice(v=>{ if (v) stopSpeaking(); else if (cur) speak(pageText(cur.page)); return !v; }); }}>{voice?'🔊 朗读中':'🔈 朗读'}</button>}
+          {ttsSupported && <button className="btn small" onClick={()=>{ setVoice(v=>{ if (v) stopSpeaking(); else if (cur) speak(pageText(cur.page)); return !v; }); }}>{voice?tr("🔊 朗读中"):tr("🔈 朗读")}</button>}
         </div>
       </div>
 
       <div className="fb-stage">
-        {!cur && <div className="fb-page fb-loading"><div className="fb-doodle"/><b>博士正在翻开绘本…</b></div>}
+        {!cur && <div className="fb-page fb-loading"><div className="fb-doodle"/><b>{tr("博士正在翻开绘本…")}</b></div>}
         {cur && (
           <div className="fb-page fb-turn" key={cur.page.id}>
             <div className="fb-title">
@@ -106,8 +107,8 @@ export default function Flipbook({start, onClose, onUnlock}) {
             </div>
             <div className={`fb-art ${cur.image?'ready':''}`} onClick={onImageTap}>
               {cur.image ? <img src={cur.image} alt="" draggable={false}/>
-                : cur.image===false ? <div className="fb-sketch"><span>{cur.page.title}</span><button className="btn small" onClick={redraw}>🎨 再画一次</button></div>
-                : <div className="fb-shimmer"><span>博士正在画画…</span></div>}
+                : cur.image===false ? <div className="fb-sketch"><span>{cur.page.title}</span><button className="btn small" onClick={redraw}>{tr("🎨 再画一次")}</button></div>
+                : <div className="fb-shimmer"><span>{tr("博士正在画画…")}</span></div>}
               {cur.page.panels.map((p,i)=>(
                 <div key={i} className={`fb-panel ${p.kind}`} style={{left:`${p.x*100}%`, top:`${p.y*100}%`, animationDelay:`${.15+i*.25}s`}}>{p.text}</div>
               ))}
@@ -115,9 +116,9 @@ export default function Flipbook({start, onClose, onUnlock}) {
                 <div key={i} className="fb-hot" style={{left:`${h.x*100}%`, top:`${h.y*100}%`, animationDelay:`${.4+i*.18}s`}}><i/><span>{h.label}</span></div>
               ))}
               {tap && <div className="fb-tap" style={{left:`${tap.x*100}%`, top:`${tap.y*100}%`}}/>}
-              {busy && cur && <div className="fb-wait"><div className="fb-doodle small"/><b>博士正在翻书…</b></div>}
+              {busy && cur && <div className="fb-wait"><div className="fb-doodle small"/><b>{tr("博士正在翻书…")}</b></div>}
             </div>
-            <div className="fb-hint">{cur.image ? '点画里任何你好奇的地方，翻到下一页！' : '画面马上就来，先读读对白～'}</div>
+            <div className="fb-hint">{cur.image ? tr("点画里任何你好奇的地方，翻到下一页！") : tr("画面马上就来，先读读对白～")}</div>
           </div>
         )}
       </div>
@@ -130,7 +131,7 @@ export default function Flipbook({start, onClose, onUnlock}) {
           </button>
         ))}
       </div>
-      <div className="fb-note">画面由 AI 生成，只用来帮助理解；知识内容来自知识卡和游戏的理想化物理模型。</div>
+      <div className="fb-note">{tr("画面由 AI 生成，只用来帮助理解；知识内容来自知识卡和游戏的理想化物理模型。")}</div>
     </div>
   );
 }

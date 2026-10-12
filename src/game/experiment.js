@@ -1,13 +1,14 @@
+import {tr} from '../i18n/index.js';
 // Controlled experiment runner: A (original) vs B (one variable changed), paired trials with identical launches.
 import {BEYS} from './beys.js';
 import {TIPS} from '../physics/model.js';
 
 export const VARIABLES={
-  bit:{label:'轴尖 Bit',options:Object.entries(TIPS).map(([k,t])=>({value:k,label:t.label})),get:b=>b.bit,set:(b,v)=>{b.bit=v;}},
-  ring:{label:'外圈配重',options:[{value:30,label:'30%（重量在中间）'},{value:55,label:'55%'},{value:80,label:'80%（重量在外圈）'}],get:b=>b.blade.ring,set:(b,v)=>{b.blade.ring=v;}},
-  height:{label:'Ratchet 高度',options:[{value:55,label:'55（矮）'},{value:60,label:'60'},{value:70,label:'70（高）'}],get:b=>b.ratchet?.height??60,set:(b,v)=>{b.ratchet={...b.ratchet,height:v};}},
-  wings:{label:'翼片数',options:[{value:2,label:'2 片'},{value:3,label:'3 片'},{value:4,label:'4 片'}],get:b=>b.blade.wings,set:(b,v)=>{b.blade.wings=v;}},
-  rpm:{label:'发射转速',options:[{value:3500,label:'3,500 rpm'},{value:5000,label:'5,000 rpm'},{value:6500,label:'6,500 rpm'}],launch:true},
+  bit:{label:tr("轴尖 Bit"),options:Object.entries(TIPS).map(([k,t])=>({value:k,label:t.label})),get:b=>b.bit,set:(b,v)=>{b.bit=v;}},
+  ring:{label:tr("外圈配重"),options:[{value:30,label:tr("30%（重量在中间）")},{value:55,label:'55%'},{value:80,label:tr("80%（重量在外圈）")}],get:b=>b.blade.ring,set:(b,v)=>{b.blade.ring=v;}},
+  height:{label:tr("Ratchet 高度"),options:[{value:55,label:tr("55（矮）")},{value:60,label:'60'},{value:70,label:tr("70（高）")}],get:b=>b.ratchet?.height??60,set:(b,v)=>{b.ratchet={...b.ratchet,height:v};}},
+  wings:{label:tr("翼片数"),options:[{value:2,label:tr("2 片")},{value:3,label:tr("3 片")},{value:4,label:tr("4 片")}],get:b=>b.blade.wings,set:(b,v)=>{b.blade.wings=v;}},
+  rpm:{label:tr("发射转速"),options:[{value:3500,label:'3,500 rpm'},{value:5000,label:'5,000 rpm'},{value:6500,label:'6,500 rpm'}],launch:true},
 };
 // 和正式对战同样的时长（battlePlayer 默认 20 秒）：第 1 次试验发射参数完全相同，“原版”必须重现刚才那一局。
 export const TRIALS=3, EXP_MAX_TIME=20;

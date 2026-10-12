@@ -1,3 +1,4 @@
+@import './responsive.css';
 /* Kingdom of Spins — manga (少年漫画) theme. Shared by all screens. */
 :root{
   --paper:#fbf8f1; --paper-2:#f1ece0; --ink:#111; --ink-2:#2a2a2a; --mute:#6b6658;

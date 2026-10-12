@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 // Hands-on mini experiments for the science chapters. Tiny analytic models (stated as such), SVG + rAF.
 import {useEffect, useRef, useState} from 'react';
 
@@ -40,19 +41,19 @@ export function InertiaLab({onDone}) {
       <div className="xp-row">
         {[A,B].map((ws,i)=>(
           <div key={i} className="xp-cell">
-            <Disc weights={ws} angle={st?.ang[i]||0} color={i?'#ffd9a0':'#a9cbff'} label={i?'陀螺 B':'陀螺 A'} onToggle={tog(i?setB:setA)}/>
+            <Disc weights={ws} angle={st?.ang[i]||0} color={i?'#ffd9a0':'#a9cbff'} label={i?tr("陀螺 B"):tr("陀螺 A")} onToggle={tog(i?setB:setA)}/>
             <div className="xp-meter"><i style={{width:`${(st ? st.w[i]/W0 : 1)*100}%`}}/></div>
-            <div className="xp-read">转动惯量 {I(ws).toFixed(1)} · {st?.stop[i] ? `停在 ${st.stop[i].toFixed(1)} 秒` : st ? '转动中…' : '点金属块：外圈 ↔ 中心'}</div>
+            <div className="xp-read">{tr("转动惯量 ")}{I(ws).toFixed(1)} · {st?.stop[i] ? tr("停在 {0} 秒", [st.stop[i].toFixed(1)]) : st ? tr("转动中…") : tr("点金属块：外圈 ↔ 中心")}</div>
           </div>))}
       </div>
-      <button className="btn primary big" disabled={st?.running} onClick={go}>🌀 转！</button>
-      <Note>小模型：两只陀螺一样重、发射转速一样、摩擦力矩一样；只有金属块的位置不同。</Note>
+      <button className="btn primary big" disabled={st?.running} onClick={go}>{tr("🌀 转！")}</button>
+      <Note>{tr("小模型：两只陀螺一样重、发射转速一样、摩擦力矩一样；只有金属块的位置不同。")}</Note>
     </div>
   );
 }
 
 // ② 轴尖与摩擦：转速衰减 ∝ 摩擦力臂；跑动速度 ∝ 抓地（碰地半径）。数值来自游戏里的轴尖参数。
-const TIP = {needle:{label:'尖轴', arm:.35, grip:.2, c:'#14c9a5'}, ball:{label:'圆轴', arm:.9, grip:.5, c:'#2f7bff'}, flat:{label:'平轴', arm:2, grip:1, c:'#ff2d4a'}};
+const TIP = {needle:{label:tr("尖轴"), arm:.35, grip:.2, c:'#14c9a5'}, ball:{label:tr("圆轴"), arm:.9, grip:.5, c:'#2f7bff'}, flat:{label:tr("平轴"), arm:2, grip:1, c:'#ff2d4a'}};
 export function FrictionLab({onDone}) {
   const [st, setSt] = useState(null);
   useLoop(!!st?.running, dt => setSt(s => { const n = {...s, t:s.t+dt}; let any = false;
@@ -66,10 +67,10 @@ export function FrictionLab({onDone}) {
           <b style={{color:tp.c}}>{tp.label}</b>
           <div className="xp-track"><span className="xp-top" style={{left:`${Math.min(92, (r?.pos||0)*100)}%`, background:tp.c, transform:`rotate(${r?.ang||0}deg)`}}/></div>
           <div className="xp-meter small"><i style={{width:`${(r ? r.w/10 : 1)*100}%`, background:tp.c}}/></div>
-          <span className="xp-read">{r?.stop ? `停在 ${r.stop.toFixed(1)} 秒 · 跑了 ${Math.round(r.pos*100)} 格` : r ? '转动中…' : ''}</span>
+          <span className="xp-read">{r?.stop ? tr("停在 {0} 秒 · 跑了 {1} 格", [r.stop.toFixed(1), Math.round(r.pos*100)]) : r ? tr("转动中…") : ''}</span>
         </div>); })}
-      <button className="btn primary big" disabled={st?.running} onClick={go}>🌀 三个一起转！</button>
-      <Note>小模型：转速掉得快慢看摩擦的“力臂”，跑得远近看抓地力；三只陀螺其他条件都一样。</Note>
+      <button className="btn primary big" disabled={st?.running} onClick={go}>{tr("🌀 三个一起转！")}</button>
+      <Note>{tr("小模型：转速掉得快慢看摩擦的“力臂”，跑得远近看抓地力；三只陀螺其他条件都一样。")}</Note>
     </div>
   );
 }
@@ -94,14 +95,14 @@ export function MomentumLab({onDone}) {
         {st?.hitShown && <span className="xp-boom">ガキン！</span>}
       </div>
       <div className="xp-sliders">
-        <label>A 的重量 {mA} g<input type="range" min="20" max="60" value={mA} onChange={e=>{setMA(+e.target.value); setSt(null);}}/></label>
-        <label>B 的重量 {mB} g<input type="range" min="20" max="60" value={mB} onChange={e=>{setMB(+e.target.value); setSt(null);}}/></label>
+        <label>{tr("A 的重量 ")}{mA} g<input type="range" min="20" max="60" value={mA} onChange={e=>{setMA(+e.target.value); setSt(null);}}/></label>
+        <label>{tr("B 的重量 ")}{mB} g<input type="range" min="20" max="60" value={mB} onChange={e=>{setMB(+e.target.value); setSt(null);}}/></label>
       </div>
-      <label className="xp-sliders one"><span>碰撞有多“弹”（恢复系数 e）{e.toFixed(1)}{e>=.99?' · 完全弹性':e<=.01?' · 粘在一起':''}</span><input type="range" min="0" max="1" step=".1" value={e} onChange={x=>{setE(+x.target.value);setSt(null);}}/></label>
-      <div className="xp-read big">撞完：A {vA>=0?'向前':'弹回'} {Math.abs(vA).toFixed(2)} · B 被撞出 {vB.toFixed(2)}（撞前 A = 1.00）</div>
-      <div className="xp-read">动量 撞前 {pBefore.toFixed(0)} = 撞后 {pAfter.toFixed(0)} ✓ 守恒 · 动能剩下 {Math.round(keep*100)}%（其余变成声音、热和晃动）</div>
-      <button className="btn primary big" disabled={st?.running} onClick={()=>setSt({t:0, running:true})}>💥 撞！</button>
-      <Note>小模型：一维正碰，B 原来不动；动量 = 质量 × 速度，撞前撞后总动量不变。真实陀螺还在旋转、会斜着撞，游戏对战里用的是完整的三维刚体物理。</Note>
+      <label className="xp-sliders one"><span>{tr("碰撞有多“弹”（恢复系数 e）")}{e.toFixed(1)}{e>=.99?tr(" · 完全弹性"):e<=.01?tr(" · 粘在一起"):''}</span><input type="range" min="0" max="1" step=".1" value={e} onChange={x=>{setE(+x.target.value);setSt(null);}}/></label>
+      <div className="xp-read big">{tr("撞完：A ")}{vA>=0?tr("向前"):tr("弹回")} {Math.abs(vA).toFixed(2)}{tr(" · B 被撞出 ")}{vB.toFixed(2)}{tr("（撞前 A = 1.00）")}</div>
+      <div className="xp-read">{tr("动量 撞前 ")}{pBefore.toFixed(0)}{tr(" = 撞后 ")}{pAfter.toFixed(0)}{tr(" ✓ 守恒 · 动能剩下 ")}{Math.round(keep*100)}{tr("%（其余变成声音、热和晃动）")}</div>
+      <button className="btn primary big" disabled={st?.running} onClick={()=>setSt({t:0, running:true})}>{tr("💥 撞！")}</button>
+      <Note>{tr("小模型：一维正碰，B 原来不动；动量 = 质量 × 速度，撞前撞后总动量不变。真实陀螺还在旋转、会斜着撞，游戏对战里用的是完整的三维刚体物理。")}</Note>
     </div>
   );
 }
@@ -141,16 +142,16 @@ export function PrecessionLab({onDone}) {
           {dots.map(([x,y],i)=><circle key={i} cx={x} cy={y} r="3" fill="#111" opacity={y>0?1:.35}/>)}
         </g>
         {!fall && <line x1={tx} y1={ty} x2={lx} y2={ly} stroke="#ff2d4a" strokeWidth="3.5" markerEnd="url(#prArr)"/>}
-        {!fall && <text x={lx+4} y={ly} fontSize="8" fontWeight="900" fill="#ff2d4a">角动量</text>}
+        {!fall && <text x={lx+4} y={ly} fontSize="8" fontWeight="900" fill="#ff2d4a">{tr("角动量")}</text>}
         <line x1={dcx} y1={dcy} x2={dcx} y2={dcy+24} stroke="#2f7bff" strokeWidth="2.5" markerEnd="url(#prArrG)"/>
-        <text x={dcx+4} y={dcy+26} fontSize="8" fontWeight="900" fill="#2f7bff">重力</text>
-        {fall && <text x="100" y="26" textAnchor="middle" fontSize="16" fontWeight="900" fill="#ff2d4a">倒下啦！</text>}
-        {!fall && <text x="196" y="12" textAnchor="end" fontSize="7" fontWeight="800" fill="#888">画圈动画 ×{SPEEDUP} 快放</text>}
+        <text x={dcx+4} y={dcy+26} fontSize="8" fontWeight="900" fill="#2f7bff">{tr("重力")}</text>
+        {fall && <text x="100" y="26" textAnchor="middle" fontSize="16" fontWeight="900" fill="#ff2d4a">{tr("倒下啦！")}</text>}
+        {!fall && <text x="196" y="12" textAnchor="end" fontSize="7" fontWeight="800" fill="#888">{tr("画圈动画 ×")}{SPEEDUP}{tr(" 快放")}</text>}
       </svg>
-      <label className="xp-sliders one">转速 {rpm} 转/分<input type="range" min="200" max="7000" step="50" value={rpm} onChange={e=>setRpm(+e.target.value)}/></label>
-      <div className="xp-read big">{fall ? '转得太慢（低于 350 转），角动量太小，扛不住重力——倒了！'
-        : `红箭头（角动量）${rpm>4000?'很长':rpm>1500?'变短了':'很短'}：画一圈要 ${(2*Math.PI/Om).toFixed(1)} 秒，${calm>.7?'几乎竖直、很稳':calm>.3?'开始歪着晃':'晃得很厉害，快倒了'}。`}</div>
-      <Note>小模型：进动角速度 = 重力力矩 ÷ 角动量（转得越快，画圈越慢）；越接近站不稳的转速晃得越厉害，低于 350 转/分当作“倒下”（和游戏对战规则一致）。</Note>
+      <label className="xp-sliders one">{tr("转速 ")}{rpm}{tr(" 转/分")}<input type="range" min="200" max="7000" step="50" value={rpm} onChange={e=>setRpm(+e.target.value)}/></label>
+      <div className="xp-read big">{fall ? tr("转得太慢（低于 350 转），角动量太小，扛不住重力——倒了！")
+        : tr("红箭头（角动量）{0}：画一圈要 {1} 秒，{2}。", [rpm>4000?tr("很长"):rpm>1500?tr("变短了"):tr("很短"), (2*Math.PI/Om).toFixed(1), calm>.7?tr("几乎竖直、很稳"):calm>.3?tr("开始歪着晃"):tr("晃得很厉害，快倒了")])}</div>
+      <Note>{tr("小模型：进动角速度 = 重力力矩 ÷ 角动量（转得越快，画圈越慢）；越接近站不稳的转速晃得越厉害，低于 350 转/分当作“倒下”（和游戏对战规则一致）。")}</Note>
     </div>
   );
 }
@@ -168,16 +169,16 @@ export function TidesLab({onDone}) {
         <ellipse cx="100" cy="75" rx={R+bul} ry={R-bul*.3} fill="#7fd3ff" stroke="#1d6fd1" strokeWidth="2"/>
         <circle cx="100" cy="75" r={R-6} fill="#8fd18a" stroke="#111" strokeWidth="2"/>
         <circle cx={hx} cy={hy} r="6" fill="#ff2d4a" stroke="#fff" strokeWidth="2"/>
-        <circle cx="225" cy="75" r="12" fill="#f1f4f7" stroke="#111" strokeWidth="2"/><text x="225" y="100" textAnchor="middle" fontSize="10" fontWeight="900">月亮</text>
-        {spring ? <><circle cx="16" cy="75" r="10" fill="#ffd400" stroke="#111"/><text x="16" y="98" textAnchor="middle" fontSize="9" fontWeight="900">太阳</text></>
-          : <><circle cx="100" cy="12" r="9" fill="#ffd400" stroke="#111"/><text x="122" y="15" fontSize="9" fontWeight="900">太阳</text></>}
+        <circle cx="225" cy="75" r="12" fill="#f1f4f7" stroke="#111" strokeWidth="2"/><text x="225" y="100" textAnchor="middle" fontSize="10" fontWeight="900">{tr("月亮")}</text>
+        {spring ? <><circle cx="16" cy="75" r="10" fill="#ffd400" stroke="#111"/><text x="16" y="98" textAnchor="middle" fontSize="9" fontWeight="900">{tr("太阳")}</text></>
+          : <><circle cx="100" cy="12" r="9" fill="#ffd400" stroke="#111"/><text x="122" y="15" fontSize="9" fontWeight="900">{tr("太阳")}</text></>}
       </svg>
-      <div className="xp-tidebar"><span>港口水位</span><div className="xp-meter"><i style={{width:`${(level+1)/2*100}%`}}/></div><b>{level>.4?'涨潮 🌊':level<-.4?'落潮 🏖️':'半潮'}</b></div>
+      <div className="xp-tidebar"><span>{tr("港口水位")}</span><div className="xp-meter"><i style={{width:`${(level+1)/2*100}%`}}/></div><b>{level>.4?tr("涨潮 🌊"):level<-.4?tr("落潮 🏖️"):tr("半潮")}</b></div>
       <div className="xp-sliders">
-        <label>一天中的时间 {hour} 点（地球自转）<input type="range" min="0" max="24" value={hour} onChange={e=>setHour(+e.target.value)}/></label>
-        <label className="xp-check"><input type="checkbox" checked={spring} onChange={e=>setSpring(e.target.checked)}/> 太阳和月亮排成一线（新月/满月）</label>
+        <label>{tr("一天中的时间 ")}{hour}{tr(" 点（地球自转）")}<input type="range" min="0" max="24" value={hour} onChange={e=>setHour(+e.target.value)}/></label>
+        <label className="xp-check"><input type="checkbox" checked={spring} onChange={e=>setSpring(e.target.checked)}/>{tr(" 太阳和月亮排成一线（新月/满月）")}</label>
       </div>
-      <Note>示意模型：鼓包和天体大小都夸张了；真实的潮汐还受海岸地形影响。</Note>
+      <Note>{tr("示意模型：鼓包和天体大小都夸张了；真实的潮汐还受海岸地形影响。")}</Note>
     </div>
   );
 }
@@ -187,7 +188,7 @@ export function AltitudeLab({onDone}) {
   const [h, setH] = useState(0), [t0, setT0] = useState(28);
   const T = t0 - .6*h/100;
   useEffect(()=>{ if (h>=8000) onDone?.(); }, [h]);   // eslint-disable-line
-  const zone = T>12 ? '🌲 森林' : T>3 ? '🌼 草甸' : T>0 ? '🪨 岩石' : '❄️ 冰雪';
+  const zone = T>12 ? tr("🌲 森林") : T>3 ? tr("🌼 草甸") : T>0 ? tr("🪨 岩石") : tr("❄️ 冰雪");
   return (
     <div className="xp">
       <svg viewBox="0 0 260 150" className="xp-mount">
@@ -198,11 +199,11 @@ export function AltitudeLab({onDone}) {
         <text x="148" y={149 - h/8849*135} fontSize="11" fontWeight="900">{T.toFixed(1)}°C</text>
       </svg>
       <div className="xp-sliders">
-        <label>海拔 {h} 米{h>=8800?'（珠峰顶！8848.86 米）':''}<input type="range" min="0" max="8849" step="50" value={h} onChange={e=>setH(+e.target.value)}/></label>
-        <label>山脚（海边）气温 {t0}°C<input type="range" min="5" max="35" value={t0} onChange={e=>setT0(+e.target.value)}/></label>
+        <label>{tr("海拔 ")}{h}{tr(" 米")}{h>=8800?tr("（珠峰顶！8848.86 米）"):''}<input type="range" min="0" max="8849" step="50" value={h} onChange={e=>setH(+e.target.value)}/></label>
+        <label>{tr("山脚（海边）气温 ")}{t0}°C<input type="range" min="5" max="35" value={t0} onChange={e=>setT0(+e.target.value)}/></label>
       </div>
-      <div className="xp-read big">现在：{T.toFixed(1)}°C · {zone}</div>
-      <Note>小模型：每升高 100 米降 0.6°C（平均值）。真实的植被分带还和雨量、坡向有关。</Note>
+      <div className="xp-read big">{tr("现在：")}{T.toFixed(1)}°C · {zone}</div>
+      <Note>{tr("小模型：每升高 100 米降 0.6°C（平均值）。真实的植被分带还和雨量、坡向有关。")}</Note>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import { useMemo, useState } from 'react';
 import BattleScene from './BattleScene.jsx';
 import BeyShowcase, { ShowcaseCanvas } from './BeyShowcase.jsx';
@@ -11,9 +12,9 @@ import { BEYS } from '../game/beys.js';
 
 // Art sandbox: BattleScene driven by the mock player + a row of showcases.
 const FUSED = [
-  { id: 'fishgoon', name: 'Fishgoon', zh: '鱼龙', type: 'attack', parents: ['fish', 'dragoon'], colors: { primary: '#14c9a5', secondary: '#c9d6ff', accent: '#00e5ff' },
+  { id: 'fishgoon', name: 'Fishgoon', zh: tr("鱼龙"), type: 'attack', parents: ['fish', 'dragoon'], colors: { primary: '#14c9a5', secondary: '#c9d6ff', accent: '#00e5ff' },
     blade: { wings: 3, reach: .028, ring: 74, mass: 33, style: 'attack' }, ratchet: { height: 55, prongs: 4 }, bit: 'needle' },
-  { id: 'ninjapuff', name: 'NinjaPuff', zh: '忍者泡芙', type: 'defense', parents: ['goatpuff', 'ninjamight'], colors: { primary: '#f2b632', secondary: '#e7d9ff', accent: '#d35bff' },
+  { id: 'ninjapuff', name: 'NinjaPuff', zh: tr("忍者泡芙"), type: 'defense', parents: ['goatpuff', 'ninjamight'], colors: { primary: '#f2b632', secondary: '#e7d9ff', accent: '#d35bff' },
     blade: { wings: 4, reach: .027, ring: 60, mass: 35, style: 'defense' }, ratchet: { height: 60, prongs: 5 }, bit: 'ball' },
 ];
 function ReplaySandbox() {
@@ -24,9 +25,9 @@ function ReplaySandbox() {
     for (let t = 0; t <= 12.0001; t += 1 / 60) samples.push(mp.getState(t));
     const hits = mp.events.filter(e => e.type === 'collision');
     const moments = [
-      { id: 'm1', time: hits[0]?.time ?? 2, title: '第一次正面冲撞！' },
-      { id: 'm2', time: hits[2]?.time ?? 6, title: '外圈重量让 Fish 扛住了' },
-      { id: 'm3', time: 12, title: 'XTREME 终结' },
+      { id: 'm1', time: hits[0]?.time ?? 2, title: tr("第一次正面冲撞！") },
+      { id: 'm2', time: hits[2]?.time ?? 6, title: tr("外圈重量让 Fish 扛住了") },
+      { id: 'm3', time: 12, title: tr("XTREME 终结") },
     ];
     return { beys, samples, events: mp.events, moments };
   }, []);
@@ -45,18 +46,18 @@ function ReplaySandbox() {
 }
 
 const LOOKS = [
-  { id: 'lk1', name: 'Neon Claw', zh: '霓虹龙爪', type: 'attack', colors: { primary: '#1b1f5e', secondary: '#7cf9ff', accent: '#00f0ff' }, look: { shape: 'claw', finish: 'neon', emblem: 'dragon', pattern: 'bolts' }, blade: { wings: 3, reach: .029, ring: 70, mass: 34, style: 'attack' }, ratchet: { height: 60, prongs: 3 }, bit: 'flat' },
-  { id: 'lk2', name: 'Crystal Wave', zh: '水晶海浪', type: 'stamina', colors: { primary: '#7fd8ff', secondary: '#ffffff', accent: '#2f7bff' }, look: { shape: 'wing', finish: 'crystal', emblem: 'wave', pattern: 'dots' }, blade: { wings: 4, reach: .026, ring: 80, mass: 30, style: 'stamina' }, ratchet: { height: 55, prongs: 4 }, bit: 'needle' },
-  { id: 'lk3', name: 'Iron Shield', zh: '钢铁巨盾', type: 'defense', colors: { primary: '#9aa3ad', secondary: '#f2b632', accent: '#ff7a3d' }, look: { shape: 'shield', finish: 'metal', emblem: 'mountain', pattern: 'stripes' }, blade: { wings: 2, reach: .027, ring: 60, mass: 37, style: 'defense' }, ratchet: { height: 60, prongs: 5 }, bit: 'ball' },
-  { id: 'lk4', name: 'Blaze Fang', zh: '烈焰獠牙', type: 'attack', colors: { primary: '#ff2d4a', secondary: '#ffd400', accent: '#ffb300' }, look: { shape: 'fang', finish: 'toon', emblem: 'tiger', pattern: 'flames' }, blade: { wings: 3, reach: .028, ring: 65, mass: 35, style: 'attack' }, ratchet: { height: 60, prongs: 3 }, bit: 'rush' },
-  { id: 'lk5', name: 'Phoenix Flame', zh: '凤凰火舌', type: 'balance', colors: { primary: '#ff7a3d', secondary: '#fff3a6', accent: '#ffd400' }, look: { shape: 'flame', finish: 'neon', emblem: 'phoenix', pattern: 'none' }, blade: { wings: 3, reach: .027, ring: 62, mass: 33, style: 'balance' }, ratchet: { height: 60, prongs: 3 }, bit: 'ball' },
-  { id: 'lk6', name: 'Shark Blade', zh: '深海鲨刃', type: 'balance', colors: { primary: '#14c9a5', secondary: '#e0fff6', accent: '#0b3d5c' }, look: { shape: 'blade', finish: 'metal', emblem: 'shark', pattern: 'stripes' }, blade: { wings: 4, reach: .027, ring: 62, mass: 33, style: 'balance' }, ratchet: { height: 55, prongs: 4 }, bit: 'ball' },
+  { id: 'lk1', name: 'Neon Claw', zh: tr("霓虹龙爪"), type: 'attack', colors: { primary: '#1b1f5e', secondary: '#7cf9ff', accent: '#00f0ff' }, look: { shape: 'claw', finish: 'neon', emblem: 'dragon', pattern: 'bolts' }, blade: { wings: 3, reach: .029, ring: 70, mass: 34, style: 'attack' }, ratchet: { height: 60, prongs: 3 }, bit: 'flat' },
+  { id: 'lk2', name: 'Crystal Wave', zh: tr("水晶海浪"), type: 'stamina', colors: { primary: '#7fd8ff', secondary: '#ffffff', accent: '#2f7bff' }, look: { shape: 'wing', finish: 'crystal', emblem: 'wave', pattern: 'dots' }, blade: { wings: 4, reach: .026, ring: 80, mass: 30, style: 'stamina' }, ratchet: { height: 55, prongs: 4 }, bit: 'needle' },
+  { id: 'lk3', name: 'Iron Shield', zh: tr("钢铁巨盾"), type: 'defense', colors: { primary: '#9aa3ad', secondary: '#f2b632', accent: '#ff7a3d' }, look: { shape: 'shield', finish: 'metal', emblem: 'mountain', pattern: 'stripes' }, blade: { wings: 2, reach: .027, ring: 60, mass: 37, style: 'defense' }, ratchet: { height: 60, prongs: 5 }, bit: 'ball' },
+  { id: 'lk4', name: 'Blaze Fang', zh: tr("烈焰獠牙"), type: 'attack', colors: { primary: '#ff2d4a', secondary: '#ffd400', accent: '#ffb300' }, look: { shape: 'fang', finish: 'toon', emblem: 'tiger', pattern: 'flames' }, blade: { wings: 3, reach: .028, ring: 65, mass: 35, style: 'attack' }, ratchet: { height: 60, prongs: 3 }, bit: 'rush' },
+  { id: 'lk5', name: 'Phoenix Flame', zh: tr("凤凰火舌"), type: 'balance', colors: { primary: '#ff7a3d', secondary: '#fff3a6', accent: '#ffd400' }, look: { shape: 'flame', finish: 'neon', emblem: 'phoenix', pattern: 'none' }, blade: { wings: 3, reach: .027, ring: 62, mass: 33, style: 'balance' }, ratchet: { height: 60, prongs: 3 }, bit: 'ball' },
+  { id: 'lk6', name: 'Shark Blade', zh: tr("深海鲨刃"), type: 'balance', colors: { primary: '#14c9a5', secondary: '#e0fff6', accent: '#0b3d5c' }, look: { shape: 'blade', finish: 'metal', emblem: 'shark', pattern: 'stripes' }, blade: { wings: 4, reach: .027, ring: 62, mass: 33, style: 'balance' }, ratchet: { height: 55, prongs: 4 }, bit: 'ball' },
 ];
 export default function Sandbox() {
   const ids = Object.keys(BEYS);
   if (typeof location !== 'undefined' && location.search.includes('cards')) {
     const ks = ['ph-inertia', 'ph-momentum', 'ph-friction-area'].map(getCard).filter(Boolean);
-    const cands = [LOOKS[0], LOOKS[1], LOOKS[2]].map((b, i) => ({ ...b, parents: ['dragoon', 'fish'], why: '刃重更大、半径更长，撞击时动量更大，更难被撞飞。', tradeoff: '转速掉得更快一点。', knowledge: ks.slice(0, 2 + (i % 2)) }));
+    const cands = [LOOKS[0], LOOKS[1], LOOKS[2]].map((b, i) => ({ ...b, parents: ['dragoon', 'fish'], why: tr("刃重更大、半径更长，撞击时动量更大，更难被撞飞。"), tradeoff: tr("转速掉得更快一点。"), knowledge: ks.slice(0, 2 + (i % 2)) }));
     return <div className="fusion" style={{ height: '100vh', padding: 16, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: '#2a2d3a' }}><div className="cand-zone" style={{ flex: 1 }}><HeroCards candidates={cands} parents={[BEYS.dragoon, BEYS.fish]} onPick={() => {}} /></div></div>;
   }
   if (typeof location !== 'undefined' && location.search.includes('compare')) {

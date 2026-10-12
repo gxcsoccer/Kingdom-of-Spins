@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useEffect, useRef, useState, lazy, Suspense} from 'react';
 import {CARDS, LAYER_LABEL} from './cards.js';
 import KnowledgeCard, {LayerBadge} from './KnowledgeCard.jsx';
@@ -8,7 +9,7 @@ import '../fusion/fusion.css';
 const ProtoArchive = lazy(()=>import('../explore/ProtoArchive.jsx'));
 
 const TABS = [
-  {id:'official', icon:'🏆'}, {id:'physics', icon:'🔬'}, {id:'geo', icon:'🌍'}, {id:'design', icon:'🎮'}, {id:'proto', icon:'📜', label:'原型档案'},
+  {id:'official', icon:'🏆'}, {id:'physics', icon:'🔬'}, {id:'geo', icon:'🌍'}, {id:'design', icon:'🎮'}, {id:'proto', icon:'📜', label:tr("原型档案")},
 ];
 const TILE_W = 220, TILE_H = 132, GAP = 12;
 
@@ -25,13 +26,13 @@ function usePageSize() {
 }
 
 // 未解锁卡给出“主题 + 去哪里拿”，引导下一步行动。
-const WHERE_GEO={harbor:'去新手港湾，点画里带 💡 的东西',thunder:'去雷霆山脉，点画里带 💡 的东西',volcano:'龙焰火山岛开放后就能找到'};
+const WHERE_GEO={harbor:tr("去新手港湾，点画里带 💡 的东西"),thunder:tr("去雷霆山脉，点画里带 💡 的东西"),volcano:tr("龙焰火山岛开放后就能找到")};
 function lockedHint(c){
-  const topic=(c.tags||[]).find(t=>/[\u4e00-\u9fa5]/.test(t));const t=topic?`主题「${topic}」· `:'';
-  if(c.layer==='geo')return t+(WHERE_GEO[c.region]||'在探索地图里找找');
-  if(c.layer==='physics')return t+'打完比赛去复盘、实验室，或翻开科学绘本';
-  if(c.layer==='design')return t+'去 AI 融合工坊设计一只陀螺';
-  return t+'多打几场比赛、试试融合';
+  const topic=(c.tags||[]).find(t=>/[\u4e00-\u9fa5]/.test(t));const t=topic?tr("主题「{0}」· ", [topic]):'';
+  if(c.layer==='geo')return t+(WHERE_GEO[c.region]||tr("在探索地图里找找"));
+  if(c.layer==='physics')return t+tr("打完比赛去复盘、实验室，或翻开科学绘本");
+  if(c.layer==='design')return t+tr("去 AI 融合工坊设计一只陀螺");
+  return t+tr("多打几场比赛、试试融合");
 }
 /** 知识图鉴 — paged card binder. unlocked: card ids; newIds: ids flagged NEW. */
 // Knowledge cards that have a delivered illustration in /art/cards.
@@ -65,7 +66,7 @@ export default function Codex({unlocked=[], newIds=[], onClose}) {
           <button key={t.id} className={`codex-tab ${t.id} ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)}>
             <span>{t.icon}</span>{t.label||LAYER_LABEL[t.id]}<small>{a}/{b}</small>
           </button>); })}
-        <div className="codex-progress" title="全部收集进度"><i style={{width:`${Math.round(total[0]/total[1]*100)}%`}}/><span>{total[0]} / {total[1]}</span></div>
+        <div className="codex-progress" title={tr("全部收集进度")}><i style={{width:`${Math.round(total[0]/total[1]*100)}%`}}/><span>{total[0]} / {total[1]}</span></div>
         {onClose && <button className="btn small" onClick={onClose}>✕</button>}
       </div>
       <div className="codex-binder" ref={gridRef}>
@@ -73,7 +74,7 @@ export default function Codex({unlocked=[], newIds=[], onClose}) {
           {tab==='proto' ? shown.map(r=>{ const ok = regionDone(r), p = prototypeOf(r.id); return (
             <button key={r.id} className={`codex-tile proto ${ok?'':'locked'}`} disabled={!ok} onClick={()=>setArch(r.id)}>
               <div className="codex-tile-t">{ok ? p.name : '？？？'}</div>
-              <div className="codex-tile-b">{ok ? `${r.name} 的真实原型 · ${p.place}` : `探索完「${r.name}」后解锁`}</div>
+              <div className="codex-tile-b">{ok ? tr("{0} 的真实原型 · {1}", [r.name, p.place]) : tr("探索完「{0}」后解锁", [r.name])}</div>
               <span className="codex-tile-icon">{ok?'📜':'🔒'}</span>
             </button>); })
           : shown.map(c=>got.has(c.id) ? (
@@ -89,13 +90,13 @@ export default function Codex({unlocked=[], newIds=[], onClose}) {
         </div>
       </div>
       <div className="codex-nav">
-        <button className="rp-arrow" disabled={pg===0} onClick={()=>setPageNo(pg-1)} aria-label="上一页">◀</button>
-        <div className="rp-dots">{Array.from({length:pages},(_,i)=><button key={i} className={i===pg?'on':''} onClick={()=>setPageNo(i)} aria-label={`第 ${i+1} 页`}/>)}</div>
-        <button className="rp-arrow" disabled={pg>=pages-1} onClick={()=>setPageNo(pg+1)} aria-label="下一页">▶</button>
+        <button className="rp-arrow" disabled={pg===0} onClick={()=>setPageNo(pg-1)} aria-label={tr("上一页")}>◀</button>
+        <div className="rp-dots">{Array.from({length:pages},(_,i)=><button key={i} className={i===pg?'on':''} onClick={()=>setPageNo(i)} aria-label={tr("第 {0} 页", [i+1])}/>)}</div>
+        <button className="rp-arrow" disabled={pg>=pages-1} onClick={()=>setPageNo(pg+1)} aria-label={tr("下一页")}>▶</button>
       </div>
       {open && <div className="modal-back" onClick={()=>setOpen(null)}><div className="codex-modal pop-in" onClick={e=>e.stopPropagation()}>
         <KnowledgeCard card={open}/>
-        <button className="btn small" style={{marginTop:10}} onClick={()=>setOpen(null)}>关闭</button>
+        <button className="btn small" style={{marginTop:10}} onClick={()=>setOpen(null)}>{tr("关闭")}</button>
       </div></div>}
       {arch && <Suspense fallback={null}><ProtoArchive regionId={arch} onClose={()=>setArch(null)}/></Suspense>}
     </div>

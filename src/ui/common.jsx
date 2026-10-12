@@ -1,3 +1,5 @@
+import LanguagePicker from '../i18n/LanguagePicker.jsx';
+import {translateText, tr} from '../i18n/index.js';
 import {useState} from 'react';
 import {useGame} from '../game/store.js';
 import {TYPE_LABEL} from '../game/beys.js';
@@ -9,10 +11,10 @@ export function TopBar({title,back='map',right}){
   return (
     <div className="topbar">
       <div className="row">
-        {back&&<button className="btn small" onClick={()=>go(back)}>◀ 返回</button>}
+        {back&&<button className="btn small" onClick={()=>go(back)}>{tr("◀ 返回")}</button>}
         {title&&<h1 className="h-display h-outline" style={{fontSize:'clamp(28px,4vw,44px)'}}>{title}</h1>}
       </div>
-      <div className="row">{right}<span className="coins">🪙 {coins}</span></div>
+      <div className="row"><LanguagePicker/>{right}<span className="coins">🪙 {coins}</span></div>
     </div>
   );
 }
@@ -24,7 +26,7 @@ export function StatBars({bey,compact}){
       {Object.entries(st.bars).map(([k,v])=>(
         <div className="stat" key={k} style={{'--c':BAR_COLOR[k]}}><span>{BAR_LABEL[k]}</span><span className="bar"><i style={{width:`${v}%`}}/></span><span>{v}</span></div>
       ))}
-      {!compact&&<div className="model-note">重量 {st.massG} g · 转动惯量 {st.inertia}×10⁻⁶ kg·m² · {st.tip}（由理想模型计算）</div>}
+      {!compact&&<div className="model-note">{tr("重量 ")}{st.massG}{tr(" g · 转动惯量 ")}{st.inertia}×10⁻⁶ kg·m² · {st.tip}{tr("（由理想模型计算）")}</div>}
     </div>
   );
 }
@@ -42,7 +44,7 @@ export function BeyCard({bey,onClick,selected,children,size=150,showStats=true,t
       <div className="row between mt" style={{alignItems:'flex-start'}}>
         <div>
           <div className="panel-title" style={{fontSize:22}}>{bey.name}</div>
-          {bey.zh&&<div className="muted" style={{fontWeight:800}}>{bey.zh}</div>}
+          {bey.zh&&bey.zh!==bey.name&&<div className="muted" style={{fontWeight:800}}>{translateText(bey.zh)}</div>}
         </div>
         <TypeBadge type={bey.type||bey.blade?.style}/>
       </div>

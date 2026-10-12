@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 // Teammates who can take a round: their specialty comes from their real launch parameters,
 // and they launch automatically along the same path as the CPU (small deterministic jitter).
 import {BLADERS} from './story.js';
@@ -5,12 +6,12 @@ const bladerById=id=>BLADERS.find(b=>b.id===id);
 import {cpuLaunch} from './launch.js';
 
 export const SKILLS={
-  gale:{name:'疾风发射',icon:'🌪️',short:'发射转速高',
-    why:'发射时转得特别快：转速越高，陀螺带着的转动能量越多，能撑得更久，撞上去也更有力。'},
-  straight:{name:'笔直发射',icon:'📏',short:'倾角小，更稳',
-    why:'发射时陀螺几乎是直立的：倾角小，轴尖贴地稳，不容易一落地就晃，转速也掉得慢。'},
-  aim:{name:'精准瞄准',icon:'🎯',short:'瞄准场地中心',
-    why:'发射方向对准中心：陀螺落地后不往边上跑，不容易被甩出场外，能稳稳占住中间。'},
+  gale:{name:tr("疾风发射"),icon:'🌪️',short:tr("发射转速高"),
+    why:tr("发射时转得特别快：转速越高，陀螺带着的转动能量越多，能撑得更久，撞上去也更有力。")},
+  straight:{name:tr("笔直发射"),icon:'📏',short:tr("倾角小，更稳"),
+    why:tr("发射时陀螺几乎是直立的：倾角小，轴尖贴地稳，不容易一落地就晃，转速也掉得慢。")},
+  aim:{name:tr("精准瞄准"),icon:'🎯',short:tr("瞄准场地中心"),
+    why:tr("发射方向对准中心：陀螺落地后不往边上跑，不容易被甩出场外，能稳稳占住中间。")},
 };
 // Specialty = what this blader does best compared with the others of the same tier, from real launch numbers:
 // highest rpm → 疾风, smallest tilt → 笔直, aim closest to the centre (smallest aim) → 精准. Each skill goes to one blader.

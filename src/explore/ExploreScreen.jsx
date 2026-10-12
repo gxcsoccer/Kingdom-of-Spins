@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useGame} from '../game/store.js';
 import {regionById,emptyExplore} from '../game/regions.js';
@@ -17,6 +18,7 @@ import * as sfx from '../game/sfx.js';
 import {getSeen,markSeen} from '../knowledge/quizSeen.js';
 import ProtoArchive from './ProtoArchive.jsx';
 import {prototypeOf} from '../game/prototypes.js';
+import {localizeExploreState} from './localization.js';
 import '../flipbook/flipbook.css';
 import '../ui/result/result.css';
 import './explore.css';
@@ -34,7 +36,7 @@ function makePlan(region,found,met){
 const pageFor=(regionId,key)=>{const sc=sceneByKey(regionId,key);return {id:`${key}-${Date.now().toString(36)}`,sceneKey:key,title:sc?.title||key,panels:[],line:'',
   hotspots:(sc?.spots||[]).map((p,i)=>({...p,spot:i})),exits:(sc?.exits||[]).map(k=>({key:k,title:sceneByKey(regionId,k)?.title||k}))};};
 
-const DIR_KEY={东:'e',东北:'ne',北:'n',西北:'nw',西:'w',西南:'sw',南:'s',东南:'se'};
+const DIR_KEY=Object.fromEntries(Object.entries({东:'e',东北:'ne',北:'n',西北:'nw',西:'w',西南:'sw',南:'s',东南:'se'}).map(([label,key])=>[tr(label),key]));
 function SceneImage({regionId,page}){
   const srcs=[page.sceneKey&&sceneUrl(regionId,page.sceneKey),`/art/regions/${regionId}.jpg`].filter(Boolean);
   const [i,setI]=useState(0);
@@ -52,16 +54,16 @@ function flavor({regionId,scene,action,outcome,sinceGate,quizSeen,target,hintLev
   const sc=sceneByKey(regionId,scene),f=FLAVOR[regionId]?.[scene]||{},sp=action.type==='inspect'?f.spots?.[action.spot]:null;
   const label=sc?.spots?.[action.spot]?.label;
   const r={title:f.title||sc?.title,panel:f.panel||'',line:'',narration:'',events:[]};
-  if(outcome.type==='found'){r.line=`找到啦！${outcome.name} 就藏在「${label}」里！`;r.narration='好眼力！看看下一个任务吧。';}
+  if(outcome.type==='found'){r.line=tr("找到啦！{0} 就藏在「{1}」里！", [outcome.name, label]);r.narration=tr("好眼力！看看下一个任务吧。");}
   else if(action.type==='inspect'){r.line=sp?.line||'';r.narration=sp?.narration||'';}
   else r.narration=f.narration||'';
   // 已经站在目标场景：博士立刻说清楚“就在这张图里”，不再提赶路。
   if(target&&outcome.type!=='found'&&target.scene===scene){const spot=sc?.spots?.[target.spot]?.label;
-    r.narration=`${targetName(target)} 就在这张图里！${hintLevel>=1&&spot?`找找「${spot}」附近。`:'点点画里的东西找找看。'}`;}
+    r.narration=tr("{0} 就在这张图里！{1}", [targetName(target), hintLevel>=1&&spot?tr("找找「{0}」附近。", [spot]):tr("点点画里的东西找找看。")]);}
   if(action.type==='inspect'&&outcome.type!=='found'&&(sinceGate||0)>=5){
     const pool=CARDS.filter(c=>c.layer==='geo'&&c.region===regionId).map(c=>c.id).filter(id=>GATE_BANK[id]);
     const cardId=f.geo&&GATE_BANK[f.geo]?f.geo:pool[Math.floor(Math.random()*pool.length)];
-    const gate=cardId&&bankGate(cardId,'','博士的小考验！答对得 🪙10',quizSeen||[]);if(gate)r.events.push(gate);
+    const gate=cardId&&bankGate(cardId,'',tr("博士的小考验！答对得 🪙10"),quizSeen||[]);if(gate)r.events.push(gate);
   }
   return Promise.resolve(r);
 }
@@ -71,7 +73,7 @@ export default function ExploreScreen(){
   const {params,save,go,updateExplore,findBey,meetBlader,unlockCards,addCoins}=useGame();
   const region=regionById(params.regionId)||regionById('harbor');
   const ex=save.explore?.[region.id]||emptyExplore();
-  const gm=ex.gm&&ex.gm.v===2?ex.gm:null;
+  const gm=useMemo(()=>ex.gm?.v===2?localizeExploreState(ex.gm):null,[ex.gm]);
   const [queue,setQueue]=useState([]);
   const [chip,setChip]=useState(null);           // {kind:'heat'|'alt', level, text, key}
   const [writing,setWriting]=useState(false);
@@ -90,7 +92,7 @@ export default function ExploreScreen(){
   const startRun=useCallback(()=>{
     const {e}=G(),start=START_SCENE[region.id];
     const page=pageFor(region.id,start);
-    updateExplore(region.id,x=>{x.runs=(x.runs||0)+1;x.steps=0;x.gm={v:2,scene:start,visited:[start],hidePlan:makePlan(region,x.found||[],x.met||[]),hint:{},tries:{},trail:[page],done:[],memory:'',narration:'看小地图右上角的指南针，上面是北！',sinceGate:0,sinceFind:0,pendingGate:null};});
+    updateExplore(region.id,x=>{x.runs=(x.runs||0)+1;x.steps=0;x.gm={v:2,scene:start,visited:[start],hidePlan:makePlan(region,x.found||[],x.met||[]),hint:{},tries:{},trail:[page],done:[],memory:'',narration:tr("看小地图右上角的指南针，上面是北！"),sinceGate:0,sinceFind:0,pendingGate:null};});
     setQueue([]);setViewIdx(null);
     writeFlavor({type:'enter'},{type:'arrive'},page.id,{firstRun:(e.runs||0)===0});
   },[region.id]);// eslint-disable-line
@@ -138,13 +140,13 @@ export default function ExploreScreen(){
     const sc=sceneByKey(region.id,here),dest=sceneByKey(region.id,key);
     if(!dest)return;
     if(!(sc?.exits.includes(key)||(gm.visited||[]).includes(key))){const p=shortestPath(region.id,here,key);const nx=p&&sceneByKey(region.id,p[1]);
-      flash({kind:'heat',level:'miss',text:nx?`「${dest.title}」还没去过，先去「${nx.title}」，要走 ${p.length-1} 站`:`「${dest.title}」现在还过不去`});return;}
+      flash({kind:'heat',level:'miss',text:nx?tr("「{0}」还没去过，先去「{1}」，要走 {2} 站", [dest.title, nx.title, p.length-1]):tr("「{0}」现在还过不去", [dest.title])});return;}
     const page=pageFor(region.id,key),from=here;
     upd((g,x)=>{g.scene=key;g.visited=[...new Set([...(g.visited||[]),key])];g.trail=[...(g.trail||[]),page].slice(-MAX_TRAIL);g.sinceFind=(g.sinceFind||0)+1;g.sinceGate=(g.sinceGate||0)+1;x.steps=(x.steps||0)+1;
       const t=openTargets(region.id,g.hidePlan||[],x.found,x.met,key)[0];if(t&&g.sinceFind>=8)g.hint={...(g.hint||{}),[t.id]:2};});
     setViewIdx(null);sfx.beep?.();
     if(sc?.alt&&dest.alt&&sc.alt!==dest.alt){const d=dest.alt-sc.alt,dt=-(d*.6/100);
-      flash({kind:'alt',text:`海拔 ${sc.alt} → ${dest.alt} 米，${d>0?'更冷了 ❄️':'暖和了 ☀️'} 约 ${dt>0?'+':''}${dt.toFixed(1)}°C`});}
+      flash({kind:'alt',text:tr("海拔 {0} → {1} 米，{2} 约 {3}{4}°C", [sc.alt, dest.alt, d>0?tr("更冷了 ❄️"):tr("暖和了 ☀️"), dt>0?'+':'', dt.toFixed(1)])});}
     writeFlavor({type:'move',from},{type:'arrive'},page.id);
   }
 
@@ -154,7 +156,7 @@ export default function ExploreScreen(){
     updateExplore(region.id,x=>{x.discovered=[...new Set([...(x.discovered||[]),key])];});addCoins(2);
     const card=spotCard(region.id,here,spot),owned=useGame.getState().save.cards||[];
     if(card&&!owned.includes(card)){unlockCards([card]);addEvents([{type:'geo_fact',cardId:card}]);}
-    return card&&!owned.includes(card)?'　✨新发现 +🪙2 · 💡解锁知识卡！':'　✨新发现 +🪙2';
+    return card&&!owned.includes(card)?tr("　✨新发现 +🪙2 · 💡解锁知识卡！"):tr("　✨新发现 +🪙2");
   }
   function inspect(spot){
     if(!gm||blocking||revealing.current)return;
@@ -167,7 +169,7 @@ export default function ExploreScreen(){
       upd((g,x)=>{g.done=[...(g.done||[]),{id:hit.id,type:hit.type,name,where:sc.title}];g.sinceFind=0;});
       const left=targets.length-1;
       const sp0=sc?.spots?.[spot];revealing.current=true;setBurst({key:Date.now(),x:sp0?.x??.5,y:sp0?.y??.5,text:hit.type==='bey'?'！？':'！'});sfx.beep?.(true);
-      setTimeout(()=>{revealing.current=false;if(!alive.current)return;setBurst(null);addEvents([hit.type==='bey'?{type:'find_bey',beyId:hit.id,text:`就在「${label}」里！`}:{type:'meet_blader',bladerId:hit.id,line:bladerById(hit.id)?.line},...(left===0?[{type:'complete'}]:[])]);},750);
+      setTimeout(()=>{revealing.current=false;if(!alive.current)return;setBurst(null);addEvents([hit.type==='bey'?{type:'find_bey',beyId:hit.id,text:tr("就在「{0}」里！", [label])}:{type:'meet_blader',bladerId:hit.id,line:bladerById(hit.id)?.line},...(left===0?[{type:'complete'}]:[])]);},750);
       writeFlavor({type:'inspect',spot},{type:'found',id:hit.id,name},live.id);
       return;
     }
@@ -175,7 +177,7 @@ export default function ExploreScreen(){
     upd(g=>{g.sinceFind=(g.sinceFind||0)+1;g.sinceGate=(g.sinceGate||0)+1;
       if(target&&here===target.scene){g.tries={...(g.tries||{}),[target.id]:((g.tries||{})[target.id]||0)+1};if(g.tries[target.id]>=3&&(g.hint?.[target.id]||0)<1)g.hint={...(g.hint||{}),[target.id]:1};}
       if(target&&g.sinceFind>=8)g.hint={...(g.hint||{}),[target.id]:2};
-      const p=(g.trail||[]).at(-1);if(p){p.tapped=label;p.line=`你仔细看了看「${label}」……`;p.tried=[...new Set([...(p.tried||[]),spot])];}});
+      const p=(g.trail||[]).at(-1);if(p){p.tapped=label;p.line=tr("你仔细看了看「{0}」……", [label]);p.tried=[...new Set([...(p.tried||[]),spot])];}});
     if(h)flash({kind:'heat',level:h.level,text:`${h.text}${bonus}`});
     else if(bonus)flash({kind:'heat',level:'miss',text:`👆「${label}」${bonus.trim()}`});
     sfx.beep?.(h?.level==='hot');
@@ -188,7 +190,7 @@ export default function ExploreScreen(){
     let best=0,d=9;view.hotspots.forEach((h,i)=>{const e=Math.hypot(h.x-x,h.y-y);if(e<d){d=e;best=i;}});
     setTapFx({x,y,key:Date.now()});
     // 离所有黄圈都远：明确告诉孩子点哪里，而不是悄悄算成最近的那个东西。
-    if(d>.15){if(!blocking)flash({kind:'heat',level:'miss',text:'这里空空的～点黄色圆圈里的东西试试'});return;}
+    if(d>.15){if(!blocking)flash({kind:'heat',level:'miss',text:tr("这里空空的～点黄色圆圈里的东西试试")});return;}
     inspect(best);
   }
   // 每个事件带唯一 qid：弹层按 qid 关闭，不会因为两条内容一样的事件而关不掉或多关一条。
@@ -198,7 +200,7 @@ export default function ExploreScreen(){
   const ev0=queue.find(e=>e.type!=='geo_fact'),toast=queue.find(e=>e.type==='geo_fact');
   const pop=()=>ev0&&drop(ev0.qid);
 
-  if(region.comingSoon)return <div className="page dark ex-soon"><div className="panel" style={{padding:30,color:'#111',textAlign:'center'}}><div className="sfx" style={{fontSize:56}}>即将开放！</div><p style={{fontWeight:800}}>{region.name}（{region.landform}）还在建造中，敬请期待～</p><button className="btn primary big" onClick={()=>go('map')}>回到地图</button></div></div>;
+  if(region.comingSoon)return <div className="page dark ex-soon"><div className="panel" style={{padding:30,color:'#111',textAlign:'center'}}><div className="sfx" style={{fontSize:56}}>{tr("即将开放！")}</div><p style={{fontWeight:800}}>{region.name}（{region.landform}{tr("）还在建造中，敬请期待～")}</p><button className="btn primary big" onClick={()=>go('map')}>{tr("回到地图")}</button></div></div>;
 
   const found=new Set(ex.found),met=new Set(ex.met);
   return (
@@ -206,38 +208,38 @@ export default function ExploreScreen(){
       {view&&<div key={view.sceneKey} className="ex-bg" style={{backgroundImage:`url(${sceneUrl(region.id,view.sceneKey)})`}}/>}
       <div className="ex-main">
         <div className="ex-top">
-          <button className="btn small" onClick={()=>go('map')}>◀ 地图</button>
+          <button className="btn small" onClick={()=>go('map')}>{tr("◀ 地图")}</button>
           <div className="ex-region"><span className="kicker" style={{color:'var(--rc)'}}>{region.en}</span><b>{region.name}</b><small>{region.landform}</small></div>
           <div className="row" style={{gap:8}}>
-            {ttsSupported&&<button className="btn small" onClick={()=>setVoice(v=>{if(v)stopSpeaking();return !v;})}>{voice?'🔊':'🔈'} 朗读</button>}
-            <button className="btn small" onClick={()=>{if(confirm('重新开始这次寻宝？已经找到的陀螺和遇见的人会保留。'))startRun();}}>🔄 新的寻宝</button>
+            {ttsSupported&&<button className="btn small" onClick={()=>setVoice(v=>{if(v)stopSpeaking();return !v;})}>{voice?'🔊':'🔈'}{tr(" 朗读")}</button>}
+            <button className="btn small" onClick={()=>{if(confirm(tr("重新开始这次寻宝？已经找到的陀螺和遇见的人会保留。")))startRun();}}>{tr("🔄 新的寻宝")}</button>
           </div>
         </div>
         <div className={`ex-mission ${clue?.here?'here':''} ${complete?'done':''}`}>
           <div className="ex-mission-badge"><small>MISSION</small><b>{complete?'CLEAR':`${doneTasks+1}/${totalTasks}`}</b></div>
           {!complete&&target&&<div className="ex-mission-target">{target.type==='bey'?<BeyArt bey={BEYS[target.id]} size={46}/>:<Portrait blader={bladerById(target.id)} size={46}/>}</div>}
           <div className="ex-mission-body">
-            {complete?<><b className="ex-task">{nextFight?(proRegion?'伙伴都找到了！邀请他们入队':'伙伴都找到了！去挑战他们'):'🎉 这里全部完成！'}</b><span className="ex-clue-text">{nextFight?(proRegion?`打败职业对手就能邀请他加入队伍（队员 ${save.team.length}/3）。先挑战 ${nextFight.name}！`:`打败 ${region.bladers.length} 位陀螺手，收集 3 只陀螺就能去雷霆山脉。先挑战 ${nextFight.name}！`):'回到地图，去下一个地区吧！'}</span></>
+            {complete?<><b className="ex-task">{nextFight?(proRegion?tr("伙伴都找到了！邀请他们入队"):tr("伙伴都找到了！去挑战他们")):tr("🎉 这里全部完成！")}</b><span className="ex-clue-text">{nextFight?(proRegion?tr("打败职业对手就能邀请他加入队伍（队员 {0}/3）。先挑战 {1}！", [save.team.length, nextFight.name]):tr("打败 {0} 位陀螺手，收集 3 只陀螺就能去雷霆山脉。先挑战 {1}！", [region.bladers.length, nextFight.name])):tr("回到地图，去下一个地区吧！")}</span></>
               :clue?<><b className="ex-task">{clue.title}</b><span className="ex-clue-text">{clue.here?'📍 ':'🧭 '}{clue.text}</span></>
-              :<span className="ex-clue-text">准备中…</span>}
+              :<span className="ex-clue-text">{tr("准备中…")}</span>}
           </div>
-          {complete&&nextFight&&<button className="ex-hint-btn" onClick={()=>go('battle',{bladerId:nextFight.id,from:'explore',regionId:region.id})}>⚔️<span>挑战 {nextFight.name}</span></button>}
-          {complete&&!nextFight&&<button className="ex-hint-btn" onClick={()=>go('map')}>🗺️<span>回到地图</span></button>}
-          {!complete&&clue&&<button className="ex-hint-btn" disabled={hintLevel>=2} onClick={()=>upd(g=>{g.hint={...(g.hint||{}),[target.id]:Math.min(2,(g.hint?.[target.id]||0)+1)};})}>💡<span>博士提示{hintLevel?` ${hintLevel}/2`:''}</span></button>}
+          {complete&&nextFight&&<button className="ex-hint-btn" onClick={()=>go('battle',{bladerId:nextFight.id,from:'explore',regionId:region.id})}>⚔️<span>{tr("挑战 ")}{nextFight.name}</span></button>}
+          {complete&&!nextFight&&<button className="ex-hint-btn" onClick={()=>go('map')}>🗺️<span>{tr("回到地图")}</span></button>}
+          {!complete&&clue&&<button className="ex-hint-btn" disabled={hintLevel>=2} onClick={()=>upd(g=>{g.hint={...(g.hint||{}),[target.id]:Math.min(2,(g.hint?.[target.id]||0)+1)};})}>💡<span>{tr("博士提示")}{hintLevel?` ${hintLevel}/2`:''}</span></button>}
         </div>
         <div className="ex-stage">
           {view&&<div className="ex-page" key={view.id}>
+            <div className="ex-banner"><b>{view.title}</b>{sceneByKey(region.id,view.sceneKey)?.alt&&<small>⛰ {sceneByKey(region.id,view.sceneKey).alt} m</small>}</div>
             <div className="fb-art ex-art" onClick={onImageTap}>
               <SceneImage regionId={region.id} page={view}/>
-              <div className="ex-banner"><b>{view.title}</b>{sceneByKey(region.id,view.sceneKey)?.alt&&<small>⛰ {sceneByKey(region.id,view.sceneKey).alt} m</small>}</div>
-              {viewIdx==null&&view.hotspots.map((h,i)=><div key={i} title={h.label} className={`fb-hot ${(ex.discovered||[]).includes(`${view.sceneKey}:${i}`)?'tried':''} ${hookOpen(view.sceneKey,i)?'hook':''} ${viewIdx==null&&clue?.here&&clue.spot===i?'target':''}`} style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.2+i*.12}s`}}><i/><span>{(ex.discovered||[]).includes(`${view.sceneKey}:${i}`)?'✓ ':hookOpen(view.sceneKey,i)?'💡 ':''}{h.label}</span></div>)}
+              {viewIdx==null&&view.hotspots.map((h,i)=><div key={i} title={h.label} className={`fb-hot label-${h.x<.2?'start':h.x>.8?'end':'center'} ${(ex.discovered||[]).includes(`${view.sceneKey}:${i}`)?'tried':''} ${hookOpen(view.sceneKey,i)?'hook':''} ${viewIdx==null&&clue?.here&&clue.spot===i?'target':''}`} style={{left:`${h.x*100}%`,top:`${h.y*100}%`,animationDelay:`${.2+i*.12}s`}}><i/><span>{(ex.discovered||[]).includes(`${view.sceneKey}:${i}`)?'✓ ':hookOpen(view.sceneKey,i)?'💡 ':''}{h.label}</span></div>)}
               {/* 可观察的线索：目标藏身处偶尔闪一下光、晃一晃，孩子能“看出来”而不只是靠提示 */}
               {viewIdx==null&&target&&target.scene===view.sceneKey&&(()=>{const sp=sceneByKey(region.id,here)?.spots?.[target.spot];return sp&&<div className="ex-glint" style={{left:`${sp.x*100}%`,top:`${sp.y*100}%`}}><i/><i/></div>;})()}
               {burst&&<div key={burst.key} className="ex-burst" style={{left:`${burst.x*100}%`,top:`${burst.y*100}%`}}><b>{burst.text}</b></div>}
               {tapFx&&<div key={tapFx.key} className="ex-ripple" style={{left:`${tapFx.x*100}%`,top:`${tapFx.y*100}%`}}/>}
               {chip&&<div key={chip.key} className={`ex-chip ${chip.kind} ${chip.level||''}`}>{chip.text}</div>}
               {/* 出口是画面边缘的路牌：往北的路牌就在画面上边，方向和线索、小地图一致 */}
-              {viewIdx==null&&(()=>{const used={};return view.exits.map(x=>{const d=compass(region.id,here,x.key)||'东';const n=used[d]=(used[d]||0)+1;
+              {viewIdx==null&&(()=>{const used={};return view.exits.map(x=>{const d=compass(region.id,here,x.key)||tr("东");const n=used[d]=(used[d]||0)+1;
                 return <button key={x.key} className={`ex-sign d-${DIR_KEY[d]} n${n} ${clue&&!clue.here&&clue.next===x.key?'hint':''}`} disabled={blocking} onClick={e=>{e.stopPropagation();moveTo(x.key);}}>
                   <i>{DIR_ARROW[d]}</i><span><small>{d}</small>{x.title}</span></button>;});})()}
             </div>
@@ -246,18 +248,18 @@ export default function ExploreScreen(){
       </div>
 
       <aside className="ex-side">
-        <div className="ex-guide"><img className="ex-guide-face" src="/art/doctor/normal.png" alt="博士"/><div className="bubble"><TypeLine text={(viewIdx==null&&view?.line)||(clue?.here&&gm?.narration)||view?.panels?.[0]?.text||gm?.narration||'点画面里任何你好奇的地方！'}/></div></div>
+        <div className="ex-guide"><img className="ex-guide-face" src="/art/doctor/normal.png" alt={tr("博士")}/><div className="bubble"><TypeLine text={(viewIdx==null&&view?.line)||(clue?.here&&gm?.narration)||view?.panels?.[0]?.text||gm?.narration||tr("点画面里任何你好奇的地方！")}/></div></div>
         <MiniMap regionId={region.id} here={here} visited={gm?.visited||[]} hintScene={hintLevel>=2?target?.scene:null} onGo={moveTo}/>
         <div className="ex-quest">
-          <div className="ex-h">🌀 陀螺 <small>{region.beys.filter(id=>found.has(id)).length}/{region.beys.length}</small></div>
-          <div className="ex-items">{region.beys.map(id=><div key={id} className={`ex-item ${found.has(id)?'got':''} ${target?.id===id?'now':''}`} title={found.has(id)?`${BEYS[id]?.zh} ${BEYS[id]?.name}`:'？？？'}><BeyArt bey={BEYS[id]} size={44}/><span>{found.has(id)?BEYS[id]?.zh||BEYS[id]?.name:target?.id===id?'寻找中':'？？？'}</span></div>)}</div>
-          <div className="ex-h">⚔️ 陀螺手 <small>{region.bladers.filter(id=>met.has(id)).length}/{region.bladers.length}</small></div>
-          <div className="ex-items">{region.bladers.map(id=>{const b=bladerById(id);const m=met.has(id);return <button key={id} className={`ex-item ${m?'got':''} ${target?.id===id?'now':''}`} disabled={!m} title={m?`再挑战 ${b?.name}`:'？？？'} onClick={()=>m&&go('battle',{bladerId:id,from:'explore',regionId:region.id})}><Portrait blader={b} size={44}/><span>{m?b?.name:target?.id===id?'寻找中':'？？？'}</span>{m&&<em className={`ex-bstate s-${bladerState(id)}`}>{bladerState(id)}</em>}</button>;})}</div>
-          <div className="ex-disc"><b>✨ 发现册</b><span>{foundSpots}/{totalSpots}</span><i style={{width:`${Math.round(100*foundSpots/Math.max(1,totalSpots))}%`}}/></div>
-          <div className="ex-steps">第 {ex.runs||1} 次寻宝 · 走了 {ex.steps||0} 步</div>
-          {prototypeOf(region.id)&&<button className={`btn small ${complete?'yellow':''}`} style={{marginTop:6,width:'100%'}} disabled={!complete} onClick={()=>setArchive(true)}>{complete?'📜 真实原型档案':'📜 原型档案（全部完成后解锁）'}</button>}
+          <div className="ex-h">{tr("🌀 陀螺 ")}<small>{region.beys.filter(id=>found.has(id)).length}/{region.beys.length}</small></div>
+          <div className="ex-items">{region.beys.map(id=><div key={id} className={`ex-item ${found.has(id)?'got':''} ${target?.id===id?'now':''}`} title={found.has(id)?`${BEYS[id]?.zh} ${BEYS[id]?.name}`:'？？？'}><BeyArt bey={BEYS[id]} size={44}/><span>{found.has(id)?BEYS[id]?.zh||BEYS[id]?.name:target?.id===id?tr("寻找中"):'？？？'}</span></div>)}</div>
+          <div className="ex-h">{tr("⚔️ 陀螺手 ")}<small>{region.bladers.filter(id=>met.has(id)).length}/{region.bladers.length}</small></div>
+          <div className="ex-items">{region.bladers.map(id=>{const b=bladerById(id);const m=met.has(id);return <button key={id} className={`ex-item ${m?'got':''} ${target?.id===id?'now':''}`} disabled={!m} title={m?tr("再挑战 {0}", [b?.name]):'？？？'} onClick={()=>m&&go('battle',{bladerId:id,from:'explore',regionId:region.id})}><Portrait blader={b} size={44}/><span>{m?b?.name:target?.id===id?tr("寻找中"):'？？？'}</span>{m&&<em className={`ex-bstate s-${bladerState(id)}`}>{tr(bladerState(id))}</em>}</button>;})}</div>
+          <div className="ex-disc"><b>{tr("✨ 发现册")}</b><span>{foundSpots}/{totalSpots}</span><i style={{width:`${Math.round(100*foundSpots/Math.max(1,totalSpots))}%`}}/></div>
+          <div className="ex-steps">{tr("第 {0} 次寻宝 · 走了 {1} 步", [ex.runs||1, ex.steps||0])}</div>
+          {prototypeOf(region.id)&&<button className={`btn small ${complete?'yellow':''}`} style={{marginTop:6,width:'100%'}} disabled={!complete} onClick={()=>setArchive(true)}>{complete?tr("📜 真实原型档案"):tr("📜 原型档案（全部完成后解锁）")}</button>}
         </div>
-        {(gm?.done||[]).length>0&&<div className="ex-clues"><div className="ex-h">✅ 已完成任务</div>{gm.done.slice(-3).reverse().map((d,i)=><div key={i} className="ex-clue">{d.type==='bey'?'🌀':'⚔️'} {d.name} · {d.where}</div>)}</div>}
+        {(gm?.done||[]).length>0&&<div className="ex-clues"><div className="ex-h">{tr("✅ 已完成任务")}</div>{gm.done.slice(-3).reverse().map((d,i)=><div key={i} className="ex-clue">{d.type==='bey'?'🌀':'⚔️'} {d.name} · {d.where}</div>)}</div>}
       </aside>
 
       {toast&&<GeoToast key={toast.qid} ev={toast} onGeo={id=>unlockCards([id])} onDone={()=>drop(toast.qid)}/>}
@@ -276,7 +278,7 @@ export default function ExploreScreen(){
 function GeoToast({ev,onGeo,onDone}){
   useEffect(()=>{onGeo(ev.cardId);const t=setTimeout(onDone,9000);return()=>clearTimeout(t);},[]);// eslint-disable-line
   // 捕获阶段关闭：卡片里的按钮（翻开绘本等）不会吞掉这次点击。
-  return <div className="ex-toast slidein" onClickCapture={onDone}><div className="kicker">{getCard(ev.cardId)?.layer==='geo'?'🌍 真实世界的地理':'🔬 陀螺里的科学'} · 新知识卡</div><KnowledgeCard card={ev.cardId} compact isNew/><div className="ex-get-hint" style={{color:'#111'}}>点一下收起</div></div>;
+  return <div className="ex-toast slidein" onClickCapture={onDone}><div className="kicker">{getCard(ev.cardId)?.layer==='geo'?tr("🌍 真实世界的地理"):tr("🔬 陀螺里的科学")}{tr(" · 新知识卡")}</div><KnowledgeCard card={ev.cardId} compact isNew/><div className="ex-get-hint" style={{color:'#111'}}>{tr("点一下收起")}</div></div>;
 }
 function EventOverlay({ev,region,onFind,onMeet,onGeo,onAnswer,onGateDone,onDone,go,onArchive}){
   const [choice,setChoice]=useState(null);
@@ -292,26 +294,26 @@ function EventOverlay({ev,region,onFind,onMeet,onGeo,onAnswer,onGateDone,onDone,
       <div className="ex-get-bey"><BeyArt bey={bey} size={220} spin/></div>
       <div className="ex-get-name">{bey?.zh||bey?.name} <small>{bey?.zh?bey?.name:''}</small></div>
       {ev.text&&<div className="bubble ex-get-text">{ev.text}</div>}
-      <div className="ex-get-hint">已加入你的收藏 · 点任意处继续</div>
+      <div className="ex-get-hint">{tr("已加入你的收藏 · 点任意处继续")}</div>
     </div>);}
   if(ev.type==='meet_blader'){const b=bladerById(ev.bladerId);return (
     <div className="ex-ov ex-meet" style={{'--bc':b?.color}}>
       <div className="ex-meet-band"><div className="ex-meet-lines"/><div className="ex-meet-face"><Portrait blader={b} size={220}/></div>
         <div className="ex-meet-text"><div className="kicker">ENCOUNTER</div><div className="ex-meet-name">{b?.name}</div><div className="ex-meet-line">「{String(ev.line||b?.line||'').replace(new RegExp(`^${b?.name||'^'}\\s*(说|喊|道)?\\s*[：:]\\s*`),'').replace(/^[「“"]+|[」”"]+$/g,'')}」</div></div></div>
-      <div className="row center" style={{gap:16}}><button className="btn primary big" onClick={()=>onMeet(ev.bladerId,true)}>⚔️ 挑战！</button><button className="btn big" onClick={()=>onMeet(ev.bladerId,false)}>稍后再来</button></div>
-      <div className="ex-get-hint">遇见过的陀螺手可以随时在右边的名单里再挑战</div>
+      <div className="row center" style={{gap:16}}><button className="btn primary big" onClick={()=>onMeet(ev.bladerId,true)}>{tr("⚔️ 挑战！")}</button><button className="btn big" onClick={()=>onMeet(ev.bladerId,false)}>{tr("稍后再来")}</button></div>
+      <div className="ex-get-hint">{tr("遇见过的陀螺手可以随时在右边的名单里再挑战")}</div>
     </div>);}
   if(ev.type==='gate'){const done=choice!=null;const ok=done&&choice===ev.answer;return (
     <div className="ex-ov ex-gate-wrap">
       <div className="panel ex-gate pop-in">
-        <div className="kicker" style={{color:'var(--red)'}}>🚧 博士的小考验</div>
+        <div className="kicker" style={{color:'var(--red)'}}>{tr("🚧 博士的小考验")}</div>
         {ev.lead&&<div className="ex-gate-lead">{ev.lead}</div>}
         <div className="ex-gate-q">{ev.q}</div>
         <div className="ex-gate-opts">{ev.options.map((o,i)=><button key={i} disabled={done} className={`rp-quiz-opt ${done&&i===ev.answer?'right':''} ${done&&i===choice&&!ok?'wrong':''}`} onClick={()=>{onAnswer(ev,i);setChoice(i);}}><b>{'ABC'[i]}</b>{o}</button>)}</div>
         {done&&<div className="slidein" style={{marginTop:10}}>
-          <div style={{fontWeight:800,lineHeight:1.6}}>{ok?'✅ 答对了！🪙 +10　':'❌ 差一点！　'}{ev.explain}</div>
+          <div style={{fontWeight:800,lineHeight:1.6}}>{ok?tr("✅ 答对了！🪙 +10　"):tr("❌ 差一点！　")}{ev.explain}</div>
           {getCard(ev.cardId)&&<div style={{marginTop:8}}><KnowledgeCard card={ev.cardId} compact/></div>}
-          <button className="btn primary mt" onClick={()=>onGateDone(ev,choice)}>继续寻宝 ▶</button>
+          <button className="btn primary mt" onClick={()=>onGateDone(ev,choice)}>{tr("继续寻宝 ▶")}</button>
         </div>}
       </div>
     </div>);}
@@ -319,9 +321,9 @@ function EventOverlay({ev,region,onFind,onMeet,onGeo,onAnswer,onGateDone,onDone,
     <div className="ex-ov ex-get">
       <div className="ex-get-burst"/>
       <div className="ex-get-sfx">COMPLETE！</div>
-      <div className="ex-get-name">{region.name} 寻宝完成！</div>
-      <div className="bubble ex-get-text">{region.bladers.some(id=>bladerById(id)?.tier==='pro')?'伙伴都找到了！打败他们，就能邀请他们加入你的队伍。':'伙伴都找到了！去挑战他们，打败对手、收集 3 只陀螺，就能去雷霆山脉。'}</div>
-      <div className="row center" style={{gap:12,marginTop:16}} onClick={e=>e.stopPropagation()}>{prototypeOf(region.id)&&<button className="btn yellow big" onClick={onArchive}>📜 揭晓真实原型！</button>}<button className="btn primary big" onClick={onDone}>⚔️ 去挑战伙伴</button><button className="btn big" onClick={onDone}>再看看</button></div>
+      <div className="ex-get-name">{region.name}{tr(" 寻宝完成！")}</div>
+      <div className="bubble ex-get-text">{region.bladers.some(id=>bladerById(id)?.tier==='pro')?tr("伙伴都找到了！打败他们，就能邀请他们加入你的队伍。"):tr("伙伴都找到了！去挑战他们，打败对手、收集 3 只陀螺，就能去雷霆山脉。")}</div>
+      <div className="row center" style={{gap:12,marginTop:16}} onClick={e=>e.stopPropagation()}>{prototypeOf(region.id)&&<button className="btn yellow big" onClick={onArchive}>{tr("📜 揭晓真实原型！")}</button>}<button className="btn primary big" onClick={onDone}>{tr("⚔️ 去挑战伙伴")}</button><button className="btn big" onClick={onDone}>{tr("再看看")}</button></div>
     </div>);
   return null;
 }

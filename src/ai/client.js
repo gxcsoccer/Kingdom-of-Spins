@@ -1,3 +1,4 @@
+import {getLocale, localizeTextFields, tr} from '../i18n/index.js';
 // Browser client for /api/ai/*. Never throws: on network error/timeout it returns the same
 // deterministic template the worker would, flagged with `fallback: true`.
 import {templateFusion, templateCommentary, templateAsk, templateMoments, templateExperiment} from './fallback.js';
@@ -5,9 +6,9 @@ import {templateFusion, templateCommentary, templateAsk, templateMoments, templa
 async function post(path, body, ms) {
   const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(), ms);
   try {
-    const r = await fetch(path, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body), signal:ctl.signal});
+    const r = await fetch(path, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({...body, locale:getLocale()}), signal:ctl.signal});
     if (!r.ok) throw new Error('HTTP '+r.status);
-    return await r.json();
+    return localizeTextFields(await r.json());
   } finally { clearTimeout(timer); }
 }
 
@@ -15,9 +16,9 @@ async function post(path, body, ms) {
 export async function fusionChat({parents, wish='', history=[], keepParent=0}) {
   try {
     const out = await post('/api/ai/fusion/chat', {parents, wish, history, keepParent}, 45000);
-    if (out?.question || out?.candidates?.length) return out;
+    if (out?.question || out?.candidates?.length) return localizeTextFields(out);
     throw new Error('empty');
-  } catch { return templateFusion({parents, wish, history, keepParent}); }
+  } catch { return localizeTextFields(templateFusion({parents, wish, history, keepParent})); }
 }
 
 // summary = Battle.summary(); names = [nameA, nameB]
@@ -25,18 +26,18 @@ export async function fusionChat({parents, wish='', history=[], keepParent=0}) {
 export async function commentary(summary, names=['A','B']) {
   try {
     const out = await post('/api/ai/commentary', {summary, names}, 26000);
-    if (out?.headline) return out;
+    if (out?.headline) return localizeTextFields(out);
     throw new Error('empty');
-  } catch { return templateCommentary(summary, names); }
+  } catch { return localizeTextFields(templateCommentary(summary, names)); }
 }
 
 // → {answer, cards:[{id,title,body,layer}], fallback?}
 export async function ask(question, context='') {
   try {
     const out = await post('/api/ai/ask', {question, context}, 24000);
-    if (out?.answer) return out;
+    if (out?.answer) return localizeTextFields(out);
     throw new Error('empty');
-  } catch { return templateAsk(question); }
+  } catch { return localizeTextFields(templateAsk(question)); }
 }
 
 // moments: [{id,time,kind,body?,data}] computed from real battle data
@@ -44,9 +45,9 @@ export async function ask(question, context='') {
 export async function explainMoments(summary, moments, names=['A','B']) {
   try {
     const out = await post('/api/ai/moments', {summary, moments, names}, 32000);
-    if (out?.moments?.length || out?.headline) return out;
+    if (out?.moments?.length || out?.headline) return localizeTextFields(out);
     throw new Error('empty');
-  } catch { return templateMoments(summary, moments, names); }
+  } catch { return localizeTextFields(templateMoments(summary, moments, names)); }
 }
 
 // input: {names, variable:{key,label,from,to}, prediction:'more'|'less'|'same'|null, metric, stats:{A,B}, trials}
@@ -54,9 +55,9 @@ export async function explainMoments(summary, moments, names=['A','B']) {
 export async function explainExperiment(input) {
   try {
     const out = await post('/api/ai/experiment', input, 26000);
-    if (out?.verdict && out?.conclusion) return out;
+    if (out?.verdict && out?.conclusion) return localizeTextFields(out);
     throw new Error('empty');
-  } catch { return templateExperiment(input); }
+  } catch { return localizeTextFields(templateExperiment(input)); }
 }
 
 // Names the game screens call: aiClient.moments({...}) / ai.experiment(payload).
@@ -67,11 +68,11 @@ export const experiment = payload => explainExperiment(payload);
 export async function sketch({imageDataUrl, wish='', keepParts=null}) {
   const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(), 32000);
   try {
-    const r = await fetch('/api/ai/sketch', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({imageDataUrl, wish, keepParts}), signal:ctl.signal});
+    const r = await fetch('/api/ai/sketch', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({imageDataUrl, wish, keepParts, locale:getLocale()}), signal:ctl.signal});
     const out = await r.json().catch(()=>({}));
     if (r.status===503 || out.needKey) return {needKey:true};
     if (!r.ok || !out.bey) return {error: out.error || ('HTTP '+r.status)};
-    return out;
+    return localizeTextFields(out);
   } catch (e) { return {error: e.name==='AbortError' ? 'timeout' : String(e.message||e)}; }
   finally { clearTimeout(timer); }
 }

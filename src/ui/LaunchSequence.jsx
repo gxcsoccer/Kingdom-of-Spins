@@ -1,3 +1,4 @@
+import {tr, speechLocale, speechVoice} from '../i18n/index.js';
 import {useEffect,useRef,useState,lazy,Suspense} from 'react';
 import {useTaskScope} from '../game/useTaskScope.js';
 import {createMicrophoneSession} from '../game/microphoneSession.js';
@@ -7,15 +8,16 @@ import {TypeBadge} from './common.jsx';
 import {DoctorFace} from './MapScreen.jsx';
 import {voiceSupported,listen} from '../game/voice.js';
 import * as sfx from '../game/sfx.js';
+import {hush,prefetchVoice} from '../game/voiceClips.js';
 import LaunchStage3D from '../scene/LaunchStage3D.jsx';
 import {SKILLS,SYNERGY,synergyOf} from '../game/team.js';
 import './launch.css';
 const BeyShowcase=lazy(()=>import('../scene/BeyShowcase.jsx'));
 
 export const PREDICT_CARDS=[
-  {id:'ko',emoji:'💥',label:'撞飞它！',sub:'OVER / XTREME'},
-  {id:'spin',emoji:'🌀',label:'比谁转得久',sub:'SPIN / 判定'},
-  {id:'lose',emoji:'😰',label:'可能会输…',sub:'对手很强'},
+  {id:'ko',emoji:'💥',label:tr("撞飞它！"),sub:'OVER / XTREME'},
+  {id:'spin',emoji:'🌀',label:tr("比谁转得久"),sub:tr("SPIN / 判定")},
+  {id:'lose',emoji:'😰',label:tr("可能会输…"),sub:tr("对手很强")},
 ];
 
 // Slingshot units (unchanged from the top-down version): stadium radius 100, player on the left.
@@ -44,9 +46,11 @@ export function VsSplash({me,opp,myBey,onPick}){
   const [skip,setSkip]=useState(false),[said,setSaid]=useState(false);
   useEffect(()=>{
     sfx.whoosh();
+    const line=opp.blader?.line||tr("来吧！"), voice=opp.blader?.id||'doctor';
+    if(!sfx.isMuted())prefetchVoice({text:line,voice});
     const a=setTimeout(()=>sfx.clang(1),520);
-    const b=setTimeout(()=>{setSaid(true);sfx.say(opp.blader?.line||'来吧！','zh-CN',1.1);},900);
-    return()=>{clearTimeout(a);clearTimeout(b);};
+    const b=setTimeout(()=>{setSaid(true);sfx.say(line,speechLocale(),1.1,voice);},900);
+    return()=>{clearTimeout(a);clearTimeout(b);hush();};
   },[]);// eslint-disable-line
   // opp.avatar (optional): a kid-profile avatar id, used by online versus where the opponent is another kid.
   const oppImg=opp.blader?`/art/bladers/${opp.blader.id}.png`:opp.avatar?`/art/avatars/${opp.avatar}.png`:null;
@@ -71,13 +75,13 @@ export function VsSplash({me,opp,myBey,onPick}){
       <div className="ls-vs-flash"/>
       <div className="ls-vs-mark"><span>V</span><span>S</span></div>
       <div className="ls-predict">
-        <div className="ls-predict-q"><DoctorFace mood="thinking" size={58}/><div className="ls-predict-bubble">开打前先猜猜：你会怎么赢？</div></div>
+        <div className="ls-predict-q"><DoctorFace mood="thinking" size={58}/><div className="ls-predict-bubble">{tr("开打前先猜猜：你会怎么赢？")}</div></div>
         <div className="ls-cards">
           {PREDICT_CARDS.map((c,i)=><button key={c.id} className="ls-card" style={{'--i':i}} onClick={()=>{sfx.beep(true);onPick(c.id);}}><span className="ls-emoji">{c.emoji}</span><span className="ls-card-t"><b>{c.label}</b><small>{c.sub}</small></span></button>)}
-          <button className="ls-skip" onClick={()=>onPick(null)}>跳过 ▶</button>
+          <button className="ls-skip" onClick={()=>onPick(null)}>{tr("跳过 ▶")}</button>
         </div>
       </div>
-      {!skip&&<div className="ls-tap">点一下跳过动画</div>}
+      {!skip&&<div className="ls-tap">{tr("点一下跳过动画")}</div>}
     </div>
   );
 }
@@ -89,18 +93,18 @@ function BeyPicker({beys,value,onChange,onDone}){
   const b=beys[idx];
   return (
     <div className="ls-pick">
-      <div className="ls-pick-title">选你的出战陀螺</div>
+      <div className="ls-pick-title">{tr("选你的出战陀螺")}</div>
       <div className="ls-carousel">
-        {beys.length>1&&<button className="ls-arrow" onClick={()=>go(-1)} aria-label="上一只">◀</button>}
+        {beys.length>1&&<button className="ls-arrow" onClick={()=>go(-1)} aria-label={tr("上一只")}>◀</button>}
         <div className="ls-pick-card" key={b.uid} style={{'--c':b.colors?.primary}}>
           <div className="ls-pick-3d"><Suspense fallback={<BeyPic bey={b} size={230}/>}><BeyShowcase bey={b} rpm={3600} tilt={.5} zoom={1.15} background={false} standalone/></Suspense></div>
           <div className="ls-pick-name">{beyTitle(b)}{beySub(b)&&<small style={{display:'block',fontSize:'.55em',opacity:.75}}>{beySub(b)}</small>}</div>
           <div className="ls-pick-meta"><TypeBadge type={b.type||b.blade?.style}/><span>{b.ratchet?.prongs||3}-{b.ratchet?.height||60} · {b.bit}</span></div>
         </div>
-        {beys.length>1&&<button className="ls-arrow" onClick={()=>go(1)} aria-label="下一只">▶</button>}
+        {beys.length>1&&<button className="ls-arrow" onClick={()=>go(1)} aria-label={tr("下一只")}>▶</button>}
       </div>
       <div className="ls-dots">{beys.map(x=><i key={x.uid} className={x.uid===b.uid?'on':''}/>)}</div>
-      <button className="ls-ok" onClick={onDone}>就用它！</button>
+      <button className="ls-ok" onClick={onDone}>{tr("就用它！")}</button>
     </div>
   );
 }
@@ -116,7 +120,7 @@ function chargeTone(p){
   }catch{}
 }
 const auraOf=L=>!L?'#29b6ff':L.over?'#ff2d4a':L.power>.82?'#ffd400':'#29b6ff';
-const routeOf=L=>Math.abs(L.aim)>.6?'绕场游走':Math.abs(L.aim)>.25?'斜线切入':'正面冲撞';
+const routeOf=L=>Math.abs(L.aim)>.6?tr("绕场游走"):Math.abs(L.aim)>.25?tr("斜线切入"):tr("正面冲撞");
 
 // ---------- 3. 3D slingshot launch
 // Optional (online): autoFireAt = local ms when the shared launch window closes (fires with the current pull, or a medium default);
@@ -184,21 +188,21 @@ function Slingshot({myBey,oppBey,onLaunch,avatar,autoFireAt,onPower}){
       <LaunchStage3D myBey={myBey} oppBey={oppBey} stateRef={stateRef} onPull={onPull} onRelease={onRelease} disabled={launched}/>
       <div className="ls-speedlines"/>
       <div className="ls-launch-head">
-        <span className="ls-launch-title">拉开发射器！</span>
-        <span className="ls-hint">在场地上按住往<b>后</b>拉，松手发射 · 拉得越远转得越快 · 往左右拉决定冲向哪里</span>
+        <span className="ls-launch-title">{tr("拉开发射器！")}</span>
+        <span className="ls-hint">{tr("在场地上按住往")}<b>{tr("后")}</b>{tr("拉，松手发射 · 拉得越远转得越快 · 往左右拉决定冲向哪里")}</span>
       </div>
       <div className="ls-power">
         <div className="ls-power-bar"><i style={{height:`${Math.min(100,pw/1.15*100)}%`}}/><span className="ls-power-sweet"/></div>
         <div className="ls-power-l">POWER</div>
       </div>
       <div className="ls-readout">
-        <div className="ls-meter"><span>转速</span><b>{L?L.rpm.toLocaleString():'—'}</b><small>RPM</small></div>
-        <div className="ls-meter"><span>路线</span><b>{L?routeOf(L):'—'}</b></div>
-        <div className={`ls-meter ${L?.over?'warn':''}`}><span>状态</span><b>{L?(L.over?'用力过猛会歪！':L.power>.82?'完美！':'再拉远点'):'准备'}</b></div>
-        {voiceSupported()&&<button className={`ls-mic ${mic?'on':''}`} onClick={toggleMic} disabled={launched}>🎤 喊口令发射</button>}
+        <div className="ls-meter"><span>{tr("转速")}</span><b>{L?L.rpm.toLocaleString():'—'}</b><small>RPM</small></div>
+        <div className="ls-meter"><span>{tr("路线")}</span><b>{L?routeOf(L):'—'}</b></div>
+        <div className={`ls-meter ${L?.over?'warn':''}`}><span>{tr("状态")}</span><b>{L?(L.over?tr("用力过猛会歪！"):L.power>.82?tr("完美！"):tr("再拉远点")):tr("准备")}</b></div>
+        {voiceSupported()&&<button className={`ls-mic ${mic?'on':''}`} onClick={toggleMic} disabled={launched}>{tr("🎤 喊口令发射")}</button>}
       </div>
-      {!pull&&!launched&&<div className="ls-drag-hint"><span>👆</span>按住 · 往下拉</div>}
-      {mic&&<div className="ls-mic-hint">🎤 大声喊 <b>3, 2, 1, GO SHOOT!</b>（越大声转得越快）<span className="ls-vol"><i style={{width:`${Math.round(level*100)}%`}}/></span>{heard&&<span> · 听到：{heard}</span>}</div>}
+      {!pull&&!launched&&<div className="ls-drag-hint"><span>👆</span>{tr("按住 · 往下拉")}</div>}
+      {mic&&<div className="ls-mic-hint">{tr("🎤 大声喊 ")}<b>3, 2, 1, GO SHOOT!</b>{tr("（越大声转得越快）")}<span className="ls-vol"><i style={{width:`${Math.round(level*100)}%`}}/></span>{heard&&<span>{tr(" · 听到：")}{heard}</span>}</div>}
       {pull&&!launched&&pw>.15&&<div className="ls-sfx" style={{fontSize:`${56+70*pw}px`,opacity:.3+.7*Math.min(pw,1)}}>{L?.over?'ギギギ…！':'グググ…'}</div>}
       {launched&&!cut&&<div className="ls-impact"/>}
       {cut&&<CutIn bey={myBey} avatar={avatar}/>}
@@ -228,19 +232,19 @@ function TeamPicker({me,team,pilot,onPick}){
   const cur=team.find(t=>t.id===pilot);
   return (
     <div className="tp">
-      <div className="tp-h">谁上场？</div>
+      <div className="tp-h">{tr("谁上场？")}</div>
       <div className="tp-row">
-        <button className={`tp-face me ${!pilot?'on':''}`} onClick={()=>onPick(null)} aria-label="你上场">
-          <span className="tp-ring"/>{me.avatar?<img src={`/art/avatars/${me.avatar}.png`} alt=""/>:<b>{(me.name||'你').slice(0,1)}</b>}<em>你</em>
+        <button className={`tp-face me ${!pilot?'on':''}`} onClick={()=>onPick(null)} aria-label={tr("你上场")}>
+          <span className="tp-ring"/>{me.avatar?<img src={`/art/avatars/${me.avatar}.png`} alt=""/>:<b>{(me.name||tr("你")).slice(0,1)}</b>}<em>{tr("你")}</em>
         </button>
         {team.map(t=>{const sk=SKILLS[t.skill];return (
-          <button key={t.id} className={`tp-face ${pilot===t.id?'on':''}`} style={{'--c':t.color}} onClick={()=>onPick(t.id)} aria-label={`${t.name}上场`}>
+          <button key={t.id} className={`tp-face ${pilot===t.id?'on':''}`} style={{'--c':t.color}} onClick={()=>onPick(t.id)} aria-label={tr("{0}上场", [t.name])}>
             <span className="tp-ring"/><img src={`/art/bladers/${t.id}.png`} alt=""/><em>{t.name}</em>
             <i className="tp-skill" title={sk.name}>{sk.icon}</i>
-            {synergyOf(t.blader,t.bey)&&<i className="tp-syn">默契</i>}
+            {synergyOf(t.blader,t.bey)&&<i className="tp-syn">{tr("默契")}</i>}
           </button>);})}
       </div>
-      <div className="tp-tip">{cur?<><b>{SKILLS[cur.skill].icon} {SKILLS[cur.skill].name}</b>：{SKILLS[cur.skill].short}</>:<>自己拉发射器，亲手发射！</>}</div>
+      <div className="tp-tip">{cur?<><b>{SKILLS[cur.skill].icon} {SKILLS[cur.skill].name}</b>：{SKILLS[cur.skill].short}</>:<>{tr("自己拉发射器，亲手发射！")}</>}</div>
     </div>
   );
 }
@@ -255,7 +259,7 @@ function MateLaunch({mate,myBey,oppBey,onLaunch,makeLaunch,me,team,pilot,onPick,
   const go=()=>{
     if(cut)return;
     const L=makeLaunch();
-    setCut(true);sfx.whoosh();sfx.clang(.8);sfx.say(`${mate.name}，${sk.name}！`,'zh-CN',1.15);
+    setCut(true);sfx.whoosh();sfx.clang(.8);sfx.say(tr("{0}，{1}！",[mate.name,sk.name]),speechLocale(),1.15,mate.id);
     tasks.schedule(()=>{stateRef.current.launched={t0:performance.now(),dir:{x:1,y:0},from:[-.09,0]};stateRef.current.shake=.06;sfx.clang(1);},1500);
     tasks.schedule(()=>onLaunch(L),2300);
   };
@@ -268,15 +272,15 @@ function MateLaunch({mate,myBey,oppBey,onLaunch,makeLaunch,me,team,pilot,onPick,
         <div className="mt-hero-name">{mate.name}</div>
       </div>
       <div className="mt-card" key={'c'+mate.id}>
-        <div className="mt-card-k">队员上场 · 专长</div>
+        <div className="mt-card-k">{tr("队员上场 · 专长")}</div>
         <div className="mt-card-skill">{sk.icon} {sk.name}</div>
         <p className="mt-card-why">{sk.why}</p>
-        <div className="mt-card-bey">使用 <b>{beyTitle(myBey)}</b></div>
-        {syn&&<div className="mt-syn"><b>默契 +{Math.round((SYNERGY-1)*100)}%</b>：他用惯了这种陀螺（发射转速 +5%）</div>}
-        <button className="mt-go" onClick={go} disabled={cut}>▶ 让 {mate.name} 发射！</button>
+        <div className="mt-card-bey">{tr("使用 ")}<b>{beyTitle(myBey)}</b></div>
+        {syn&&<div className="mt-syn"><b>{tr("默契 +")}{Math.round((SYNERGY-1)*100)}%</b>{tr("：他用惯了这种陀螺（发射转速 +5%）")}</div>}
+        <button className="mt-go" onClick={go} disabled={cut}>{tr("▶ 让 ")}{mate.name}{tr(" 发射！")}</button>
       </div>
       {!cut&&<TeamPicker me={me} team={team} pilot={pilot} onPick={onPick}/>}
-      {!cut&&beys.length>1&&<button className="ls-switch mt-switch" onClick={onSwitch}>🔁 换陀螺（{beyTitle(myBey)}）</button>}
+      {!cut&&beys.length>1&&<button className="ls-switch mt-switch" onClick={onSwitch}>{tr("🔁 换陀螺（")}{beyTitle(myBey)}）</button>}
       {cut&&<div className="ls-cutin mt-cutin" style={{'--c':mate.color}}>
         <div className="ls-cutin-bg"/>
         <div className="ls-cutin-band thin a"/>
@@ -284,7 +288,7 @@ function MateLaunch({mate,myBey,oppBey,onLaunch,makeLaunch,me,team,pilot,onPick,
           <div className="ls-cutin-lines"/>
           <div className="mt-cut-face"><img src={`/art/bladers/${mate.id}.png`} alt=""/></div>
           <div className="mt-cut-text2"><span className="mt-cut-name">{mate.name}</span><span className="mt-cut-main">{sk.name}！</span></div>
-          {syn&&<div className="mt-cut-stamp"><b>默契</b><span>+5%</span></div>}
+          {syn&&<div className="mt-cut-stamp"><b>{tr("默契")}</b><span>+5%</span></div>}
         </div>
         <div className="ls-cutin-band thin b"/>
         <div className="ls-cutin-flash"/>
@@ -307,7 +311,7 @@ export default function LaunchSequence({me,opp,beys,beyUid,setBeyUid,first,lastR
         return <>
           <Slingshot key={myBey.uid} myBey={myBey} oppBey={opp.bey} onLaunch={onLaunch} avatar={me.avatar} autoFireAt={autoFireAt} onPower={onPower}/>
           {team.length>0&&<TeamPicker me={me} team={team} pilot={pilot} onPick={onPilot}/>}
-          {beys.length>1&&<button className="ls-switch" onClick={()=>setStep('pick')}>🔁 换陀螺（{beyTitle(myBey)}）</button>}
+          {beys.length>1&&<button className="ls-switch" onClick={()=>setStep('pick')}>{tr("🔁 换陀螺（")}{beyTitle(myBey)}）</button>}
         </>;})()}
     </div>
   );

@@ -1,3 +1,4 @@
+import {tr, speechLocale, speechVoice} from '../../i18n/index.js';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {hush} from '../../game/voiceClips.js';
 import {beyTitle} from '../beyName.js';
@@ -25,26 +26,26 @@ import {DoctorFace} from '../MapScreen.jsx';
 import * as sfx from '../../game/sfx.js';
 import './result.css';
 
-const PREDICT=[{id:'ko',label:'把对手撞出界（OVER / XTREME）',match:r=>r==='over'||r==='xtreme'},{id:'spin',label:'比谁转得久（SPIN / 判定）',match:r=>r==='spin'||r==='judge'},{id:'lose',label:'我觉得会输……',match:null}];
+const PREDICT=[{id:'ko',label:tr("把对手撞出界（OVER / XTREME）"),match:r=>r==='over'||r==='xtreme'},{id:'spin',label:tr("比谁转得久（SPIN / 判定）"),match:r=>r==='spin'||r==='judge'},{id:'lose',label:tr("我觉得会输……"),match:null}];
 const REWARD={normal:[120,60],pro:[160,80],super:[220,100],boss:[400,150]};
-const MOMENT_TITLE={'first-hit':'第一次碰撞','big-hit':'最猛的一撞','spin-drop':'转速大跳水','dash':'冲刺！','finish':'决胜时刻'};
-const PAGES=[{id:'result',label:'结果'},{id:'review',label:'复盘'},{id:'lab',label:'实验室'},{id:'next',label:'接下来去哪'}];
+const MOMENT_TITLE={'first-hit':tr("第一次碰撞"),'big-hit':tr("最猛的一撞"),'spin-drop':tr("转速大跳水"),'dash':tr("冲刺！"),'finish':tr("决胜时刻")};
+const PAGES=[{id:'result',label:tr("结果")},{id:'review',label:tr("复盘")},{id:'lab',label:tr("实验室")},{id:'next',label:tr("接下来去哪")}];
 const NUM='①②③④⑤';
 const HIGHLIGHT_MS=4200;
 const REPLAY_BAR_PX=150;   // ReplayViewer's control bar + scrubber below the 3D view   // the slow-mo highlight is ~7 s; the quiz pops once the key instant has played
 function localMoment(m,names){
-  const n=i=>i===0?`你的 ${names[0]}`:names[1];const d=m.data||{};
-  if(m.kind==='first-hit'||m.kind==='big-hit')return `相对速度 ${(d.relSpeed||0).toFixed(1)} m/s 的碰撞。撞完 ${n(0)} 约 ${Math.round((d.rpmAfter?.[0]||0)/100)*100} 转、${n(1)} 约 ${Math.round((d.rpmAfter?.[1]||0)/100)*100} 转——撞击会把转动的能量变成乱跑和晃动。`;
-  if(m.kind==='spin-drop')return `1 秒内 ${n(m.body)} 的转速掉了约 ${Math.round((d.drop||0)/100)*100} 转。看看这一秒它撞到了什么？`;
-  if(m.kind==='finish')return `${n(1-d.winner)} ${({spin:'先停转了',over:'飞出了场地',xtreme:'掉进了 Xtreme 口',judge:'时间到时转速更低'})[d.reason]||''}。`;
-  if(m.kind==='dash')return `${n(m.body??0)} 的齿轮咬住了边缘齿轨，把转动变成了往前冲！`;
+  const n=i=>i===0?tr("你的 {0}", [names[0]]):names[1];const d=m.data||{};
+  if(m.kind==='first-hit'||m.kind==='big-hit')return tr("相对速度 {0} m/s 的碰撞。撞完 {1} 约 {2} 转、{3} 约 {4} 转——撞击会把转动的能量变成乱跑和晃动。", [(d.relSpeed||0).toFixed(1), n(0), Math.round((d.rpmAfter?.[0]||0)/100)*100, n(1), Math.round((d.rpmAfter?.[1]||0)/100)*100]);
+  if(m.kind==='spin-drop')return tr("1 秒内 {0} 的转速掉了约 {1} 转。看看这一秒它撞到了什么？", [n(m.body), Math.round((d.drop||0)/100)*100]);
+  if(m.kind==='finish')return `${n(1-d.winner)} ${({spin:tr("先停转了"),over:tr("飞出了场地"),xtreme:tr("掉进了 Xtreme 口"),judge:tr("时间到时转速更低")})[d.reason]||''}。`;
+  if(m.kind==='dash')return tr("{0} 的齿轮咬住了边缘齿轨，把转动变成了往前冲！", [n(m.body??0)]);
   return '';
 }
 function suggestVariable(bey,won){
-  if(!won&&(bey.bit==='flat'||bey.bit==='rush'))return {key:'bit',value:'ball',why:'平轴掉转快'};
-  if(bey.bit==='needle')return {key:'bit',value:'ball',why:'试试更稳的圆轴'};
-  if((bey.blade?.ring??60)<70)return {key:'ring',value:80,why:'外圈还能再重点'};
-  return {key:'bit',value:'needle',why:'看看能不能转更久'};
+  if(!won&&(bey.bit==='flat'||bey.bit==='rush'))return {key:'bit',value:'ball',why:tr("平轴掉转快")};
+  if(bey.bit==='needle')return {key:'bit',value:'ball',why:tr("试试更稳的圆轴")};
+  if((bey.blade?.ring??60)<70)return {key:'ring',value:80,why:tr("外圈还能再重点")};
+  return {key:'bit',value:'needle',why:tr("看看能不能转更久")};
 }
 function useCountUp(target,run,ms=1100){
   const [v,setV]=useState(0);
@@ -111,7 +112,7 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
         <div className="rp-chips">{PAGES.map((p,i)=><button key={p.id} className={`rp-chip ${i===page?'on':''}`} onClick={()=>goPage(i)}><span>{i+1}</span>{p.label}</button>)}</div>
         {page!==3&&rounds.length>1&&<RoundPicker rounds={rounds} ri={ri} setRi={setRi} myName={myName} oppName={opp.name}/>}
         <div className="rp-score">{myName} <b>{score[0]} : {score[1]}</b> {opp.name}</div>
-        <button className="rp-continue" onClick={()=>{hush();fromExplore()?backToExplore():fromVersus()?go('versus'):go('map');}}>{fromExplore()?'🧭 继续探险 ▶':fromVersus()?'⚔️ 回到对战模式 ▶':'🗺️ 继续冒险 ▶'}</button>
+        <button className="rp-continue" onClick={()=>{hush();fromExplore()?backToExplore():fromVersus()?go('versus'):go('map');}}>{fromExplore()?tr("🧭 继续探险 ▶"):fromVersus()?tr("⚔️ 回到对战模式 ▶"):tr("🗺️ 继续冒险 ▶")}</button>
       </div>
       <div className="rp-stage">
         <div key={page} className={`rp-page ${dir>0?'turn-fwd':'turn-back'}`}>
@@ -124,10 +125,10 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
         </div>
       </div>
       <div className="rp-nav">
-        {page>0?<button className="rp-arrow" onClick={()=>goPage(p=>p-1)} aria-label="上一页">◀ {PAGES[page-1].label}</button>:<span/>}
+        {page>0?<button className="rp-arrow" onClick={()=>goPage(p=>p-1)} aria-label={tr("上一页")}>◀ {PAGES[page-1].label}</button>:<span/>}
         <span/>
-        {page===1&&<button className="rp-arrow next" onClick={()=>goPage(2)} aria-label="去实验室">试着改一个零件 ▶</button>}
-        {page===2&&<button className="rp-arrow next" onClick={()=>goPage(3)} aria-label="接下来去哪">离开实验室 · 接下来去哪 ▶</button>}
+        {page===1&&<button className="rp-arrow next" onClick={()=>goPage(2)} aria-label={tr("去实验室")}>{tr("试着改一个零件 ▶")}</button>}
+        {page===2&&<button className="rp-arrow next" onClick={()=>goPage(3)} aria-label={tr("接下来去哪")}>{tr("离开实验室 · 接下来去哪 ▶")}</button>}
       </div>
       {recruitOpen&&<RecruitModal blader={blader} save={save} onDone={(uid)=>{recruit(blader.id,uid);setRecruited(true);setRecruitOpen(false);}} onClose={()=>setRecruitOpen(false)}/>}
     </div>
@@ -138,11 +139,11 @@ export default function ResultPanel({won,score,rounds,opp,blader,myBey,predictio
 const FINISH_ICON={xtreme:'💥',over:'💨',burst:'💢',spin:'🌀',judge:'⏱'};
 function RoundPicker({rounds,ri,setRi,myName,oppName}){
   const cur=rounds[ri];
-  return <div className="rp-rounds" role="tablist" aria-label="选择要复盘的回合">
-    <span className="rp-rounds-t">看第几局</span>
-    {rounds.map((r,i)=>{const w=r.result.winner===0;return <button key={i} role="tab" aria-selected={i===ri} title={`第 ${i+1} 局 · ${r.pilot?.name||myName} · ${r.beyName||''} · ${w?'赢':'输'} · ${FINISH_ZH[r.result.reason]}`}
+  return <div className="rp-rounds" role="tablist" aria-label={tr("选择要复盘的回合")}>
+    <span className="rp-rounds-t">{tr("看第几局")}</span>
+    {rounds.map((r,i)=>{const w=r.result.winner===0;return <button key={i} role="tab" aria-selected={i===ri} title={tr("第 {0} 局 · {1} · {2} · {3} · {4}", [i+1, r.pilot?.name||myName, r.beyName||'', w?tr("赢"):tr("输"), FINISH_ZH[r.result.reason]])}
       className={`rp-round ${i===ri?'on':''} ${w?'win':'lose'} ${r.pilot?'mate':''}`} onClick={()=>setRi(i)}>{r.pilot&&<img className="rp-round-face" src={`/art/bladers/${r.pilot.id}.png`} alt=""/>}{i+1}<i>{FINISH_ICON[r.result.reason]||''}</i>{i===rounds.length-1&&<em>★</em>}</button>;})}
-    <span className="rp-rounds-cap"><b>{cur.pilot?.name||myName} · {cur.beyName}</b> {cur.result.winner===0?'赢':'输'} · {FINISH_ZH[cur.result.reason]}{ri===rounds.length-1?' · 决胜局':''}</span>
+    <span className="rp-rounds-cap"><b>{cur.pilot?.name||myName} · {cur.beyName}</b> {cur.result.winner===0?tr("赢"):tr("输")} · {FINISH_ZH[cur.result.reason]}{ri===rounds.length-1?tr(" · 决胜局"):''}</span>
   </div>;
 }
 
@@ -169,17 +170,17 @@ function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRec
           <div className="rp-bigscore">{score[0]}<span>:</span>{score[1]}</div>
           <div className={`rp-bey ${won?'':'champ'}`}><ResultBeyArt bey={opp.bey} spin={!won}/><b>{beyTitle(opp.bey)}</b></div>
         </div>
-        <div className="rp-finish"><span>决胜</span>{FINISH_LABEL[reason]} · {FINISH_ZH[reason]} · {decisive.result.time.toFixed(1)} 秒</div>
+        <div className="rp-finish"><span>{tr("决胜")}</span>{FINISH_LABEL[reason]} · {FINISH_ZH[reason]} · {decisive.result.time.toFixed(1)}{tr(" 秒")}</div>
       </div>
       <div className="rp-side">
-        <div className="rp-reward"><span className="kicker">REWARD</span><div className="rp-coins">🪙 +{shown}</div>{first&&won&&<div className="rp-first">首次击败！</div>}</div>
-        {pred&&<div className={`rp-stamp ${predOk?'ok':'no'}`}><b>{predOk?'✓':'✗'}</b><span>赛前预测<br/>{predOk?'猜对了！+20':'没猜中'}</span></div>}
+        <div className="rp-reward"><span className="kicker">REWARD</span><div className="rp-coins">🪙 +{shown}</div>{first&&won&&<div className="rp-first">{tr("首次击败！")}</div>}</div>
+        {pred&&<div className={`rp-stamp ${predOk?'ok':'no'}`}><b>{predOk?'✓':'✗'}</b><span>{tr("赛前预测")}<br/>{predOk?tr("猜对了！+20"):tr("没猜中")}</span></div>}
         {canRecruit&&<div className="rp-cutin" onClick={recruited?undefined:onRecruit}>
           <Portrait blader={blader} size={96}/>
-          <div><div className="sfx" style={{fontSize:30,color:'var(--yellow)'}}>{recruited?'入队！':'招募！'}</div><div style={{fontWeight:800}}>{recruited?`${blader.name} 加入了你的队伍`:`${blader.name} 想加入你的队伍！`}</div>{!recruited&&<button className="btn small yellow" style={{marginTop:6}}>点我招募</button>}</div>
+          <div><div className="sfx" style={{fontSize:30,color:'var(--yellow)'}}>{recruited?tr("入队！"):tr("招募！")}</div><div style={{fontWeight:800}}>{recruited?tr("{0} 加入了你的队伍", [blader.name]):tr("{0} 想加入你的队伍！", [blader.name])}</div>{!recruited&&<button className="btn small yellow" style={{marginTop:6}}>{tr("点我招募")}</button>}</div>
         </div>}
-        <button className="btn primary big rp-cta" onClick={onNext}>{won?'看看为什么赢了 ▶':'看看为什么输了 ▶'}</button>
-        {fromExp&&<button className="btn yellow big" onClick={backToExplore}>🧭 回到探索 ▶</button>}
+        <button className="btn primary big rp-cta" onClick={onNext}>{won?tr("看看为什么赢了 ▶"):tr("看看为什么输了 ▶")}</button>
+        {fromExp&&<button className="btn yellow big" onClick={backToExplore}>{tr("🧭 回到探索 ▶")}</button>}
       </div>
     </div>
   );
@@ -188,7 +189,7 @@ function ResultPage({won,score,decisive,myBey,opp,coins,first,pred,predOk,canRec
 // Review page: guided "博士讲解模式" by default; "我自己看" switches to the manual moment strip.
 function ReviewPage(props){
   const [mode,setMode]=useState('guide');
-  const titleOf=useCallback(m=>MOMENT_TITLE[m.kind]||'关键时刻',[]);
+  const titleOf=useCallback(m=>MOMENT_TITLE[m.kind]||tr("关键时刻"),[]);
   const fallbackOf=useCallback(m=>localMoment(m,props.names),[props.names]);
   if(mode==='guide')return <GuidedReview {...props} titleOf={titleOf} fallbackOf={fallbackOf} onManual={()=>{hush();setMode('manual');}}/>;
   return <ManualReview {...props} onGuide={()=>setMode('guide')}/>;
@@ -217,7 +218,7 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
   // explanation; only after the kid answers does the slow-mo play and the explanation appear.
   const reveal=(m)=>{
     viewer.current?.playMoment?.(m.id);
-    const line=aiM(m.id)?.dj;if(line)timers.current.push(setTimeout(()=>sfx.say(line,'zh-CN',1.2),600));
+    const line=aiM(m.id)?.dj;if(line)timers.current.push(setTimeout(()=>sfx.say(line,speechLocale(),1.2),600));
   };
   const play=useCallback((m,{withQuiz=true,fromSequence=false}={})=>{
     if(fromSequence)clearEffects();else clear();
@@ -240,19 +241,19 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
     <div className="rp-review">
       <div className="rp-review-head">
         <DoctorFace mood={ai?'excited':'thinking'} size={44}/>
-        <div className="grow"><div className="rp-h">复盘 · {ai?.headline||'关键时刻'}</div><div className="rp-sub">点下面的关键时刻，慢动作回看发生了什么</div></div>
-        <button className={`btn small ${auto?'yellow':''}`} onClick={playAll}>{auto?'⏹ 停止':'▶ 自动播放全部关键时刻'}</button>
-        <button className={`btn small ${chart?'yellow':''}`} onClick={()=>setChart(c=>!c)}>📈 转速</button>
-        <button className="btn small yellow" onClick={onGuide}>🎙 博士讲解</button>
+        <div className="grow"><div className="rp-h">{tr("复盘 · ")}{ai?.headline||tr("关键时刻")}</div><div className="rp-sub">{tr("点下面的关键时刻，慢动作回看发生了什么")}</div></div>
+        <button className={`btn small ${auto?'yellow':''}`} onClick={playAll}>{auto?tr("⏹ 停止"):tr("▶ 自动播放全部关键时刻")}</button>
+        <button className={`btn small ${chart?'yellow':''}`} onClick={()=>setChart(c=>!c)}>{tr("📈 转速")}</button>
+        <button className="btn small yellow" onClick={onGuide}>{tr("🎙 博士讲解")}</button>
       </div>
       <div className="rp-replay" ref={boxRef}>
         {boxH>0&&<ReplaySlot ref={viewer} height={Math.max(180,boxH-REPLAY_BAR_PX)} beys={beys} samples={decisive.samples} events={decisive.events}
           moments={moments.map(m=>({id:m.id,time:m.time,title:aiM(m.id)?.title||MOMENT_TITLE[m.kind]}))} onSeek={setCursor}/>}
         {cur&&<div key={sel} className="rp-balloon">
-          <div className="rp-balloon-t">{NUM[cur.n-1]} {curAi?.title||MOMENT_TITLE[cur.kind]} <small>{cur.time.toFixed(1)} 秒</small></div>
+          <div className="rp-balloon-t">{NUM[cur.n-1]} {curAi?.title||MOMENT_TITLE[cur.kind]} <small>{cur.time.toFixed(1)}{tr(" 秒")}</small></div>
           {(()=>{const waiting=quizMap[cur.id]&&answers[cur.id]==null;   // no answer may leak before the kid guesses
-            return waiting?<p>🤔 先猜一猜！回放停在碰撞前，答完就播放慢动作，再告诉你为什么。</p>
-              :<>{curAi?.dj&&<div className="rp-dj">🎙 {curAi.dj}</div>}<p>{ai?(curAi?.explain||localMoment(cur,names)):'博士正在看这一段……'}</p></>;})()}
+            return waiting?<p>{tr("🤔 先猜一猜！回放停在碰撞前，答完就播放慢动作，再告诉你为什么。")}</p>
+              :<>{curAi?.dj&&<div className="rp-dj">🎙 {curAi.dj}</div>}<p>{ai?(curAi?.explain||localMoment(cur,names)):tr("博士正在看这一段……")}</p></>;})()}
         </div>}
         {chart&&<div className="rp-chart"><RpmChart samples={decisive.samples} events={decisive.events} moments={moments} cursor={cursor} onSeek={t=>{setCursor(t);viewer.current?.seek?.(t);}} names={names} colors={[myBey.colors?.primary||'#2f7bff',opp.bey.colors?.primary||'#f2b632']}/></div>}
         {cur&&quizOn&&quizMap[cur.id]&&<QuizCard quiz={quizMap[cur.id]} answer={answers[cur.id]} onAnswer={i=>answer(cur,i)} onClose={()=>setQuizOn(false)} card={curAi.cardId&&getCard(curAi.cardId)}/>}
@@ -262,17 +263,17 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
           <div key={m.id} className={`rp-mpanel ${sel===m.id?'on':''}`}>
             <button className="rp-mpanel-hit" onClick={()=>play(m)}>
               <span className="rp-mnum">{NUM[m.n-1]}</span>
-              <span className="rp-mtitle">{a?.title||MOMENT_TITLE[m.kind]}<small>{m.time.toFixed(1)} 秒{ans!=null?(ans===quizMap[m.id]?.answer?' · ✅':' · ❌'):quizMap[m.id]?' · 🤔':''}</small></span>
+              <span className="rp-mtitle">{a?.title||MOMENT_TITLE[m.kind]}<small>{m.time.toFixed(1)}{tr(" 秒")}{ans!=null?(ans===quizMap[m.id]?.answer?' · ✅':' · ❌'):quizMap[m.id]?' · 🤔':''}</small></span>
             </button>
             <div className="rp-mactions">
-              <button className="btn small" onClick={()=>play(m)}>▶ 慢放</button>
-              {quizMap[m.id]&&<button className="btn small" onClick={()=>{setSel(m.id);setQuizOn(true);}}>🤔 你猜</button>}
-              <button className="btn small" onClick={()=>openFlipbook({moment:{kind:m.kind,title:a?.title||MOMENT_TITLE[m.kind],explain:a?.explain||localMoment(m,names)}})}>📖 绘本</button>
+              <button className="btn small" onClick={()=>play(m)}>{tr("▶ 慢放")}</button>
+              {quizMap[m.id]&&<button className="btn small" onClick={()=>{setSel(m.id);setQuizOn(true);}}>{tr("🤔 你猜")}</button>}
+              <button className="btn small" onClick={()=>openFlipbook({moment:{kind:m.kind,title:a?.title||MOMENT_TITLE[m.kind],explain:a?.explain||localMoment(m,names)}})}>{tr("📖 绘本")}</button>
             </div>
           </div>);})}
-        <button className="rp-mpanel rp-mnext" onClick={onNext}><span className="rp-mnum">🔬</span><span className="rp-mtitle">去实验室验证<small>只改一个变量</small></span></button>
+        <button className="rp-mpanel rp-mnext" onClick={onNext}><span className="rp-mnum">🔬</span><span className="rp-mtitle">{tr("去实验室验证")}<small>{tr("只改一个变量")}</small></span></button>
       </div>
-      <div className="model-note rp-note">复盘只引用这一局记录到的数据；因果结论都是「在这个模型里」成立。</div>
+      <div className="model-note rp-note">{tr("复盘只引用这一局记录到的数据；因果结论都是「在这个模型里」成立。")}</div>
     </div>
   );
 }
@@ -280,12 +281,12 @@ function ManualReview({decisive,myBey,opp,moments,names,ai,unlockCards,addCoins,
 function QuizCard({quiz,answer,onAnswer,onClose,card}){
   const done=answer!=null;
   return <div className="rp-quiz pop-in">
-    <button className="rp-quiz-x" onClick={onClose} aria-label="关闭">✕</button>
-    <div className="rp-quiz-q">🤔 你猜？{quiz.q}</div>
+    <button className="rp-quiz-x" onClick={onClose} aria-label={tr("关闭")}>✕</button>
+    <div className="rp-quiz-q">{tr("🤔 你猜？")}{quiz.q}</div>
     <div className="rp-quiz-opts">{quiz.options.map((o,i)=><button key={i} disabled={done} className={`rp-quiz-opt ${done&&i===quiz.answer?'right':''} ${done&&i===answer&&i!==quiz.answer?'wrong':''}`} onClick={()=>onAnswer(i)}><b>{'ABC'[i]}</b>{o}</button>)}</div>
     {done&&<div className="rp-quiz-reveal slidein">
-      <div>{answer===quiz.answer?'✅ 答对了！🪙 +5　':'❌ 差一点！　'}{quiz.reveal||quiz.explain}</div>
-      {quiz.analogy&&<div className="rp-quiz-analogy">🌏 生活里：{quiz.analogy}</div>}
+      <div>{answer===quiz.answer?tr("✅ 答对了！🪙 +5　"):tr("❌ 差一点！　")}{quiz.reveal||quiz.explain}</div>
+      {quiz.analogy&&<div className="rp-quiz-analogy">{tr("🌏 生活里：")}{quiz.analogy}</div>}
       {card&&<div style={{marginTop:6}}><KnowledgeChip card={card}/></div>}
     </div>}
   </div>;
@@ -296,22 +297,22 @@ function NextPage({won,ai,go,myBey}){
     <div className="rp-next">
       <div className="rp-next-doc">
         <DoctorFace mood={won?'excited':'thinking'} size={110}/>
-        <div className="bubble rp-next-bubble">{ai?.takeaway||(won?`漂亮！你的 ${beyTitle(myBey)} 赢下了这一场。想想是哪个设计帮了大忙？`:`没关系！输了正好做实验：只改一个零件，再比一次看看。`)}</div>
+        <div className="bubble rp-next-bubble">{ai?.takeaway||(won?tr("漂亮！你的 {0} 赢下了这一场。想想是哪个设计帮了大忙？", [beyTitle(myBey)]):tr("没关系！输了正好做实验：只改一个零件，再比一次看看。"))}</div>
       </div>
       {/* 三个“目的地”漫画分格：用游戏里的真实美术，不用 emoji 方块；推荐的那一格盖章 */}
       {(()=>{const p=useGame.getState().params||{},bl=p.bladerId&&BLADERS.find(b=>b.id===p.bladerId),reg=p.regionId||p.region;
-        const back=fromExplore()?{t:'回到探索',s:'继续寻宝，找下一个伙伴',img:`/art/regions/${reg||'harbor'}.jpg`,go:backToExplore}
-          :fromVersus()?{t:'回到对战模式',s:'换个对手，或者约朋友联机',img:'/art/bg/arena.jpg',go:()=>go('versus')}
-          :{t:'回到地图',s:'去别的地区冒险',img:'/art/bg/map.jpg',go:()=>go('map')};
+        const back=fromExplore()?{t:tr("回到探索"),s:tr("继续寻宝，找下一个伙伴"),img:`/art/regions/${reg||'harbor'}.jpg`,go:backToExplore}
+          :fromVersus()?{t:tr("回到对战模式"),s:tr("换个对手，或者约朋友联机"),img:'/art/bg/arena.jpg',go:()=>go('versus')}
+          :{t:tr("回到地图"),s:tr("去别的地区冒险"),img:'/art/bg/map.jpg',go:()=>go('map')};
         const panels=[{k:'back',...back,tone:'#2f7bff'},
-          {k:'again',t:'再战一次',s:bl?`再挑战 ${bl.name}`:'同样的对手，再来一场',img:'/art/bg/arena.jpg',face:bl&&`/art/bladers/${bl.id}.png`,go:()=>go('battle',{...p}),tone:'#ff2d4a'},
-          {k:'fuse',t:'去融合工坊改造',s:'换一片刃，设计更强的陀螺',img:'/art/bg/lab.jpg',go:()=>go('fusion',{back:'map'}),tone:'#f2b632'}];
+          {k:'again',t:tr("再战一次"),s:bl?tr("再挑战 {0}", [bl.name]):tr("同样的对手，再来一场"),img:'/art/bg/arena.jpg',face:bl&&`/art/bladers/${bl.id}.png`,go:()=>go('battle',{...p}),tone:'#ff2d4a'},
+          {k:'fuse',t:tr("去融合工坊改造"),s:tr("换一片刃，设计更强的陀螺"),img:'/art/bg/lab.jpg',go:()=>go('fusion',{back:'map'}),tone:'#f2b632'}];
         const rec=won?'back':'fuse';
         return <div className="rp-dest">{panels.map((d,i)=><button key={d.k} className={`rp-dest-card ${d.k===rec?'rec':''}`} style={{'--tone':d.tone,'--d':`${i*.08}s`}} onClick={()=>{sfx.clang?.(.6);d.go();}}>
           <span className="rp-dest-img" style={{backgroundImage:`url(${d.img})`}}/>
           {d.face&&<img className="rp-dest-face" src={d.face} alt=""/>}
           <span className="rp-dest-lines"/>
-          {d.k===rec&&<span className="rp-dest-stamp">推荐！</span>}
+          {d.k===rec&&<span className="rp-dest-stamp">{tr("推荐！")}</span>}
           <span className="rp-dest-txt"><b>{d.t}</b><small>{d.s}</small></span>
         </button>)}</div>;})()}
     </div>
@@ -325,14 +326,14 @@ function RecruitModal({blader,save,onDone,onClose}){
     <div className="row" style={{gap:18,alignItems:'flex-start',flexWrap:'wrap'}}>
       <div style={{border:'var(--border-thick)'}}><Portrait blader={blader} size={150}/></div>
       <div className="col grow">
-        <div className="sfx" style={{fontSize:40,color:'var(--yellow)'}}>招募！</div>
-        <div className="bubble">「你很强！让我加入你的队伍吧。能借我一只陀螺吗？」——{blader.name}</div>
+        <div className="sfx" style={{fontSize:40,color:'var(--yellow)'}}>{tr("招募！")}</div>
+        <div className="bubble">{tr("「你很强！让我加入你的队伍吧。能借我一只陀螺吗？」——")}{blader.name}</div>
       </div>
     </div>
-    <div className="prep-h mt2">选一只陀螺装备给 {blader.name}（它仍然留在你的收藏里）</div>
+    <div className="prep-h mt2">{tr("选一只陀螺装备给 ")}{blader.name}{tr("（它仍然留在你的收藏里）")}</div>
     <div className="grid mt" style={{gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12}}>
-      {save.collection.map(b=><button key={b.uid} disabled={used.has(b.uid)} className={`prep-bey ${pick===b.uid?'on':''}`} style={{flexDirection:'column'}} onClick={()=>setPick(b.uid)}><BeyArt bey={b} size={70}/><b>{b.name}</b>{used.has(b.uid)&&<small>已被队员使用</small>}</button>)}
+      {save.collection.map(b=><button key={b.uid} disabled={used.has(b.uid)} className={`prep-bey ${pick===b.uid?'on':''}`} style={{flexDirection:'column'}} onClick={()=>setPick(b.uid)}><BeyArt bey={b} size={70}/><b>{b.name}</b>{used.has(b.uid)&&<small>{tr("已被队员使用")}</small>}</button>)}
     </div>
-    <div className="row mt2" style={{justifyContent:'flex-end'}}><button className="btn" onClick={onClose}>以后再说</button><button className="btn primary" disabled={!pick} onClick={()=>onDone(pick)}>欢迎加入！</button></div>
+    <div className="row mt2" style={{justifyContent:'flex-end'}}><button className="btn" onClick={onClose}>{tr("以后再说")}</button><button className="btn primary" disabled={!pick} onClick={()=>onDone(pick)}>{tr("欢迎加入！")}</button></div>
   </Modal>;
 }

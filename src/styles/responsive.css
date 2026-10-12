@@ -1,0 +1,262 @@
+/* Shared touch / long-copy rules. Scope overrides so lazy screen styles cannot undo them. */
+html button, html input, html select, html textarea {touch-action:manipulation}
+html button {overflow-wrap:anywhere}
+html :focus-visible {outline:3px solid #2f7bff;outline-offset:4px}
+html .row > *, html .topbar > *, html .panel > *, html .chat-layout > * {min-width:0}
+html .topbar, html .topbar .row {flex-wrap:wrap;gap:12px}
+html .topbar h1 {overflow-wrap:anywhere}
+html .modal-back {padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+html .modal {max-height:calc(100dvh - 32px);overscroll-behavior:contain}
+html[lang=en] .stat {grid-template-columns:minmax(88px,1.2fr) minmax(30px,1fr) 32px;gap:5px}
+html[lang=en] .wm-region-name {font-size:clamp(18px,calc(var(--sw)*.019),29px);white-space:normal;line-height:1.1}
+html[lang=en] .wm-region-sub {white-space:normal}
+html[lang=en] .wm-state-main {white-space:normal}
+html[lang=en] .wm-place-name {white-space:normal}
+html[lang=en] .vx-entry-title {font-size:clamp(30px,5vw,64px);line-height:1.05}
+html[lang=en] .fusion .chat-layout:not(:has(.cand-zone))::after {content:'Tell me your idea.\A Let’s build your top!';font-size:clamp(20px,2.2vw,32px);white-space:pre-wrap;padding-right:5%}
+html[lang=en] .hc-name b, html[lang=en] .hc-name small {overflow-wrap:anywhere}
+html[lang=en] .ti-logo-fallback {font-size:clamp(36px,8vw,82px)}
+html .ti-note {padding-left:16px;padding-right:16px}
+@media (pointer:coarse) {
+  html .btn, html .rp-arrow, html .vx-pager button, html .cw-nav button {min-height:44px}
+  html input, html textarea, html select {font-size:16px}
+  html .rp-dots button {width:28px;height:28px;border-width:5px}
+}
+/* iPad portrait and split view: give English copy natural height, with scrollable content. */
+@media (max-width:1100px), (max-width:1366px) and (pointer:coarse) {
+  html .vx {height:auto;min-height:100dvh;overflow:visible;padding-bottom:max(22px,env(safe-area-inset-bottom))}
+  html .vx-home {min-height:640px}
+  html .vx-setup {grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto}
+  html .vx-mid {display:none}
+  html .vx-pick-card {min-height:400px;clip-path:none}
+  html .vx-opp-grid {grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,minmax(150px,1fr));gap:12px}
+  html .vx-strip {transform:none;flex-wrap:wrap}
+  html .vx-strip .vx-fight {max-width:100%}
+  html .fusion.page {height:auto;min-height:100dvh;overflow:visible}
+  html .fusion .chat-layout {min-height:600px;height:auto;grid-template-columns:minmax(0,1fr)}
+  html .fusion .chat-layout::before, html .fusion .chat-layout::after {display:none}
+  html .fusion .chat-pane {min-height:480px;max-height:70dvh}
+  html .fusion .cand-zone {min-height:500px}
+  html .fusion .predict {height:auto;min-height:650px}
+  html .rp-scroll:has(.lab-fit) {overflow-y:auto;display:block}
+  html .lab-fit {height:auto;min-height:100%;overflow:visible}
+  html .lab-body {grid-template-columns:minmax(0,1fr);grid-template-rows:auto;flex:none}
+  html .wb-qs {min-height:380px;grid-auto-rows:minmax(160px,auto)}
+  html .wb-one {min-height:380px}
+  html .lt {min-height:350px}
+  html .lx-sum, html .lx-why, html .lx-why p, html .lab-tabbody {overflow:visible}
+  html .lx-why p {display:block;-webkit-line-clamp:unset}
+  html .rp-result {grid-template-columns:minmax(0,1fr);padding:20px 0;gap:18px}
+  html .rp-result .rp-splash {min-height:350px}
+  html .rp-review {grid-template-columns:minmax(0,1fr)}
+  html .fb-top {flex-wrap:wrap}
+}
+@media (max-width:600px) {
+  html .page {padding:16px 14px max(30px,env(safe-area-inset-bottom))}
+  html .page .topbar {padding-right:0}
+  html .page .topbar .row {gap:8px}
+  html .page .topbar h1 {font-size:28px!important}
+  html .ti {height:auto;min-height:100dvh;overflow:hidden;padding:76px 0 90px}
+  html .ti-main {max-height:none;width:90%;padding:0}
+  html .ti-account {width:100%}
+  html .ti-account > .panel {max-height:none;transform:none;padding:16px!important}
+  html .login-go {font-size:17px!important;padding:12px 16px!important;max-width:100%}
+  html .login-h {font-size:24px;line-height:1.3}
+  html .ti-note {font-size:10px;line-height:1.4;bottom:8px}
+  html .ti-cta {max-width:100%}
+  html .ti-go {font-size:26px;max-width:100%}
+  html .st {height:auto;min-height:100dvh;overflow:visible;padding:18px 14px 24px}
+  html .st-cards {grid-template-columns:minmax(0,1fr);grid-template-rows:none;flex:none}
+  html .st-card {min-height:220px;grid-template-columns:35% minmax(0,1fr);transform:none}
+  html .st-lore {font-size:13px}
+  html .st-name {font-size:24px}
+  html .st-go {font-size:20px;padding:12px;max-width:100%;white-space:normal}
+  html .st-head h1 {font-size:36px}
+  html .vx-home, html .vx-setup, html .vx-setup.friend {grid-template-columns:minmax(0,1fr);min-height:0}
+  html .vx-entry {min-height:340px;padding:24px 18px;clip-path:none}
+  html .vx-vs, html .vx-divider {display:none}
+  html .vx-pick-card {min-height:310px}
+  html .vx-strip {gap:10px;padding:10px}
+  html .vx-fight {width:100%;font-size:26px;transform:none}
+  html .vx-top {flex-wrap:wrap}
+  html .vx-title {font-size:30px}
+  html .bx-stage {min-height:430px}
+  html .cw-grid {grid-auto-rows:260px;gap:10px}
+  html .cw-card {padding:8px;transform:none}
+  html .cw-name {font-size:17px;overflow-wrap:anywhere}
+  html .cw-sub {font-size:12px}
+  html .cw-main {flex-direction:column}
+  html .fusion .pick-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  html .fusion .cand-zone {height:auto;min-height:0}
+  html .fusion .hc-deck {flex-direction:column;display:flex;gap:16px}
+  html .fusion .hc {width:100%;min-height:500px;flex:none}
+  html .fusion .predict-hero {grid-template-columns:minmax(0,1fr)}
+  html .fusion .predict-info .h-display {font-size:32px!important}
+  html .chat-input {flex-wrap:wrap}
+  html .chat-input input {flex:1;min-width:150px}
+  html .rp-top {flex-wrap:wrap;gap:8px}
+  html .rp-chips {gap:5px}
+  html .rp-chip {font-size:12px;padding:6px;transform:none}
+  html .rp-nav {gap:8px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+  html .rp-arrow {font-size:15px;min-width:44px;padding:8px}
+  html .rp-dots {gap:2px}
+  html .rp-dots button {width:24px;height:24px}
+  html .rp-page {inset-inline:12px}
+  html .rp-result .rp-splash {min-height:320px}
+  html .wb-qs, html .wb-one, html .wb-grid {grid-template-columns:minmax(0,1fr)}
+  html .wb-grid {grid-template-areas:'w' 'c' 'l' 'b' 'g'}
+  html .lab-head, html .lab-steps {flex-wrap:wrap}
+  html .wb-qs {grid-template-rows:auto}
+  html .wb-one {min-height:600px}
+  html .lt {grid-template-columns:minmax(0,1fr);min-height:460px}
+  html .lt-grid {grid-template-columns:50px repeat(var(--n),minmax(0,1fr));gap:4px}
+  html .lx-acts {grid-template-columns:minmax(0,1fr)}
+  html .fb-brand {font-size:20px}
+  html .fb-top {gap:6px;padding:10px}
+  html .fb-title h2 {font-size:24px}
+  html .fb-panel {padding:5px;font-size:12px;max-width:46%}
+}
+html[lang=en] .hc-move {white-space:normal;flex-wrap:wrap;transform:none}
+html[lang=en] .hc-mid {grid-template-columns:100px minmax(0,1fr)}
+html[lang=en] .hc-facts small {width:auto;display:block}
+html[lang=en] .hc-why, html[lang=en] .hc-trade {display:block;overflow:visible;-webkit-line-clamp:unset}
+html[lang=en] .hc-inner {overflow-y:auto}
+@media (max-width:1100px), (max-width:1366px) and (pointer:coarse) {
+ html .fusion .chat-panel {min-height:420px;max-height:65dvh}
+ html .fusion .hc-grid {grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:650px}
+ html .fusion .hc-grid > .hc:last-child:nth-child(odd) {grid-column:1/-1;max-width:500px;width:100%;justify-self:center}
+}
+@media (max-width:600px) {
+ html .fusion .hc-grid {grid-template-columns:minmax(0,1fr);grid-auto-rows:680px}
+ html .fusion .hc-grid > .hc:last-child {grid-column:auto}
+}
+html .wm-hud {flex-wrap:wrap;align-items:center}
+html .wm-hud-title {max-width:calc(100vw - 185px)}
+html .wm-hud-chips {flex-wrap:wrap}
+html[lang=en] .vx-entry-h {font-size:clamp(30px,5vw,64px);line-height:1.05}
+@media(max-width:600px){
+ html .wm-hud {gap:6px}
+ html .wm-hud-title {font-size:18px;padding:6px}
+ html .wm-hud-chips {margin-left:0;transform:none;font-size:12px}
+ html .wm-hud .language-picker {margin-left:auto}
+ html .wm-hud-chips>* {padding:5px 8px}
+ html .wm-pan-hint {top:100px}
+ html .vx-or {display:none}
+}
+/* Screen roots with natural height must participate in the document's scroll area. */
+html:has(.fusion), html:has(.st), html:has(.vx), html:has(.cw-page), html:has(.bx-page) {overflow-y:auto}
+html body:has(.fusion), html body:has(.st), html body:has(.vx), html body:has(.cw-page), html body:has(.bx-page) {overflow-y:auto}
+html #root:has(>.fusion), html #root:has(>.st), html #root:has(>.vx), html #root:has(>.cw-page), html #root:has(>.bx-page) {overflow:visible;height:auto;min-height:100%}
+@media (max-width:1100px), (max-width:1366px) and (pointer:coarse){html .fusion > section.slidein, html .fusion .cand-zone {overflow:visible}}
+html[lang=en] .ol-score-side.me b::after {content:' (you)'}
+@media (max-width:1100px), (max-width:1366px) and (pointer:coarse){html .page.bg-lab:has(.fusion) {height:auto;min-height:100dvh;overflow:visible;padding:0}}
+@media (max-width:1100px), (max-width:1366px) and (pointer:coarse){
+ html body:has(.fusion), html body:has(.vx), html body:has(.st), html body:has(.cw-page), html body:has(.bx-page),
+ html #root:has(.fusion), html #root:has(.vx), html #root:has(.st), html #root:has(.cw-page), html #root:has(.bx-page) {height:auto;min-height:100dvh;overflow-y:visible}
+}
+html .ls-last {max-width:calc(100% - 28px);white-space:normal;text-align:center}
+@media(max-width:600px){
+ html .ls-launch-head {left:14px;right:60px;top:14px}
+ html .ls-launch-title {font-size:24px}
+ html .ls-readout {top:100px;bottom:auto;left:12px;right:65px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;width:auto}
+ html .ls-meter {width:auto;min-width:0;padding:5px;transform:none}
+ html .ls-meter b {font-size:15px;white-space:normal}
+ html .ls-meter span,html .ls-meter small {font-size:10px}
+ html .ls-mic {grid-column:1/-1;min-height:44px;font-size:13px;justify-self:end;transform:none}
+ html .ls .tp {bottom:68px;width:calc(100% - 20px);gap:3px}
+ html .tp-row {gap:14px;padding:6px 12px 10px}
+ html .tp-face {width:48px;height:48px}
+ html .tp-tip {white-space:normal;max-width:100%;text-align:center;font-size:11px;margin-top:5px;padding:3px 7px}
+ html .ls-switch {left:12px;right:12px;bottom:12px;min-height:44px;max-width:calc(100% - 24px);font-size:13px}
+ html .ls-drag-hint {font-size:14px;max-width:48%;padding:8px}
+ html .ls-last {top:64px;font-size:12px;padding:5px}
+}
+html .rp-top {flex-wrap:wrap}
+html .rp-chips {flex-basis:100%;flex-direction:row}
+html .rp-rounds {margin-left:0;min-width:0;flex-wrap:wrap}
+html .rp-rounds-cap {white-space:normal}
+html .rp-score {margin-left:auto}
+html .tp-syn {white-space:nowrap;width:auto}
+@media(max-width:600px){html .rp-score {font-size:12px}.rp-rounds-cap{display:none}html .rp-top>.btn{max-width:100%;font-size:13px}html .rp-rounds {gap:4px}html .rp-round {min-height:38px}}
+html .codex-nav {gap:8px;min-width:0}
+html .codex-nav .rp-dots {min-width:0;overflow-x:auto;padding:8px 4px;max-width:calc(100% - 120px)}
+html .codex-nav .rp-dots button {flex:none}
+html .codex-nav .rp-arrow {flex:none}
+html .ex-top {flex-wrap:wrap}
+html .ex-top>.btn {flex:none}
+html .ex-top>.row {flex-wrap:wrap}
+html .ex-task {white-space:normal}
+html .ex-bstate {white-space:nowrap;max-width:100%;font-size:9px}
+/* A separate heading row keeps scene titles clear of compass route signs. */
+html .ex2 .ex-page {grid-template-rows:auto minmax(0,1fr);gap:28px;padding:8px 0 24px;box-sizing:border-box}
+html .ex-banner {position:static;transform:skew(-10deg);max-width:90%;margin:0}
+html .ex-banner b {white-space:normal;overflow:visible;text-overflow:clip}
+html .ex2 .ex-art {width:min(calc(100cqw - 70px),calc((100cqh - 112px)*4/3))!important}
+html .ex2 .fb-hot span {width:max-content;max-width:min(140px,35vw);white-space:normal;text-align:center;left:50%;transform:translateX(-50%) skew(-8deg)}
+html .ex2 .fb-hot.label-start span {left:0;transform:skew(-8deg)}
+html .ex2 .fb-hot.label-end span {left:auto;right:0;transform:skew(-8deg)}
+@media (max-width:1100px), (max-width:1366px) and (pointer:coarse){
+ html .ex-sign {max-width:180px;white-space:normal}
+ html .ex-sign i {flex:none}
+ html .ex-sign.d-e {transform:translate(25%,-50%)}
+ html .ex-sign.d-w {transform:translate(-25%,-50%)}
+}
+@media (max-width:900px) and (orientation:portrait){
+ html .ex.page {position:relative;grid-template-columns:minmax(0,1fr);min-height:100dvh;height:auto;overflow:visible}
+ html .ex-side {overflow:visible;display:grid;grid-template-columns:1fr 1fr;align-items:start}
+ html .ex-guide {grid-column:1/-1}
+ html .ex2 .ex-stage {height:calc(65vw + 100px);min-height:400px;flex:none}
+ html .ex-page {width:100%}
+ html .ex2 .ex-art {width:calc(100% - 92px)!important;height:auto!important;max-width:700px}
+}
+@media(max-width:600px){
+ html .ex-top {gap:8px}
+ html .ex-top .ex-region {flex:1;min-width:0}
+ html .ex-top>.row {width:100%;justify-content:flex-end}
+ html .ex-top .btn {white-space:nowrap}
+ html .ex2 .ex-region b {font-size:23px}
+ html .ex-mission {flex-wrap:wrap;clip-path:none;gap:8px;padding:8px}
+ html .ex-mission-badge {padding:8px;clip-path:none;font-size:12px}
+ html .ex-mission-body {flex:1;min-width:180px}
+ html .ex-hint-btn {margin:0 0 0 auto;min-height:44px}
+ html .ex2 .ex-stage {height:380px;min-height:380px}
+ html .ex-side {display:flex}
+ html .ex-sign {max-width:145px;white-space:normal;padding:4px;gap:4px}
+ html .ex-sign span {font-size:11px}
+ html .ex-sign i {flex:none;width:22px;height:22px}
+ html .ex-banner b {max-width:70vw;font-size:16px}
+ html .ex-meet-band {height:auto;min-height:280px;gap:10px;padding:20px 12px;clip-path:none}
+ html .ex-meet-face {width:110px;flex:none}
+ html .ex-meet-text {min-width:0}
+ html .ex-get-name {font-size:24px;text-align:center}
+ html .ex-ov {padding:16px;overflow-y:auto}
+}
+@media(max-width:600px){html .parent-kid-row {grid-template-columns:minmax(0,1fr)!important}html .modal .row {flex-wrap:wrap}}
+/* Storybook overlays must size their grid from the viewport, not long English copy. */
+html .cb {grid-template-columns:minmax(0,1fr)}
+html .cb > *, html .cb-page > * {min-width:0}
+html .cb-top {flex-wrap:wrap}
+html .cb-q {flex:1 1 280px}
+html .cb-q b {white-space:normal;line-height:1.2}
+html .cb-right {overflow-y:auto}
+html .cb-nav .rp-arrow {min-width:44px;white-space:normal;flex:none;max-width:65%}
+html .cb-progress {min-width:16px}
+@media(max-width:900px){
+ html .cb-page {grid-template-columns:minmax(0,1fr);grid-template-rows:max-content max-content;align-content:start;overflow-y:auto}
+ html .cb-left {container-type:normal}
+ html .cb-pic {width:100%;max-height:none}
+ html .cb-panel {height:auto;min-height:260px;overflow:visible}
+ html .cb-right {overflow:visible}
+ html .cb-wrapart {height:auto;min-height:260px}
+}
+@media(max-width:600px){
+ html .cb-top {gap:8px}
+ html .cb-q {order:3;flex-basis:100%}
+ html .cb-q .kicker {font-size:10px;letter-spacing:2px}
+ html .cb-dots {order:4;margin-inline:auto}
+ html .cb-top > .btn:last-child {margin-left:auto}
+ html .cb-nav {gap:8px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+ html .cb-nav .rp-arrow {font-size:14px;padding:8px}
+ html .cb-quiz-q {font-size:20px}
+ html .cb-panel {padding:10px}
+}

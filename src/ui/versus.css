@@ -20,11 +20,10 @@
 .vx-entry-lines{position:absolute;inset:-50%;background:repeating-conic-gradient(from 0deg at 50% 40%,rgba(255,255,255,.2) 0 1.6deg,transparent 1.6deg 8deg);animation:ls-spin 40s linear infinite}
 .vx-entry:hover .vx-entry-lines{animation-duration:6s}
 .vx-entry>*:not(.vx-entry-bg):not(.vx-entry-lines){position:relative}
-.vx-entry-art{flex:1;min-height:0;width:100%;position:relative}
-.vx-entry-bey{position:absolute;filter:drop-shadow(6px 8px 0 rgba(0,0,0,.45))}
-.vx-entry-bey.a{left:12%;top:8%;animation:ls-beyfloat 2.2s ease-in-out infinite}
-.vx-entry-bey.b{right:12%;top:26%;animation:ls-beyfloat 2.2s .6s ease-in-out infinite}
-.vx-entry:hover .vx-entry-bey>*{animation:ls-spin .5s linear infinite}
+.vx-entry-art{flex:1;min-height:210px;width:100%;position:relative}
+.vx-entry-bey{position:absolute;width:clamp(140px,20vw,190px);aspect-ratio:1;pointer-events:none}
+.vx-entry-bey.a{left:8%;top:4%}
+.vx-entry-bey.b{right:8%;top:26%}
 .vx-entry-art.faces{display:flex;align-items:center;justify-content:center;gap:clamp(10px,3vw,40px)}
 .vx-entry-face{width:clamp(96px,14vh,140px);aspect-ratio:1;border-radius:50%;border:5px solid #111;background:#fff;overflow:hidden;display:grid;place-items:center;box-shadow:6px 6px 0 #111}
 .vx-entry-face img{width:100%;height:100%;object-fit:cover}

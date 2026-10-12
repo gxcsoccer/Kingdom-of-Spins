@@ -1,6 +1,8 @@
+import {translateText, tr} from '../i18n/index.js';
 import {useEffect, useRef, useState} from 'react';
 import {useTaskScope} from '../game/useTaskScope.js';
 import {selectionKey, selectedParents, toggleParent} from './selection.js';
+import {isScienceQuestion} from './intent.js';
 import {fusionChat, ask, sketch as sketchApi, fileToDataUrl} from '../ai/client.js';
 import {speak, stopSpeaking, ttsSupported, useMic} from './voice.js';
 import {fusionName, keptParts} from '../ai/fallback.js';
@@ -16,28 +18,27 @@ import {lazy, Suspense} from 'react';
 const BeyShowcase3D = lazy(()=>import('../scene/BeyShowcase.jsx'));
 import HeroCards from './HeroCards.jsx';
 
-const WISHES = ['转得超级久 🌀', '把对手撞飞 💥', '稳如泰山，撞不动 🛡️', '又快又猛 ⚡'];
+const WISHES = [tr("转得超级久 🌀"), tr("把对手撞飞 💥"), tr("稳如泰山，撞不动 🛡️"), tr("又快又猛 ⚡")];
 // Inspiration chips fill the input (the kid keeps typing); the AI maps them into the look.
-const INSPIRE = [['🐉 龙爪','像龙爪一样的刃'],['⚡ 闪电','闪电花纹'],['💎 水晶','蓝白水晶外壳'],['🔥 火焰','黑红配色加火焰花纹']];
-const PREDICTIONS = ['能把对手撞飞！', '会比对手转得更久', '可能会被撞出去…', '不知道，做实验看看！'];
-const isQuestion = t => /[？?]$|为什么|什么是|怎么|是什么|会不会/.test(t.trim());
+const INSPIRE = [[tr("🐉 龙爪"),tr("像龙爪一样的刃")],[tr("⚡ 闪电"),tr("闪电花纹")],[tr("💎 水晶"),tr("蓝白水晶外壳")],[tr("🔥 火焰"),tr("黑红配色加火焰花纹")]];
+const PREDICTIONS = [tr("能把对手撞飞！"), tr("会比对手转得更久"), tr("可能会被撞出去…"), tr("不知道，做实验看看！")];
 const PARAM_ROWS = [
-  ['wings','翼片', v=>`${v} 片`],
-  ['reach','刃半径', v=>`${(v*1000).toFixed(1)} mm`],
-  ['ring','外圈配重', v=>`${Math.round(v)}%`],
-  ['mass','刃重', v=>`${(+v).toFixed(1)} g`],
+  ['wings',tr("翼片"), v=>tr("{0} 片", [v])],
+  ['reach',tr("刃半径"), v=>`${(v*1000).toFixed(1)} mm`],
+  ['ring',tr("外圈配重"), v=>`${Math.round(v)}%`],
+  ['mass',tr("刃重"), v=>`${(+v).toFixed(1)} g`],
 ];
 
 function Doctor({mood='talk'}) {
   // Delivered portrait art (doctor/normal|excited|thinking.png); CSS face is the fallback.
   const [ok,setOk]=useState(true);
   const file={talk:'normal',happy:'excited',excited:'excited',think:'thinking',thinking:'thinking'}[mood]||'normal';
-  if(ok)return <div className={`doctor doctor-art ${mood}`} aria-hidden><img src={`/art/doctor/${file}.png`} alt="" onError={()=>setOk(false)} style={{width:'100%',height:'100%',objectFit:'contain'}}/><div className="doctor-name">融合博士</div></div>;
+  if(ok)return <div className={`doctor doctor-art ${mood}`} aria-hidden><img src={`/art/doctor/${file}.png`} alt="" onError={()=>setOk(false)} style={{width:'100%',height:'100%',objectFit:'contain'}}/><div className="doctor-name">{tr("融合博士")}</div></div>;
   return (
     <div className={`doctor ${mood}`} aria-hidden>
       <div className="doctor-face"><span className="doctor-eye"/><span className="doctor-eye"/><span className="doctor-mouth"/></div>
       <div className="doctor-hair"/>
-      <div className="doctor-name">融合博士</div>
+      <div className="doctor-name">{tr("融合博士")}</div>
     </div>
   );
 }
@@ -46,9 +47,9 @@ function FusingAnim({a, b}) {
   return (
     <div className="fusing">
       <div className="fusing-l"><BeySvg bey={a} size={110} spin/></div>
-      <div className="fusing-flash"><span className="sfx" style={{fontSize:44}}>合体！</span></div>
+      <div className="fusing-flash"><span className="sfx" style={{fontSize:44}}>{tr("合体！")}</span></div>
       <div className="fusing-r"><BeySvg bey={b} size={110} spin/></div>
-      <div className="fusing-text">融合博士正在计算物理参数…</div>
+      <div className="fusing-text">{tr("融合博士正在计算物理参数…")}</div>
     </div>
   );
 }
@@ -58,7 +59,7 @@ function CandidateCard({bey, parents, onPick, renderBey}) {
   const [table, setTable] = useState(false);
   return (
     <div className="panel cand slidein" style={{background:`radial-gradient(circle at 20% 20%, ${bey.colors.accent}40, transparent 60%), var(--tone-light), #fff`}}>
-      {bey.fusedBy==='template' && <span className="badge cand-tag">公式方案</span>}
+      {bey.fusedBy==='template' && <span className="badge cand-tag">{tr("公式方案")}</span>}
       <div className="cand-top">
         <div className="cand-art">{renderBey ? renderBey(bey, 96) : <BeyArt bey={bey} size={96}/>}</div>
         <div className="grow">
@@ -66,26 +67,26 @@ function CandidateCard({bey, parents, onPick, renderBey}) {
             <div className="panel-title" style={{fontSize:21}}>{bey.name}</div>
             <TypeBadge type={bey.type}/>
           </div>
-          <div className="muted" style={{fontWeight:800}}>{bey.zh}</div>
-          <button className="btn primary small" style={{marginTop:6}} onClick={()=>onPick(bey)}>就选它！</button>
+          <div className="muted" style={{fontWeight:800}}>{translateText(bey.zh)}</div>
+          <button className="btn primary small" style={{marginTop:6}} onClick={()=>onPick(bey)}>{tr("就选它！")}</button>
         </div>
       </div>
       <StatBars bey={bey} compact/>
-      <div className="model-note">重量 {st.massG} g · 转动惯量 {st.inertia}×10⁻⁶ kg·m²（理想模型计算）</div>
-      {bey.specialMove && <div className="special-move"><span className="kicker">必杀技</span><b>{bey.specialMove.name}</b><span className="sfx" style={{fontSize:18}}>「{bey.specialMove.shout}」</span></div>}
-      {bey.why && <p className="cand-why"><b>为什么：</b>{bey.why}</p>}
-      {bey.tradeoff && <p className="cand-trade"><b>代价：</b>{bey.tradeoff}</p>}
+      <div className="model-note">{tr("重量 ")}{st.massG}{tr(" g · 转动惯量 ")}{st.inertia}{tr("×10⁻⁶ kg·m²（理想模型计算）")}</div>
+      {bey.specialMove && <div className="special-move"><span className="kicker">{tr("必杀技")}</span><b>{bey.specialMove.name}</b><span className="sfx" style={{fontSize:18}}>「{bey.specialMove.shout}」</span></div>}
+      {bey.why && <p className="cand-why"><b>{tr("为什么：")}</b>{bey.why}</p>}
+      {bey.tradeoff && <p className="cand-trade"><b>{tr("代价：")}</b>{bey.tradeoff}</p>}
       <div className="cand-chips">{bey.knowledge?.map(k=><KnowledgeChip key={k.id} card={k}/>)}</div>
-      <button className="btn small ghost cand-more" onClick={()=>setTable(t=>!t)}>📊 {table?'收起':'看'}参数对比</button>
+      <button className="btn small ghost cand-more" onClick={()=>setTable(t=>!t)}>📊 {table?tr("收起"):tr("看")}{tr("参数对比")}</button>
       {table && <table className="cand-diff">
-        <thead><tr><th>Blade</th>{parents.map(p=><th key={p.id}>{p.name}</th>)}<th className="new">{parents.length?'新':'数值'}</th></tr></thead>
+        <thead><tr><th>Blade</th>{parents.map(p=><th key={p.id}>{p.name}</th>)}<th className="new">{parents.length?tr("新"):tr("数值")}</th></tr></thead>
         <tbody>{PARAM_ROWS.map(([k,label,fmt])=>(
           <tr key={k}><td>{label}</td>{parents.map(p=><td key={p.id}>{fmt(p.blade[k])}</td>)}<td className="new">{fmt(bey.blade[k])}</td></tr>
         ))}
-          <tr><td>转动惯量</td>{parents.map(p=><td key={p.id}>{beyStats(p).inertia}</td>)}<td className="new">{st.inertia}</td></tr>
+          <tr><td>{tr("转动惯量")}</td>{parents.map(p=><td key={p.id}>{beyStats(p).inertia}</td>)}<td className="new">{st.inertia}</td></tr>
         </tbody>
       </table>}
-      {bey.prediction && table && <p className="cand-trade"><b>博士预测：</b>{bey.prediction}</p>}
+      {bey.prediction && table && <p className="cand-trade"><b>{tr("博士预测：")}</b>{bey.prediction}</p>}
     </div>
   );
 }
@@ -129,9 +130,9 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
     setVoiceOn(v=>{ const n=!v; try { localStorage.setItem('kos.voice', n?'on':'off'); } catch {} if (!n) stopSpeaking(); return n; });
   }
   async function useImageFile(f) {
-    if (!f || !/^image\//.test(f.type)) return setSk(s=>({...s, msg:'这不是图片哦，换一张试试？'}));
+    if (!f || !/^image\//.test(f.type)) return setSk(s=>({...s, msg:tr("这不是图片哦，换一张试试？")}));
     try { const img = await fileToDataUrl(f, 1024); setSk(s=>({...s, img, result:null, msg:''})); }
-    catch { setSk(s=>({...s, msg:'这张图片打不开，换一张试试？'})); }
+    catch { setSk(s=>({...s, msg:tr("这张图片打不开，换一张试试？")})); }
   }
   async function onPickImage(e) {
     const f = e.target.files?.[0]; e.target.value=''; if (f) useImageFile(f);
@@ -151,8 +152,8 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
     const base = collection[sk.keep];
     const r = await sketchApi({imageDataUrl:sk.img, wish:sk.wish, keepParts: base ? {ratchet:base.ratchet, bit:base.bit} : null});
     if (!current()) return;
-    if (r.bey) { setSk(s=>({...s, busy:false, result:r.bey})); if (voiceOn) speak(`${r.bey.why||''} 必杀技，${r.bey.specialMove?.name||''}！`); onUnlock?.(r.bey.knowledge.map(k=>k.id)); }
-    else setSk(s=>({...s, busy:false, msg: r.needKey ? '这个功能要用高级 AI 看画，需要家长先开启哦（在家长设置里）。现在可以先用“选两只陀螺融合”！' : '博士没看清这张画，再拍清楚一点试试？'}));
+    if (r.bey) { setSk(s=>({...s, busy:false, result:r.bey})); if (voiceOn) speak(tr("{0} 必杀技，{1}！", [r.bey.why||'', r.bey.specialMove?.name||''])); onUnlock?.(r.bey.knowledge.map(k=>k.id)); }
+    else setSk(s=>({...s, busy:false, msg: r.needKey ? tr("这个功能要用高级 AI 看画，需要家长先开启哦（在家长设置里）。现在可以先用“选两只陀螺融合”！") : tr("博士没看清这张画，再拍清楚一点试试？")}));
   }
 
   const togglePick = key => setPicked(p => toggleParent(p, key));
@@ -166,8 +167,8 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
     setLog(l=>[...l, {role:'user', content:t}]);
     setBusy(true);
     try {
-      if (isQuestion(t) && candidates.length) {
-        const r = await ask(t, `正在融合 ${parents.map(p=>p.name).join(' + ')}`);
+      if (isScienceQuestion(t) && candidates.length) {
+        const r = await ask(t, tr("正在融合 {0}", [parents.map(p=>p.name).join(' + ')]));
         if (!current()) return;
         setLog(l=>[...l, {role:'assistant', content:r.answer, cards:r.cards}]);
         onUnlock?.(r.cards.map(c=>c.id));
@@ -178,7 +179,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
       if (!current()) return;
       if (r.question) setLog(l=>[...l, {role:'assistant', content:r.reply, question:r.question, options:r.options}]);
       else {
-        setLog(l=>[...l, {role:'assistant', content:r.reply + (r.fallback ? '（博士的 AI 线路忙，先用物理公式算的方案）' : '')}]);
+        setLog(l=>[...l, {role:'assistant', content:r.reply + (r.fallback ? tr("（博士的 AI 线路忙，先用物理公式算的方案）") : '')}]);
         setCandidates(r.candidates||[]);
         onUnlock?.([...new Set((r.candidates||[]).flatMap(c=>c.knowledge.map(k=>k.id)))]);
       }
@@ -187,7 +188,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
 
   function startChat() {
     setStep('chat');
-    setLog([{role:'assistant', content:`${parents[0].name} + ${parents[1].name}……合体名字就叫 ${name}！说说你想要的样子和本领：颜色、形状、图案、像什么动物都行——比如「黑红配色、龙爪一样的刃、闪电花纹、超级攻击」！`}]);
+    setLog([{role:'assistant', content:tr("{0} + {1}……合体名字就叫 {2}！说说你想要的样子和本领：颜色、形状、图案、像什么动物都行——比如「黑红配色、龙爪一样的刃、闪电花纹、超级攻击」！", [parents[0].name, parents[1].name, name])}]);
     onUnlock?.(['gd-fusion-blade-only','bx-three-parts']);
   }
   function save() {
@@ -203,14 +204,14 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
     <div className="fusion page">
       <div className="topbar">
         <div className="row">
-          {onClose && <button className="btn small" onClick={onClose}>◀ 返回</button>}
+          {onClose && <button className="btn small" onClick={onClose}>{tr("◀ 返回")}</button>}
           <div>
             <div className="kicker">FUSION LAB</div>
-            <h1 className="h-display h-outline" style={{fontSize:'clamp(30px,4.4vw,52px)'}}>融合工坊</h1>
+            <h1 className="h-display h-outline" style={{fontSize:'clamp(30px,4.4vw,52px)'}}>{tr("融合工坊")}</h1>
           </div>
         </div>
         <div className="steps">{['pick','keep','chat','predict'].map((s,i)=>(
-          <span key={s} className={`step ${s===step||(step==='done'&&s==='predict')?'on':''}`}>{i+1} {['选陀螺','选底座','聊设计','做预测'][i]}</span>
+          <span key={s} className={`step ${s===step||(step==='done'&&s==='predict')?'on':''}`}>{i+1} {[tr("选陀螺"),tr("选底座"),tr("聊设计"),tr("做预测")][i]}</span>
         ))}</div>
       </div>
 
@@ -218,7 +219,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
         <section className="slidein">
           <div className="row" style={{alignItems:'flex-end',gap:14}}>
             <Doctor/>
-            <div className="bubble grow">选两只陀螺放进融合炉！它们的 <b>Blade</b> 会合体变成一片全新的刃。{collection.length<2 && <b style={{color:'var(--red)'}}> 你至少需要 2 只陀螺才能融合哦。</b>}</div>
+            <div className="bubble grow">{tr("选两只陀螺放进融合炉！它们的 ")}<b>Blade</b>{tr(" 会合体变成一片全新的刃。")}{collection.length<2 && <b style={{color:'var(--red)'}}>{tr(" 你至少需要 2 只陀螺才能融合哦。")}</b>}</div>
           </div>
           <div className="pick-grid mt2">
             {collection.map(b=>{
@@ -234,9 +235,9 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
             })}
           </div>
           <div className="row center mt2 wrap" style={{gap:14}}>
-            <button className="btn yellow big" onClick={()=>setStep('sketch')}>📷 画一个陀螺</button>
+            <button className="btn yellow big" onClick={()=>setStep('sketch')}>{tr("📷 画一个陀螺")}</button>
             <button className="btn primary big" disabled={parents.length<2} onClick={()=>setStep('keep')}>
-              {parents.length===2 ? `${parents[0].name} × ${parents[1].name} ▶` : `再选 ${2-parents.length} 只`}
+              {parents.length===2 ? `${parents[0].name} × ${parents[1].name} ▶` : tr("再选 {0} 只", [2-parents.length])}
             </button>
           </div>
         </section>
@@ -246,26 +247,26 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
         <section className="slidein">
           <div className="row" style={{alignItems:'flex-end',gap:14}}>
             <Doctor mood={sk.busy?'think':'talk'}/>
-            <div className="bubble grow">把你画的梦想陀螺拍给我看！我会数一数它有几片刃、哪里最重、是什么颜色，把它变成真的能上场的 <b>Blade</b>。</div>
+            <div className="bubble grow">{tr("把你画的梦想陀螺拍给我看！我会数一数它有几片刃、哪里最重、是什么颜色，把它变成真的能上场的 ")}<b>Blade</b>。</div>
           </div>
           {!sk.result && (
           <div className="sketch-grid mt2">
               <div className={`panel sketch-drop ${dragOver?'drag':''}`} onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)} onDrop={e=>{e.preventDefault();setDragOver(false);useImageFile(e.dataTransfer.files?.[0]);}}>
-                {sk.img ? <img src={sk.img} alt="你的画"/> : <div className="sketch-empty"><span style={{fontSize:56}}>📷</span><b>拍照 / 选一张画</b><span className="muted">画在纸上就行，越清楚越好</span><span className="sketch-paste">也可以直接粘贴图片 <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd>，或把图片拖进来</span></div>}
+                {sk.img ? <img src={sk.img} alt={tr("你的画")}/> : <div className="sketch-empty"><span style={{fontSize:56}}>📷</span><b>{tr("拍照 / 选一张画")}</b><span className="muted">{tr("画在纸上就行，越清楚越好")}</span><span className="sketch-paste">{tr("也可以直接粘贴图片 ")}<kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd>{tr("，或把图片拖进来")}</span></div>}
                 <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={onPickImage}/>
               </div>
               <div className="col">
-                <label className="kicker">想对博士说点什么？（可以不填）</label>
-                <input className="sketch-wish kos-input" value={sk.wish} onChange={e=>setSk(s=>({...s, wish:e.target.value}))} placeholder="比如：它是一条会喷火的龙！" maxLength={60}/>
+                <label className="kicker">{tr("想对博士说点什么？（可以不填）")}</label>
+                <input className="sketch-wish kos-input" value={sk.wish} onChange={e=>setSk(s=>({...s, wish:e.target.value}))} placeholder={tr("比如：它是一条会喷火的龙！")} maxLength={60}/>
                 {collection.length>0 && <>
-                  <label className="kicker mt">用谁的 Ratchet 和 Bit？</label>
+                  <label className="kicker mt">{tr("用谁的 Ratchet 和 Bit？")}</label>
                   <div className="row wrap" style={{gap:8}}>{collection.slice(0,8).map((b,i)=>(
                     <button key={b.id} className={`btn small ${sk.keep===i?'ink':''}`} onClick={()=>setSk(s=>({...s, keep:i}))}>{b.name} · {b.ratchet?.prongs}-{b.ratchet?.height} · {TIPS[b.bit]?.label?.split(' ')[0]}</button>
                   ))}</div>
                 </>}
                 <div className="row mt" style={{gap:10}}>
-                  <button className="btn" onClick={()=>setStep('pick')}>◀ 返回</button>
-                  <button className="btn primary big" disabled={!sk.img||sk.busy} onClick={runSketch}>{sk.busy?'博士在看画…':'让博士看看！⚡'}</button>
+                  <button className="btn" onClick={()=>setStep('pick')}>{tr("◀ 返回")}</button>
+                  <button className="btn primary big" disabled={!sk.img||sk.busy} onClick={runSketch}>{sk.busy?tr("博士在看画…"):tr("让博士看看！⚡")}</button>
                 </div>
                 {sk.msg && <div className="bubble mt">{sk.msg}</div>}
               </div>
@@ -274,14 +275,14 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
           {sk.result && (
             <div className="sk-result mt">
               <div className="sk-result-l">
-                {sk.img && <img src={sk.img} alt="你的画"/>}
+                {sk.img && <img src={sk.img} alt={tr("你的画")}/>}
                 {sk.msg && <div className="bubble">{sk.msg}</div>}
                 <div className="row" style={{gap:10}}>
-                  <button className="btn" onClick={()=>setSk(s=>({...s, result:null}))}>◀ 重新画</button>
+                  <button className="btn" onClick={()=>setSk(s=>({...s, result:null}))}>{tr("◀ 重新画")}</button>
                 </div>
               </div>
               <div className="cand-zone">
-                <h2 className="h-display h-yellow" style={{fontSize:28,margin:0}}>你的画变成了……</h2>
+                <h2 className="h-display h-yellow" style={{fontSize:28,margin:0}}>{tr("你的画变成了……")}</h2>
                 <HeroCards candidates={[sk.result]} parents={[]} introImg={sk.img} onPick={b=>{setChosen(b);setStep('predict');}}/>
               </div>
             </div>
@@ -293,7 +294,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
         <section className="slidein">
           <div className="row" style={{alignItems:'flex-end',gap:14}}>
             <Doctor/>
-            <div className="bubble grow">注意！融合只换 <b>Blade</b>。下面的 <b>Ratchet</b>（棘轮）和 <b>Bit</b>（轴尖）要从一只陀螺身上继承。你想保留谁的？</div>
+            <div className="bubble grow">{tr("注意！融合只换 ")}<b>Blade</b>{tr("。下面的 ")}<b>Ratchet</b>{tr("（棘轮）和 ")}<b>Bit</b>{tr("（轴尖）要从一只陀螺身上继承。你想保留谁的？")}</div>
           </div>
           <div className="keep-grid mt2">
             {parents.map((p,i)=>(
@@ -305,7 +306,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
                   <span className="chip">🔻 Bit {TIPS[p.bit]?.label}</span>
                 </div>
                 <div className="muted" style={{fontSize:13,fontWeight:700}}>{TIPS[p.bit]?.desc}</div>
-                {keep===i && <span className="sfx keep-sfx">保留！</span>}
+                {keep===i && <span className="sfx keep-sfx">{tr("保留！")}</span>}
               </button>
             ))}
           </div>
@@ -313,8 +314,8 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
             <KnowledgeChip card="gd-fusion-blade-only"/><KnowledgeChip card="bx-ratchet-numbers"/><KnowledgeChip card="bx-bit-role"/>
           </div>
           <div className="row center mt2" style={{gap:12}}>
-            <button className="btn" onClick={()=>setStep('pick')}>◀ 重选</button>
-            <button className="btn primary big" onClick={startChat}>开始融合 ⚡</button>
+            <button className="btn" onClick={()=>setStep('pick')}>{tr("◀ 重选")}</button>
+            <button className="btn primary big" onClick={startChat}>{tr("开始融合 ⚡")}</button>
           </div>
         </section>
       )}
@@ -326,7 +327,7 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
               <Doctor mood={busy?'think':'talk'}/>
               <div>
                 <div className="panel-title" style={{fontSize:22}}>{name}</div>
-                <div className="muted" style={{fontSize:13,fontWeight:700}}>保留 {parents[keep].name} 的 Ratchet {kept.ratchet.prongs}-{kept.ratchet.height} · Bit {TIPS[kept.bit]?.label}</div>
+                <div className="muted" style={{fontSize:13,fontWeight:700}}>{tr("保留 ")}{parents[keep].name}{tr(" 的 Ratchet ")}{kept.ratchet.prongs}-{kept.ratchet.height} · Bit {TIPS[kept.bit]?.label}</div>
               </div>
             </div>
             <div className="chat-log">
@@ -346,20 +347,20 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
               <div ref={logEnd}/>
             </div>
             {log.length<=1 && !busy && <div className="row wrap opts" style={{padding:'0 14px'}}>{WISHES.map(w=><button key={w} className="btn small yellow" onClick={()=>send(w)}>{w}</button>)}</div>}
-            {!busy && <div className="row wrap opts inspire" style={{padding:'0 14px'}}><span className="inspire-l">灵感：</span>{INSPIRE.map(([k,t])=><button key={k} type="button" className="btn small" onClick={()=>setInput(v=>v.includes(t)?v:(v?`${v}，${t}`:t))}>{k}</button>)}</div>}
+            {!busy && <div className="row wrap opts inspire" style={{padding:'0 14px'}}><span className="inspire-l">{tr("灵感：")}</span>{INSPIRE.map(([k,t])=><button key={k} type="button" className="btn small" onClick={()=>setInput(v=>v.includes(t)?v:(v?`${v}，${t}`:t))}>{k}</button>)}</div>}
             <form className="chat-input" onSubmit={e=>{e.preventDefault();send(input);}}>
-              {ttsSupported && <button type="button" className="btn small" title={voiceOn?'博士说话：开':'博士说话：关'} onClick={toggleVoice}>{voiceOn?'🔊':'🔇'}</button>}
-              <input className="kos-input" value={input} onChange={e=>setInput(e.target.value)} placeholder={mic.listening?'我在听…松开就发送':candidates.length?'还想改？比如“换成金色”“刃再尖一点”，或者问博士问题…':'说说颜色、形状、图案：黑红配色、龙爪一样的刃、闪电花纹……'} maxLength={120} disabled={busy}/>
-              {mic.supported && <button type="button" className={`btn mic ${mic.listening?'on':''}`} disabled={busy} title="按住说话"
+              {ttsSupported && <button type="button" className="btn small" title={voiceOn?tr("博士说话：开"):tr("博士说话：关")} onClick={toggleVoice}>{voiceOn?'🔊':'🔇'}</button>}
+              <input className="kos-input" value={input} onChange={e=>setInput(e.target.value)} placeholder={mic.listening?tr("我在听…松开就发送"):candidates.length?tr("还想改？比如“换成金色”“刃再尖一点”，或者问博士问题…"):tr("说说颜色、形状、图案：黑红配色、龙爪一样的刃、闪电花纹……")} maxLength={120} disabled={busy}/>
+              {mic.supported && <button type="button" className={`btn mic ${mic.listening?'on':''}`} disabled={busy} title={tr("按住说话")}
                 onPointerDown={e=>{e.preventDefault();e.currentTarget.setPointerCapture?.(e.pointerId);mic.start();}} onPointerUp={mic.stop} onPointerCancel={mic.stop} onContextMenu={e=>e.preventDefault()}>🎤</button>}
-              <button className="btn primary" disabled={busy||!input.trim()}>发送</button>
+              <button className="btn primary" disabled={busy||!input.trim()}>{tr("发送")}</button>
             </form>
           </div>
           {candidates.length>0 && (
             <div className="cand-zone">
               <div className="row between wrap">
-                <h2 className="h-display h-yellow" style={{fontSize:30}}>融合方案</h2>
-                <span className="model-note">数值来自理想化物理模型，对战结果只代表这个模型</span>
+                <h2 className="h-display h-yellow" style={{fontSize:30}}>{tr("融合方案")}</h2>
+                <span className="model-note">{tr("数值来自理想化物理模型，对战结果只代表这个模型")}</span>
               </div>
               <HeroCards candidates={candidates} parents={parents} onPick={b=>{setChosen(b);setStep('predict');}}/>
             </div>
@@ -380,15 +381,15 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
           </div>
           <div className="row mt2" style={{alignItems:'flex-end',gap:14}}>
             <Doctor/>
-            <div className="bubble grow">科学家都会先预测！你觉得 <b>{chosen.zh||chosen.name}</b> 对战 <b>{rival?.name||'对手'}</b> 会怎样？猜错也没关系，打完我们一起对答案。</div>
+            <div className="bubble grow">{tr("科学家都会先预测！你觉得 ")}<b>{chosen.zh||chosen.name}</b>{tr(" 对战 ")}<b>{rival?.name||tr("对手")}</b>{tr(" 会怎样？猜错也没关系，打完我们一起对答案。")}</div>
           </div>
           <div className="row wrap center mt" style={{gap:10}}>
             {PREDICTIONS.map((p,i)=><button key={p} className={`predict-opt ${prediction===p?'on':''}`} style={{'--i':i}} onClick={()=>setPrediction(p)}>{p}</button>)}
           </div>
           <div className="row center mt"><KnowledgeCard card={getCard('sm-predict')} compact/></div>
           <div className="row center mt2" style={{gap:12}}>
-            <button className="predict-back" onClick={()=>setStep('chat')}>◀ 换一个</button>
-            <button className="predict-save" disabled={!prediction} onClick={save}>保存新陀螺 ✦</button>
+            <button className="predict-back" onClick={()=>setStep('chat')}>{tr("◀ 换一个")}</button>
+            <button className="predict-save" disabled={!prediction} onClick={save}>{tr("保存新陀螺 ✦")}</button>
           </div>
         </section>
       )}
@@ -400,15 +401,15 @@ export default function FusionLab({collection=[], onSave, onClose, renderBey, on
         return (
         <section className="done">
           <div className="burst"/>
-          <span className="sfx pop" style={{fontSize:'clamp(48px,8vw,96px)'}}>融合成功！</span>
+          <span className="sfx pop" style={{fontSize:'clamp(48px,8vw,96px)'}}>{tr("融合成功！")}</span>
           {renderBey ? renderBey(b, 220) : <BeyArt bey={b} size={220} spin/>}
           <div className="h-display h-outline" style={{fontSize:40}}>{beyTitle(b)}</div>
           {beySub(b) && <div className="muted" style={{fontWeight:900,marginTop:-10}}>{beySub(b)}</div>}
           <div className="row center wrap" style={{gap:12,position:'relative'}}>
-            <button className="btn primary big" onClick={()=>onPlay ? onPlay(b, opp?.id||null) : onClose?.()}>⚔️ 带 {beyTitle(b)} 试一场！</button>
-            <button className="btn" onClick={()=>onViewCollection ? onViewCollection(b) : onClose?.()}>去收藏看看</button>
+            <button className="btn primary big" onClick={()=>onPlay ? onPlay(b, opp?.id||null) : onClose?.()}>{tr("⚔️ 带 ")}{beyTitle(b)}{tr(" 试一场！")}</button>
+            <button className="btn" onClick={()=>onViewCollection ? onViewCollection(b) : onClose?.()}>{tr("去收藏看看")}</button>
           </div>
-          {opp && <div className="muted" style={{fontWeight:800,position:'relative'}}>对手：{opp.name}</div>}
+          {opp && <div className="muted" style={{fontWeight:800,position:'relative'}}>{tr("对手：")}{opp.name}</div>}
         </section>);
       })()}
     </div>

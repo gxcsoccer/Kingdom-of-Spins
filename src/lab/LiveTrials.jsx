@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useMemo} from 'react';
 import {FINISH_ZH} from '../game/story.js';
 
@@ -18,12 +19,12 @@ function Card({r,arm,k}){
   const win=r?.result?.winner===0;
   return (
     <div className={`lt-card ${arm} ${r?'done':''} ${r?(win?'win':'lose'):''}`} style={{'--i':k}}>
-      <span className="lt-k">第 {k+1} 次</span>
-      {!r?<span className="lt-spin"><i/><b>模拟中…</b></span>:<>
+      <span className="lt-k">{tr("第 {0} 次实验", [k+1])}</span>
+      {!r?<span className="lt-spin"><i/><b>{tr("模拟中…")}</b></span>:<>
         <Spark samples={r.samples}/>
         <span className="lt-stamp">{win?'WIN':'LOSE'}</span>
         <span className="lt-fin">{FIN_ICON[r.result.reason]||'🏁'} {FINISH_ZH[r.result.reason]} · {r.result.time.toFixed(1)}s</span>
-        <span className="lt-rpm">3 秒时 {Math.round(r.rpm3[0]).toLocaleString()} rpm</span>
+        <span className="lt-rpm">{tr("3 秒时 ")}{Math.round(r.rpm3[0]).toLocaleString()} rpm</span>
       </>}
     </div>
   );
@@ -35,10 +36,10 @@ export default function LiveTrials({n,live,labels}){
   return (
     <div className="lt">
       <div className="lt-tally">
-        <div className="lt-side a"><small>A 原版</small><b key={'a'+wins('A')}>{wins('A')}</b><em>{doneN('A')}/{n} 场</em></div>
+        <div className="lt-side a"><small>{tr("A 原版")}</small><b key={'a'+wins('A')}>{wins('A')}</b><em>{doneN('A')}/{n}{tr(" 场")}</em></div>
         <div className="lt-vs">VS</div>
-        <div className="lt-side b"><small>B 改装</small><b key={'b'+wins('B')}>{wins('B')}</b><em>{doneN('B')}/{n} 场</em></div>
-        <div className="lt-note">胜场</div>
+        <div className="lt-side b"><small>{tr("B 改装")}</small><b key={'b'+wins('B')}>{wins('B')}</b><em>{doneN('B')}/{n}{tr(" 场")}</em></div>
+        <div className="lt-note">{tr("胜场")}</div>
       </div>
       <div className="lt-grid" style={{'--n':n}}>
         <div className="lt-row-l a">A<small>{labels[0]}</small></div>

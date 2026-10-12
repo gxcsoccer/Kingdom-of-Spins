@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useEffect,useMemo,useRef,useState,lazy,Suspense} from 'react';
 import {useGame,BLIND_BOX_COST,BLIND_BOX_POOL} from '../game/store.js';
 import {BEYS} from '../game/beys.js';
@@ -57,18 +58,18 @@ export default function ShopScreen(){
 
   return (
     <div className="page bg-shop bx-page">
-      <TopBar title="商店 · 盲盒"/>
+      <TopBar title={tr("商店 · 盲盒")}/>
       <div className="bx-main">
         <section className={`bx-stage s-${stage} lvl-${taps} ${rare?'rare':''}`} style={{'--lvl':taps,'--c':result?.bey?.colors?.primary||'#ffd400'}}>
           <div className="bx-rays"/>
-          {(stage==='idle'||stage==='crack')&&<button className={`bx-box ${nope?'nope':''}`} onClick={tap} disabled={stage!=='idle'} aria-label="点盲盒">
-            {boxOk?<img src="/art/blindbox.png" alt="盲盒" onError={()=>setBoxOk(false)} draggable={false}/>:<div className="bx-box-fallback">?</div>}
+          {(stage==='idle'||stage==='crack')&&<button className={`bx-box ${nope?'nope':''}`} onClick={tap} disabled={stage!=='idle'} aria-label={tr("点盲盒")}>
+            {boxOk?<img src="/art/blindbox.png" alt={tr("盲盒")} onError={()=>setBoxOk(false)} draggable={false}/>:<div className="bx-box-fallback">?</div>}
             {stage==='crack'&&<svg className="bx-cracks" viewBox="0 0 100 100"><path d="M50 8 L46 30 L55 42 L44 58 L52 75 L47 95"/><path d="M46 30 L28 36 L20 52"/><path d="M55 42 L74 46 L84 38"/><path d="M44 58 L26 70"/><path d="M52 75 L70 82"/></svg>}
             {stage==='crack'&&<span className="bx-leak"/>}
           </button>}
           {stage==='idle'&&<div className="bx-prompt">
-            {can?(taps===0?<>点盲盒 <b>{TAPS}</b> 下打开！</>:<>再点 <b>{TAPS-taps}</b> 下！</>):<>还差 <b>🪙 {BLIND_BOX_COST-(useGame.getState().save.coins||0)}</b> 金币 <button className="btn primary small" style={{marginLeft:8}} onClick={e=>{e.stopPropagation();useGame.getState().go('map');}}>⚔️ 去比赛赚金币</button></>}
-            {can&&<span className="bx-cost">每盒 🪙 {BLIND_BOX_COST}</span>}
+            {can?(taps===0?<>{tr("点盲盒 ")}<b>{TAPS}</b>{tr(" 下打开！")}</>:<>{tr("再点 ")}<b>{TAPS-taps}</b>{tr(" 下！")}</>):<>{tr("还差 ")}<b>🪙 {BLIND_BOX_COST-(useGame.getState().save.coins||0)}</b>{tr(" 金币 ")}<button className="btn primary small" style={{marginLeft:8}} onClick={e=>{e.stopPropagation();useGame.getState().go('map');}}>{tr("⚔️ 去比赛赚金币")}</button></>}
+            {can&&<span className="bx-cost">{tr("每盒 🪙 ")}{BLIND_BOX_COST}</span>}
           </div>}
           {stage==='idle'&&can&&<div className="bx-pips">{Array.from({length:TAPS},(_,i)=><i key={i} className={i<taps?'on':''}/>)}</div>}
           {stage==='crack'&&<div className="bx-sfx">ピシッ…！</div>}
@@ -76,34 +77,34 @@ export default function ShopScreen(){
           {stage==='reveal'&&result&&<div className="bx-reveal">
             <div className="bx-burst"/>
             <div className="bx-show"><Suspense fallback={null}><BeyShowcase bey={result.bey} rpmRef={rpmRef} background={false} zoom={1.15} tilt={.42}/></Suspense></div>
-            {result.dup?<div className="bx-stamp dup">重复了</div>:rare?<div className="bx-stamp rare">RARE!</div>:<div className="bx-stamp new">NEW!</div>}
+            {result.dup?<div className="bx-stamp dup">{tr("重复了")}</div>:rare?<div className="bx-stamp rare">RARE!</div>:<div className="bx-stamp new">NEW!</div>}
             <div className="bx-name"><b>{result.bey.name}</b><span>{result.bey.zh}</span></div>
-            <div className="bx-meta"><TypeBadge type={result.bey.type}/>{rare&&<span className="bx-rare-tag">稀有 · 出现率 15%</span>}</div>
-            {result.dup&&<div className="bx-refund">已经有这只了 · 退回 <b>🪙 40</b>{Array.from({length:5},(_,i)=><span key={i} className="bx-coin" style={{'--i':i}}>🪙</span>)}</div>}
-            {!result.dup&&<div className="bx-added">已加入你的收藏！</div>}
+            <div className="bx-meta"><TypeBadge type={result.bey.type}/>{rare&&<span className="bx-rare-tag">{tr("稀有 · 出现率 15%")}</span>}</div>
+            {result.dup&&<div className="bx-refund">{tr("已经有这只了 · 退回 ")}<b>🪙 40</b>{Array.from({length:5},(_,i)=><span key={i} className="bx-coin" style={{'--i':i}}>🪙</span>)}</div>}
+            {!result.dup&&<div className="bx-added">{tr("已加入你的收藏！")}</div>}
             <div className="bx-actions">
-              <button className="btn yellow" onClick={again}>{can?`再开一盒 · 🪙 ${BLIND_BOX_COST}`:'返回'}</button>
-              <button className="btn" onClick={()=>go('collection')}>去看我的陀螺 ▶</button>
+              <button className="btn yellow" onClick={again}>{can?tr("再开一盒 · 🪙 {0}", [BLIND_BOX_COST]):tr("返回")}</button>
+              <button className="btn" onClick={()=>go('collection')}>{tr("去看我的陀螺 ▶")}</button>
             </div>
           </div>}
         </section>
 
         <aside className="bx-side">
           <div className="panel bx-odds">
-            <h3>公开概率</h3>
+            <h3>{tr("公开概率")}</h3>
             {BLIND_BOX_POOL.map(p=>{const pct=Math.round(p.weight/total*100);return (
               <div key={p.id} className={`bx-odd ${p.id===RARE?'rare':''}`}>
                 <img src={`/art/beys/${p.id}.png`} alt="" onError={e=>{e.currentTarget.style.visibility='hidden';}}/>
-                <span className="bx-odd-n">{BEYS[p.id].name}{p.id===RARE&&<em>稀有</em>}</span>
+                <span className="bx-odd-n">{BEYS[p.id].name}{p.id===RARE&&<em>{tr("稀有")}</em>}</span>
                 <span className="bx-odd-bar"><i style={{width:`${pct*3}%`}}/></span>
                 <b>{pct}%</b>
               </div>);})}
           </div>
           <div className="panel bx-rules">
-            <h3>公平规则</h3>
-            <ul><li>只能用打比赛赚的金币</li><li>第一盒一定出你还没有的陀螺</li><li>重复退回 40 金币</li><li>不开盲盒也能通关（AI 融合 / 探险）</li></ul>
+            <h3>{tr("公平规则")}</h3>
+            <ul><li>{tr("只能用打比赛赚的金币")}</li><li>{tr("第一盒一定出你还没有的陀螺")}</li><li>{tr("重复退回 40 金币")}</li><li>{tr("不开盲盒也能通关（AI 融合 / 探险）")}</li></ul>
           </div>
-          <div className="panel ink bx-math"><b>数学小知识</b> Titan 15%，平均约 7 盒出 1 次——但每一盒都是独立的，第 7 盒不一定出！</div>
+          <div className="panel ink bx-math"><b>{tr("数学小知识")}</b>{tr(" Titan 15%，平均约 7 盒出 1 次——但每一盒都是独立的，第 7 盒不一定出！")}</div>
         </aside>
       </div>
     </div>

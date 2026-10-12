@@ -1,3 +1,7 @@
+import LanguagePicker from '../i18n/LanguagePicker.jsx';
+import {tr,speechLocale} from '../i18n/index.js';
+import {say} from '../game/sfx.js';
+import {hush} from '../game/voiceClips.js';
 import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {useGame,bladerById} from '../game/store.js';
 import {useTaskScope} from '../game/useTaskScope.js';
@@ -17,12 +21,12 @@ const realUnlocked=(r,save)=>regionUnlocked(r,{...save,demo:false});
 
 function hint(save){
   const [harbor,thunder]=REGIONS, ph=prog(save,harbor), pt=prog(save,thunder);
-  if(ph.found<harbor.beys.length&&!ph.met)return '去新手港湾探险吧！找找藏起来的陀螺，还能遇到会和你对战的小伙伴。';
-  if(ph.found<harbor.beys.length)return `新手港湾还藏着 ${harbor.beys.length-ph.found} 只陀螺，再去找找看！`;
-  if(!realUnlocked(thunder,save)&&!save.demo)return `再有 ${Math.max(0,3-save.collection.length)} 只陀螺，雷霆山脉的雾就会散开！试试商店盲盒或融合工坊？`;
-  if(pt.met<thunder.bladers.length)return '雷霆山脉开放了！去山里找职业对手，打败他们就能邀请他们入队。';
-  if(save.team.length<3)return '打败职业对手，就能邀请他们加入你的队伍！';
-  return '龙焰火山岛的龙王在等你……准备好你最强的陀螺吧！';
+  if(ph.found<harbor.beys.length&&!ph.met)return tr("去新手港湾探险吧！找找藏起来的陀螺，还能遇到会和你对战的小伙伴。");
+  if(ph.found<harbor.beys.length)return tr("新手港湾还藏着 {0} 只陀螺，再去找找看！", [harbor.beys.length-ph.found]);
+  if(!realUnlocked(thunder,save)&&!save.demo)return tr("再有 {0} 只陀螺，雷霆山脉的雾就会散开！试试商店盲盒或融合工坊？", [Math.max(0,3-save.collection.length)]);
+  if(pt.met<thunder.bladers.length)return tr("雷霆山脉开放了！去山里找职业对手，打败他们就能邀请他们入队。");
+  if(save.team.length<3)return tr("打败职业对手，就能邀请他们加入你的队伍！");
+  return tr("龙焰火山岛的龙王在等你……准备好你最强的陀螺吧！");
 }
 
 // Positions in % of the 1536×1024 (3:2) world map art. pin = landmark, card = where the badge floats.
@@ -33,11 +37,11 @@ const REGION_POS={
 };
 const REGION_FOG={thunder:[[14,16],[30,10],[40,25],[24,30],[8,34],[46,14]],volcano:[[74,30],[85,20],[90,9],[84,46],[93,58],[77,60],[96,36],[71,46]]};
 const PLACES=[
-  {id:'shop',label:'盲盒商店',img:'/art/bg/shop.jpg',crop:'50% 50% / cover',at:[43,78],go:'shop'},        // striped-awning stall
-  {id:'fusion',label:'AI 融合工坊',img:'/art/bg/lab.jpg',crop:'50% 50% / cover',at:[47,63],go:'fusion',doctor:true}, // globe-dome lab
-  {id:'versus',label:'对战道场',img:'/art/bg/arena.jpg',crop:'50% 50% / cover',at:[59,68],go:'versus'},  // round red arena hall
-  {id:'codex',label:'知识图鉴',icon:'scroll',at:[68,75],go:'codex'},                                      // domed library
-  {id:'collection',label:'我的陀螺',icon:'bag',at:[54,84],go:'collection'},                               // small pagoda
+  {id:'shop',label:tr("盲盒商店"),img:'/art/bg/shop.jpg',crop:'50% 50% / cover',at:[43,78],go:'shop'},        // striped-awning stall
+  {id:'fusion',label:tr("AI 融合工坊"),img:'/art/bg/lab.jpg',crop:'50% 50% / cover',at:[47,63],go:'fusion',doctor:true}, // globe-dome lab
+  {id:'versus',label:tr("对战道场"),img:'/art/bg/arena.jpg',crop:'50% 50% / cover',at:[59,68],go:'versus'},  // round red arena hall
+  {id:'codex',label:tr("知识图鉴"),icon:'scroll',at:[68,75],go:'codex'},                                      // domed library
+  {id:'collection',label:tr("我的陀螺"),icon:'bag',at:[54,84],go:'collection'},                               // small pagoda
 ];
 const reduced=()=>typeof matchMedia!=='undefined'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 const baseOf=bey=>(bey?.id||'').includes('-')?bey.id.split('-').pop():bey?.id;
@@ -57,7 +61,7 @@ function useStage(){
 
 function Face({id,lit,size}){
   const b=BLADERS.find(x=>x.id===id),joined=useGame(st=>st.save.team.some(t=>t.bladerId===id));
-  return <span className={`wm-mini ${lit?'lit':''} ${joined?'joined':''}`} title={joined?`${b?.name}（已入队）`:lit?`${b?.name}（已认识）`:'？？？'} style={{'--c':b?.color,width:size,height:size}}><img src={`/art/bladers/${id}.png`} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></span>;
+  return <span className={`wm-mini ${lit?'lit':''} ${joined?'joined':''}`} title={joined?tr("{0}（已入队）", [b?.name]):lit?tr("{0}（已认识）", [b?.name]):'？？？'} style={{'--c':b?.color,width:size,height:size}}><img src={`/art/bladers/${id}.png`} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></span>;
 }
 function BeyChip({id,lit}){
   return <span className={`wm-beychip ${lit?'lit':''}`} title={lit?BEYS[id]?.name:'？？？'}><img src={`/art/beys/${id}.png`} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></span>;
@@ -66,18 +70,18 @@ function BeyChip({id,lit}){
 // One clear status plate per region (same layout everywhere): what's done, what unlocks it, what to do next.
 function regionState(r,save,locked){
   const p=prog(save,r), beat=r.bladers.filter(id=>save.defeated.includes(id)).length;
-  const treasure=`寻宝 ${p.found>=r.beys.length?'✓':`${p.found}/${r.beys.length}`}`;
+  const treasure=tr("寻宝 {0}", [p.found>=r.beys.length?'✓':`${p.found}/${r.beys.length}`]);
   if(r.unlock?.team){ // volcano: team gate, exploration not built yet
     const n=Math.min(3,save.team.length), open=save.demo||n>=r.unlock.team;
-    return open?{tone:'hot',icon:'🔥',main:'可以挑战超级职业！',stats:`打败 ${beat}/${r.bladers.length}`,go:'挑战 ▶',note:'探索地图即将开放'}
-      :{tone:'lock',icon:'🔒',main:'队伍满 3 人解锁',now:`现在 ${n}/3`,dots:[n,3],note:'探索地图即将开放'};
+    return open?{tone:'hot',icon:'🔥',main:tr("可以挑战超级职业！"),stats:tr("打败 {0}/{1}", [beat, r.bladers.length]),go:tr("挑战 ▶"),note:tr("探索地图即将开放")}
+      :{tone:'lock',icon:'🔒',main:tr("队伍满 3 人解锁"),now:tr("现在 {0}/3", [n]),dots:[n,3],note:tr("探索地图即将开放")};
   }
   if(locked&&r.unlock?.beys){const n=Math.min(r.unlock.beys,save.collection.length);
-    return {tone:'lock',icon:'🔒',main:`收集 ${r.unlock.beys} 只陀螺解锁`,now:`现在 ${n}/${r.unlock.beys}`,dots:[n,r.unlock.beys]};}
+    return {tone:'lock',icon:'🔒',main:tr("收集 {0} 只陀螺解锁", [r.unlock.beys]),now:tr("现在 {0}/{1}", [n, r.unlock.beys]),dots:[n,r.unlock.beys]};}
   const mates=(r.recruitable||[]).filter(id=>save.team.some(t=>t.bladerId===id)).length;
-  const stats=r.recruitable?.length?`${treasure} · 已入队 ${mates}/${r.recruitable.length}`:`${treasure} · 打败 ${beat}/${r.bladers.length}`;
+  const stats=r.recruitable?.length?tr("{0} · 已入队 {1}/{2}", [treasure, mates, r.recruitable.length]):tr("{0} · 打败 {1}/{2}", [treasure, beat, r.bladers.length]);
   const done=p.found>=r.beys.length&&beat>=r.bladers.length;
-  return {tone:done?'done':'open',icon:done?'🏅':'🧭',main:done?'全部完成！':'可以探险',stats,go:'进入探险 ▶'};
+  return {tone:done?'done':'open',icon:done?'🏅':'🧭',main:done?tr("全部完成！"):tr("可以探险"),stats,go:tr("进入探险 ▶")};
 }
 function RegionState({st}){
   return <span className={`wm-state ${st.tone}`}>
@@ -95,13 +99,13 @@ function RegionBadge({r,save,locked,onClick}){
     <>
       <span className={`wm-pin ${locked?'locked':''}`} style={{left:`${pos.pin[0]}%`,top:`${pos.pin[1]}%`,'--c':r.color}}><i/></span>
       <button className={`wm-region ${locked?'locked':''} ${r.comingSoon?'soon':''}`} style={{left:`${pos.card[0]}%`,top:`${pos.card[1]}%`,'--c':r.color}} onClick={onClick}
-        aria-label={`${r.name}${locked?'（未解锁）':''}`}>
+        aria-label={`${r.name}${locked?tr("（未解锁）"):''}`}>
         <span className="wm-region-glow"/>
-        <span className="wm-region-order">{['壹','贰','叁'][r.order-1]||r.order}</span>
+        <span className="wm-region-order">{[tr("壹"),tr("贰"),tr("叁")][r.order-1]||r.order}</span>
         <span className="wm-region-name">{r.name}</span>
         <span className="wm-region-sub">{r.en} · {r.landform}</span>
-        <span className="wm-region-row"><em>陀螺 {p.found}/{r.beys.length}</em>{r.beys.map(id=><BeyChip key={id} id={id} lit={p.foundSet.has(id)}/>)}</span>
-        <span className="wm-region-row"><em>已认识 {p.met}/{r.bladers.length}</em>{r.bladers.map(id=><Face key={id} id={id} lit={p.metSet.has(id)}/>)}</span>
+        <span className="wm-region-row"><em>{tr("陀螺 ")}{p.found}/{r.beys.length}</em>{r.beys.map(id=><BeyChip key={id} id={id} lit={p.foundSet.has(id)}/>)}</span>
+        <span className="wm-region-row"><em>{tr("已认识 ")}{p.met}/{r.bladers.length}</em>{r.bladers.map(id=><Face key={id} id={id} lit={p.metSet.has(id)}/>)}</span>
         <RegionState st={regionState(r,save,locked)}/>
       </button>
     </>
@@ -115,18 +119,18 @@ function RegionPicker({r,save,closing,onPick,onBack}){
   return (
     <div className={`wm-page ${closing?'closing':''}`} style={{'--c':r.color}} role="dialog" aria-label={r.name}>
       <div className="wm-sheet wm-picker">
-        <header className="wm-picker-head"><span className="wm-picker-name">{r.name}</span><span className="wm-picker-sub">{r.landform} · 即将开放探险 · 现在可以直接挑战</span></header>
+        <header className="wm-picker-head"><span className="wm-picker-name">{r.name}</span><span className="wm-picker-sub">{r.landform}{tr(" · 即将开放探险 · 现在可以直接挑战")}</span></header>
         <div className="wm-picker-grid">
           {list.map(b=>{const ok=open(b), beat=save.defeated.includes(b.id);return (
             <button key={b.id} className={`wm-p wm-pick ${ok?'':'locked'} ${b.tier==='boss'?'boss':''}`} style={{'--c':b.color}} onClick={()=>ok&&onPick(b)} disabled={!ok}>
               <img className="wm-pick-img" src={`/art/bladers/${b.id}.png`} alt=""/>
               <span className="wm-pick-tier">{TIERS[b.tier].label}</span>
               <span className="wm-pick-name">{b.name}</span>
-              {beat&&<span className="wm-pick-beat">已击败</span>}
+              {beat&&<span className="wm-pick-beat">{tr("已击败")}</span>}
               {!ok&&<span className="wm-pick-lock">🔒 {TIERS[b.tier].req}</span>}
             </button>);})}
         </div>
-        <section className="wm-p wm-p-act"><button className="wm-back" onClick={onBack}>← 返回地图</button><span className="wm-picker-tip">点一位对手，看看他的陀螺</span></section>
+        <section className="wm-p wm-p-act"><button className="wm-back" onClick={onBack}>{tr("← 返回地图")}</button><span className="wm-picker-tip">{tr("点一位对手，看看他的陀螺")}</span></section>
       </div>
     </div>
   );
@@ -141,7 +145,7 @@ function EnterCard({r}){
         <div className="wm-enter-k">REGION {r.order}</div>
         <div className="wm-enter-name">{r.name}</div>
         <div className="wm-enter-sub">{r.en} · {r.landform}</div>
-        <div className="wm-enter-go">进入区域…</div>
+        <div className="wm-enter-go">{tr("进入区域…")}</div>
       </div>
     </div>
   );
@@ -163,36 +167,38 @@ function Place({p,count,onClick}){
 }
 
 function CharacterPage({b,save,onBack,onChallenge,closing}){
+  useEffect(()=>()=>hush(),[b.id]);
   const [beyImg,setBeyImg]=useState(true);
   const [faceOk,setFaceOk]=useState(true);
   const beat=save.defeated.includes(b.id), recruited=save.team.some(t=>t.bladerId===b.id);
   return (
-    <div className={`wm-page ${closing?'closing':''}`} style={{'--c':b.color}} role="dialog" aria-label={`${b.name} 的页面`}>
+    <div className={`wm-page ${closing?'closing':''}`} style={{'--c':b.color}} role="dialog" aria-label={tr("{0} 的页面", [b.name])}>
       <div className="wm-sheet">
         <section className="wm-p wm-p-hero">
           <div className="wm-burst"/>
           {faceOk?<img className="wm-hero-img" src={`/art/bladers/${b.id}.png`} alt={b.name} onError={()=>setFaceOk(false)}/>:<div className="wm-hero-fallback">{b.name[0]}</div>}
           <div className="wm-hero-kicker">{TIERS[b.tier].label}</div>
           <h2 className="wm-hero-name">{b.name}</h2>
-          {beat&&<div className="wm-hero-stamp">已击败</div>}
-          {recruited&&<div className="wm-hero-team">我的队员</div>}
+          {beat&&<div className="wm-hero-stamp">{tr("已击败")}</div>}
+          {recruited&&<div className="wm-hero-team">{tr("我的队员")}</div>}
         </section>
         <section className="wm-p wm-p-talk">
           <div className="wm-balloon">「{b.line}」</div>
+          <button className="wm-voice" onClick={()=>say(b.line,speechLocale(),1,b.id)}>{tr("🔊 朗读")}</button>
           <div className="wm-sfx">ゴゴゴ…</div>
         </section>
         <section className="wm-p wm-p-bey">
           <div className="wm-bey-art">{beyImg?<img src={`/art/beys/${baseOf(b.bey)}.png`} alt={b.bey.name} onError={()=>setBeyImg(false)}/>:<BeyArt bey={b.bey} size={150}/>}</div>
           <div className="wm-bey-info">
-            <div className="wm-bey-cap">使用陀螺</div>
+            <div className="wm-bey-cap">{tr("使用陀螺")}</div>
             <div className="wm-bey-name">{b.bey.name}</div>
             <TypeBadge type={b.bey.type}/>
             <div className="wm-bey-parts">Ratchet {b.bey.ratchet?.prongs||3}-{b.bey.ratchet?.height||60} · Bit {b.bey.bit}</div>
           </div>
         </section>
         <section className="wm-p wm-p-act">
-          <button className="wm-back" onClick={onBack}>← 返回地图</button>
-          <button className="wm-go" onClick={onChallenge}><span>挑战！</span></button>
+          <button className="wm-back" onClick={onBack}>{tr("← 返回地图")}</button>
+          <button className="wm-go" onClick={onChallenge}><span>{tr("挑战！")}</span></button>
         </section>
       </div>
     </div>
@@ -244,13 +250,14 @@ export default function MapScreen(){
     <div className="wm">
       <header className="wm-hud">
         <button className="wm-hud-back" onClick={()=>go('title')}>◀</button>
-        <div className="wm-hud-title">冒险地图</div>
+        <div className="wm-hud-title">{tr("冒险地图")}</div>
+        <LanguagePicker/>
         <div className="wm-hud-chips">
           <span>🪙 {save.coins}</span>
-          <span>陀螺 {save.collection.length}</span>
-          <span>已入队 {save.team.length}/3</span>
+          <span>{tr("陀螺 ")}{save.collection.length}</span>
+          <span>{tr("已入队 ")}{save.team.length}/3</span>
           {team.length>0&&<span className="wm-hud-team">{team.map(b=><img key={b.id} src={`/art/bladers/${b.id}.png`} alt={b.name} title={b.name}/>)}</span>}
-          <label className="wm-hud-demo" title="演示模式：解锁全部区域和对手"><input type="checkbox" checked={!!save.demo} onChange={e=>setDemo(e.target.checked)}/>演示</label>
+          <label className="wm-hud-demo" title={tr("演示模式：解锁全部区域和对手")}><input type="checkbox" checked={!!save.demo} onChange={e=>setDemo(e.target.checked)}/>{tr("演示")}</label>
         </div>
       </header>
 
@@ -275,7 +282,7 @@ export default function MapScreen(){
         </div>
       </div>
 
-      {stage.pan&&!overlay&&<div className="wm-swipe">👆 左右拖动地图，去看看远方</div>}
+      {stage.pan&&!overlay&&<div className="wm-swipe">{tr("👆 左右拖动地图，去看看远方")}</div>}
       <div className="wm-doctor">
         <DoctorFace size={86}/>
         <div className="wm-doctor-say">{hint(save)}</div>
@@ -292,6 +299,6 @@ export function DoctorFace({mood='normal',size=72}){
   // 加载失败先重试两次（部署切换、网络抖动），仍失败才用兜底画法；换心情时重新尝试
   const [tries,setTries]=useState(0);
   useEffect(()=>setTries(0),[mood]);
-  if(tries<3)return <img key={mood+tries} src={`/art/doctor/${mood}.png${tries?`?r=${tries}`:''}`} width={size} height={size} alt="融合博士" style={{objectFit:'contain',flex:'none'}} onError={()=>setTimeout(()=>setTries(t=>t+1),400*(tries+1))}/>;
-  return <div style={{width:size,height:size,flex:'none',borderRadius:'50%',border:'var(--border)',background:'radial-gradient(circle at 35% 40%, #111 0 6%, transparent 7%), radial-gradient(circle at 65% 40%, #111 0 6%, transparent 7%), radial-gradient(ellipse at 50% 70%, #111 0 10%, transparent 11%), var(--yellow)',display:'grid',placeItems:'end center'}}><span style={{fontSize:10,fontWeight:900,background:'#fff',border:'2px solid #111',padding:'0 4px',marginBottom:-8}}>博士</span></div>;
+  if(tries<3)return <img key={mood+tries} src={`/art/doctor/${mood}.png${tries?`?r=${tries}`:''}`} width={size} height={size} alt={tr("融合博士")} style={{objectFit:'contain',flex:'none'}} onError={()=>setTimeout(()=>setTries(t=>t+1),400*(tries+1))}/>;
+  return <div style={{width:size,height:size,flex:'none',borderRadius:'50%',border:'var(--border)',background:'radial-gradient(circle at 35% 40%, #111 0 6%, transparent 7%), radial-gradient(circle at 65% 40%, #111 0 6%, transparent 7%), radial-gradient(ellipse at 50% 70%, #111 0 10%, transparent 11%), var(--yellow)',display:'grid',placeItems:'end center'}}><span style={{fontSize:10,fontWeight:900,background:'#fff',border:'2px solid #111',padding:'0 4px',marginBottom:-8}}>{tr("博士")}</span></div>;
 }
