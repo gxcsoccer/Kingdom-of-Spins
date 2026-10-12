@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -226,13 +227,13 @@ function Director({ player, fx, sparks, overlay, onEvent, flip }) {
 }
 
 // ---------- HTML overlay: manga SFX, flashes, finish banner
-const SFX_BIG = ['ドガァン！', '轰！！', 'ズドン！'], SFX_MID = ['ガキン！', '锵！', 'ガッ！'], SFX_SMALL = ['カッ', '叮！', 'キン'];
+const SFX_BIG = ['ドガァン！', tr("轰！！"), 'ズドン！'], SFX_MID = ['ガキン！', tr("锵！"), 'ガッ！'], SFX_SMALL = ['カッ', tr("叮！"), 'キン'];
 const FINISH = {
-  xtreme: { en: 'XTREME FINISH!', zh: '极限终结', pts: 3 },
-  over: { en: 'OVER FINISH!', zh: '出界终结', pts: 2 },
-  burst: { en: 'BURST FINISH!', zh: '爆裂终结', pts: 2 },
-  spin: { en: 'SPIN FINISH!', zh: '停转终结', pts: 1 },
-  judge: { en: 'JUDGE!', zh: '时间到 · 转速判定', pts: 1 },
+  xtreme: { en: 'XTREME FINISH!', zh: tr("极限终结"), pts: 3 },
+  over: { en: 'OVER FINISH!', zh: tr("出界终结"), pts: 2 },
+  burst: { en: 'BURST FINISH!', zh: tr("爆裂终结"), pts: 2 },
+  spin: { en: 'SPIN FINISH!', zh: tr("停转终结"), pts: 1 },
+  judge: { en: 'JUDGE!', zh: tr("时间到 · 转速判定"), pts: 1 },
 };
 const Overlay = forwardRef(function Overlay({ beys }, ref) {
   const [items, setItems] = useState([]);
@@ -269,7 +270,7 @@ const Overlay = forwardRef(function Overlay({ beys }, ref) {
         <div className={`ks-finish ks-finish-${finish.reason}`}>
           <div className="ks-finish-lines" />
           <div className="ks-finish-en">{fin.en}</div>
-          <div className="ks-finish-zh">{fin.zh}{winner ? ` · ${winner.name} 胜` : ''} <span className="ks-finish-pts">+1 局</span></div>
+          <div className="ks-finish-zh">{fin.zh}{winner ? tr(" · {0} 胜", [winner.name]) : ''} <span className="ks-finish-pts">{tr("+1 局")}</span></div>
         </div>
       )}
     </div>

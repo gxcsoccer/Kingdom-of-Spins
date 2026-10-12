@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useEffect,useRef,useState} from 'react';
 import {voiceSupported,listen} from '../game/voice.js';
 import {say} from '../game/sfx.js';
@@ -16,7 +17,7 @@ export default function LaunchGauge({onShoot}){
     rec.current=listen({lang:'en-US',onText:t=>{setHeard(t);if(/shoot|shot|shoe|chute|sure/i.test(t)){rec.current?.stop();setMic(false);shoot();}},onEnd:()=>setMic(false)});
   };
   const val=locked??v, rpm=Math.round(3000+3900*Math.min(val,.95)/.95);
-  const label=val>.95?'用力过猛！会歪':val>.82?'完美！':val>.6?'不错':'再用力点';
+  const label=val>.95?tr("用力过猛！会歪"):val>.82?tr("完美！"):val>.6?tr("不错"):tr("再用力点");
   return (
     <div className="gauge">
       <div className="gauge-dial">
@@ -34,10 +35,10 @@ export default function LaunchGauge({onShoot}){
       <div style={{fontWeight:900,color:val>.95?'var(--red)':'#111'}}>{label}</div>
       <div className="row" style={{gap:8}}>
         <button className="btn primary big" onClick={shoot} disabled={locked!=null}>GO SHOOT!</button>
-        {voiceSupported()&&<button className={`btn big ${mic?'yellow mic-on':''}`} onClick={toggleMic} disabled={locked!=null} title="对着麦克风喊 3, 2, 1, Go Shoot!">🎤</button>}
+        {voiceSupported()&&<button className={`btn big ${mic?'yellow mic-on':''}`} onClick={toggleMic} disabled={locked!=null} title={tr("对着麦克风喊 3, 2, 1, Go Shoot!")}>🎤</button>}
       </div>
-      {mic&&<div className="mic-hint">🎤 大声喊：<b>3, 2, 1, GO SHOOT!</b>{heard&&<span className="muted"> · 听到：{heard}</span>}</div>}
-      <div className="muted" style={{fontSize:12,color:'#555'}}>看准红区按下；转速越高，角动量越大</div>
+      {mic&&<div className="mic-hint">{tr("🎤 大声喊：")}<b>3, 2, 1, GO SHOOT!</b>{heard&&<span className="muted">{tr(" · 听到：")}{heard}</span>}</div>}
+      <div className="muted" style={{fontSize:12,color:'#555'}}>{tr("看准红区按下；转速越高，角动量越大")}</div>
     </div>
   );
 }

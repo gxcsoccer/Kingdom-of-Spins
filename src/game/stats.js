@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {specFromBey,makePart,TIPS} from '../physics/model.js';
 // Display stats derived from the physics spec (not hidden multipliers): 0..100 for bars + raw numbers.
 export function beyStats(bey){
@@ -16,5 +17,5 @@ export function beyStats(bey){
     },
   };
 }
-export const BAR_LABEL={attack:'攻击',defense:'防御',stamina:'持久',speed:'机动'};
+export const BAR_LABEL={attack:tr("攻击"),defense:tr("防御"),stamina:tr("持久"),speed:tr("机动")};
 export const BAR_COLOR={attack:'#ff2d4a',defense:'#f2b632',stamina:'#14c9a5',speed:'#2f7bff'};

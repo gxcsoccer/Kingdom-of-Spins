@@ -1,10 +1,11 @@
+import {tr} from '../i18n/index.js';
 // 寻宝任务逻辑（纯函数，前后端都能用）：当前目标、可执行的方位线索、冷热提示。
 // 场景之间的连接与方位来自 src/game/scenes.js 的 exits / pos，保证线索一定正确、照着走一定能到。
 import {SCENES} from '../game/scenes.js';
 import {BEYS} from '../game/beys.js';
 import {BLADERS} from '../game/story.js';
 
-const DIRS = ['东', '东北', '北', '西北', '西', '西南', '南', '东南'];
+const DIRS = [tr("东"), tr("东北"), tr("北"), tr("西北"), tr("西"), tr("西南"), tr("南"), tr("东南")];
 export const sceneOf = (regionId, key) => (SCENES[regionId] || []).find(s => s.key === key);
 
 /** 场景图上的最短路径（含起点终点），找不到返回 null。 */
@@ -48,13 +49,13 @@ export function openTargets(regionId, hidePlan = [], found = [], met = [], here)
 
 /** 画面里的大致区域（给二级提示用）：左上 / 上方 / 右上 / 左边 / 中间 …… */
 export function screenArea(x, y) {
-  const h = x < .36 ? '左' : x > .64 ? '右' : '', v = y < .36 ? '上' : y > .64 ? '下' : '';
-  if (!h && !v) return '中间';
-  if (!h) return v === '上' ? '上方' : '下方';
-  if (!v) return h + '边';
-  return h + v + '角';
+  const h = x < .36 ? tr("左") : x > .64 ? tr("右") : '', v = y < .36 ? tr("上") : y > .64 ? tr("下") : '';
+  if (!h && !v) return tr("中间");
+  if (!h) return y < .36 ? tr("上方") : tr("下方");
+  if (!v) return tr("{0}边", [h]);
+  return tr("{0}{1}角", [h,v]);
 }
-const ARROW = {东: '→', 东北: '↗', 北: '↑', 西北: '↖', 西: '←', 西南: '↙', 南: '↓', 东南: '↘'};
+const ARROW = Object.fromEntries(Object.entries({东: '→', 东北: '↗', 北: '↑', 西北: '↖', 西: '←', 西南: '↙', 南: '↓', 东南: '↘'}).map(([label,arrow])=>[tr(label),arrow]));
 
 /**
  * 当前任务 + 一条能照着走的线索（一定说出下一站的地名，不只说方向）。
@@ -62,48 +63,48 @@ const ARROW = {东: '→', 东北: '↗', 北: '↑', 西北: '↖', 西: '←',
  */
 export function questClue(regionId, target, here, hintLevel = 0) {
   if (!target) return null;
-  const name = targetName(target), what = target.type === 'bey' ? `陀螺 ${name}` : `陀螺手 ${name}`;
+  const name = targetName(target), what = target.type === 'bey' ? tr("陀螺 {0}", [name]) : tr("陀螺手 {0}", [name]);
   const scene = sceneOf(regionId, target.scene), spot = scene?.spots?.[target.spot], spotLabel = spot?.label;
   if (here === target.scene) {
-    const text = hintLevel >= 2 && spotLabel ? `就在「${spotLabel}」！点它！`
-      : hintLevel >= 1 && spot ? `${name} 就在这张图里，看看画面的「${screenArea(spot.x, spot.y)}」。`
-      : `${name} 就在这张图里！点点画里的东西找找看。`;
-    return {title: `找到${what}`, text, here: true, spot: hintLevel >= 2 ? target.spot : null};
+    const text = hintLevel >= 2 && spotLabel ? tr("就在「{0}」！点它！", [spotLabel])
+      : hintLevel >= 1 && spot ? tr("{0} 就在这张图里，看看画面的「{1}」。", [name, screenArea(spot.x, spot.y)])
+      : tr("{0} 就在这张图里！点点画里的东西找找看。", [name]);
+    return {title: tr("找到{0}", [what]), text, here: true, spot: hintLevel >= 2 ? target.spot : null};
   }
   const path = shortestPath(regionId, here, target.scene) || [];
   const n = path.length - 1, next = sceneOf(regionId, path[1]), d1 = compass(regionId, here, path[1]);
-  let text = n <= 1 ? `${name} 就在隔壁的「${next?.title}」${ARROW[d1] || ''}，走过去吧！`
-    : `先去「${next?.title}」${ARROW[d1] || ''}，还要走 ${n} 站。`;
-  if (n > 1 && hintLevel >= 1 && scene) text += `目的地是「${scene.title}」${hintLevel >= 2 && spotLabel ? `，找「${spotLabel}」` : ''}。`;
-  return {title: `找到${what}`, text, steps: n, next: path[1], here: false};
+  let text = n <= 1 ? tr("{0} 就在隔壁的「{1}」{2}，走过去吧！", [name, next?.title, ARROW[d1] || ''])
+    : tr("先去「{0}」{1}，还要走 {2} 站。", [next?.title, ARROW[d1] || '', n]);
+  if (n > 1 && hintLevel >= 1 && scene) text += tr("目的地是「{0}」{1}。", [scene.title, hintLevel >= 2 && spotLabel ? tr("，找「{0}」", [spotLabel]) : '']);
+  return {title: tr("找到{0}", [what]), text, steps: n, next: path[1], here: false};
 }
 
 /** 画面里的方向（屏幕坐标，y 向下）：上 / 右上 / 右 … */
 export function screenDir(dx, dy) {
   const ax = Math.abs(dx), ay = Math.abs(dy);
-  if (ax < .08 && ay < .08) return '旁';
-  const h = dx > 0 ? '右' : '左', v = dy > 0 ? '下' : '上';
+  if (ax < .08 && ay < .08) return tr("旁");
+  const h = dx > 0 ? tr("右") : tr("左"), v = dy > 0 ? tr("下") : tr("上");
   if (ax > ay * 2) return h;
   if (ay > ax * 2) return v;
-  return h + v;
+  return tr("{0}{1}方向", [h,v]);
 }
 /** 罗盘方向对应的箭头。 */
-export const DIR_ARROW = {东: '→', 东北: '↗', 北: '↑', 西北: '↖', 西: '←', 西南: '↙', 南: '↓', 东南: '↘'};
+export const DIR_ARROW = Object.fromEntries(Object.entries({东: '→', 东北: '↗', 北: '↑', 西北: '↖', 西: '←', 西南: '↙', 南: '↓', 东南: '↘'}).map(([label,arrow])=>[tr(label),arrow]));
 
 /** 冷热提示：点了一个物体后说清楚“这里没有，目标在哪”。 */
 export function heat(regionId, target, here, tappedSpot) {
   if (!target) return null;
-  if (here === target.scene && tappedSpot === target.spot) return {level: 'found', text: '找到了！'};
+  if (here === target.scene && tappedSpot === target.spot) return {level: 'found', text: tr("找到了！")};
   const d = hops(regionId, here, target.scene), name = targetName(target);
-  const label = sceneOf(regionId, here)?.spots?.[tappedSpot]?.label || '这里';
-  const no = `「${label}」那儿没有 ${name}`;
+  const label = sceneOf(regionId, here)?.spots?.[tappedSpot]?.label || tr("这里");
+  const no = tr("「{0}」那儿没有 {1}", [label, name]);
   if (d === 0) {
     const sp = sceneOf(regionId, here)?.spots || [], a = sp[tappedSpot], t = sp[target.spot];
     const dir = a && t ? screenDir(t.x - a.x, t.y - a.y) : '';
-    return {level: 'hot', text: dir && dir !== '旁' ? `${no}，但它就在这张图里 🔥🔥 往「${dir}」边看看` : `${no}，但它就在附近 🔥🔥 再看看别的东西`};
+    return {level: 'hot', text: dir && dir !== tr('旁') ? tr("{0}，但它就在这张图里 🔥🔥 往「{1}」边看看", [no, dir]) : tr("{0}，但它就在附近 🔥🔥 再看看别的东西", [no])};
   }
   const next = sceneOf(regionId, (shortestPath(regionId, here, target.scene) || [])[1])?.title;
-  if (d === 1) return {level: 'warm', text: `${no}～它在隔壁的「${next}」🔥`};
-  if (d === 2) return {level: 'mild', text: `${no}～先去「${next}」，还要走 2 站 🌤`};
-  return {level: 'cold', text: `${no}～它还很远 ❄️ 先去「${next}」`};
+  if (d === 1) return {level: 'warm', text: tr("{0}～它在隔壁的「{1}」🔥", [no, next])};
+  if (d === 2) return {level: 'mild', text: tr("{0}～先去「{1}」，还要走 2 站 🌤", [no, next])};
+  return {level: 'cold', text: tr("{0}～它还很远 ❄️ 先去「{1}」", [no, next])};
 }

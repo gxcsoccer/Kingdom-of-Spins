@@ -1,3 +1,4 @@
+import {tr, getLocale, localizeTextFields} from '../i18n/index.js';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useTaskScope} from '../game/useTaskScope.js';
 import {bookArt} from './chapters.js';
@@ -11,7 +12,7 @@ import '../ui/result/result.css';
 import './flipbook.css';
 
 const NUM = '①②③④⑤⑥';
-const KIND_LABEL = {hook:'提出问题', observe:'仔细观察', analogy:'生活里的例子', experiment:'动手实验', quiz:'小测验', wrap:'总结'};
+const KIND_LABEL = {hook:tr("提出问题"), observe:tr("仔细观察"), analogy:tr("生活里的例子"), experiment:tr("动手实验"), quiz:tr("小测验"), wrap:tr("总结")};
 
 // Hotspots are located by vision on the image that is actually shown (cached per image).
 async function toDataUrl(src, max=768) {
@@ -21,13 +22,13 @@ async function toDataUrl(src, max=768) {
   c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
   return c.toDataURL('image/jpeg', .82);
 }
-const spotKey = key => 'kos.spots2.' + key.slice(0, 120);   // v2: every hotspot carries one of this chapter's cards
+const spotKey = key => 'kos.spots2.' + getLocale() + '.' + key.slice(0, 120);   // v2: every hotspot carries one of this chapter's cards
 const locating = new Map();
 export function locateSpots(key, src, context, chapter) {
   try { const hit = localStorage.getItem(spotKey(key)); if (hit) return Promise.resolve(JSON.parse(hit)); } catch {}
   if (!locating.has(key)) locating.set(key, (async()=>{
     const imageDataUrl = await toDataUrl(src);
-    const r = await fetch('/api/ai/flip/locate', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({imageDataUrl, context, chapter: chapter && {id:chapter.id, cards:chapter.cards, question:chapter.question, title:chapter.title}})}).then(x=>x.json()).catch(()=>({spots:[]}));
+    const r = await fetch('/api/ai/flip/locate', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({locale:getLocale(), imageDataUrl, context, chapter: chapter && {id:chapter.id, cards:chapter.cards, question:chapter.question, title:chapter.title}})}).then(x=>x.json()).then(x=>localizeTextFields(x)).catch(()=>({spots:[]}));
     const spots = (r.spots || []).filter(sp=>!chapter || chapter.cards.includes(sp.cardId));
     if (spots.length) try { localStorage.setItem(spotKey(key), JSON.stringify(spots)); } catch {}
     locating.delete(key); return spots;
@@ -61,7 +62,7 @@ export function layoutSpots(spots=[], W=640) {
 }
 function Hotspots({spots, active}) {
   return spots.map((h,i)=><div key={i} className={`fb-hot side-${h.side} ${active===i?'on':''}`} style={{left:`${h.x*100}%`, top:`${h.y*100}%`, animationDelay:`${i*.15}s`}}>
-    <i/><span>{h.label}{getCard(h.cardId) && <em>💡 和「{getCard(h.cardId).title}」有关</em>}</span></div>);
+    <i/><span>{h.label}{getCard(h.cardId) && <em>{tr("💡 和「")}{getCard(h.cardId).title}{tr("」有关")}</em>}</span></div>);
 }
 const nearestSpot = (spots, x, y) => { const s = (spots||[]).map((sp,i)=>({i, d:Math.hypot(sp.x-x, sp.y-y)})).sort((a,b)=>a.d-b.d)[0]; return s && s.d < .07 ? s.i : -1; };
 
@@ -77,10 +78,10 @@ function Picture({imgKey, staticSrc, prompt, context, chapter, onTap, busy, tapM
     <div ref={box} className={`cb-pic ${onTap?'tappable':''}`} onClick={click}>
       {src && !failed ? <img src={src} alt="" draggable={false} onLoad={()=>setLoaded(true)} onError={onError}/>
         : failed ? <div className="fb-sketch"><span>{context.title}</span></div>
-        : <div className="fb-shimmer"><span>博士正在画画…</span></div>}
+        : <div className="fb-shimmer"><span>{tr("博士正在画画…")}</span></div>}
       {onTap && loaded && spots && <Hotspots spots={spots} active={tapMark ? nearestSpot(spots, tapMark.x, tapMark.y) : -1}/>}
       {tapMark && <div className="fb-tap" style={{left:`${tapMark.x*100}%`, top:`${tapMark.y*100}%`}}/>}
-      {busy && <div className="fb-wait"><div className="fb-doodle small"/><b>博士正在翻书…</b></div>}
+      {busy && <div className="fb-wait"><div className="fb-doodle small"/><b>{tr("博士正在翻书…")}</b></div>}
     </div>
   );
 }
@@ -117,10 +118,10 @@ function Magnifier({src, x, y, spots=[], onTap, busy, tapMark}) {
       <div className="cb-mag-img" style={{backgroundImage:`url("${src}")`, backgroundSize:`${ZOOM*100}% ${ZOOM*100}%`, backgroundPosition:`${pos(L)} ${pos(T)}`}}/>
       <div className="cb-mag-lens" style={{left:`${lens.x*100}%`, top:`${lens.y*100}%`}}><i/></div>
       <div className="cb-mag-mini"><img src={src} alt=""/><b style={{left:`${L*100}%`, top:`${T*100}%`, width:`${100/ZOOM}%`, height:`${100/ZOOM}%`}}/></div>
-      <span className="cb-mag-tag">🔍 放大 {ZOOM} 倍</span>
+      <span className="cb-mag-tag">{tr("🔍 放大 ")}{ZOOM}{tr(" 倍")}</span>
       {onTap && <Hotspots spots={laid} active={tm ? nearestSpot(laid, tm.x, tm.y) : -1}/>}
       {tm && <div className="fb-tap" style={{left:`${tm.x*100}%`, top:`${tm.y*100}%`}}/>}
-      {busy && <div className="fb-wait"><div className="fb-doodle small"/><b>博士正在翻书…</b></div>}
+      {busy && <div className="fb-wait"><div className="fb-doodle small"/><b>{tr("博士正在翻书…")}</b></div>}
     </div>
   );
 }
@@ -186,10 +187,10 @@ export default function ChapterBook({chapter, onClose, onUnlock}) {
   return (
     <div className="cb" style={{'--cc':chapter.color}}>
       <div className="cb-top">
-        <button className="btn small" onClick={onClose}>✕ 合上</button>
-        <div className="cb-q"><span className="kicker" style={{color:'var(--cc)'}}>科学绘本 · {chapter.title}</span><b>{chapter.question}</b></div>
+        <button className="btn small" onClick={onClose}>{tr("✕ 合上")}</button>
+        <div className="cb-q"><span className="kicker" style={{color:'var(--cc)'}}>{tr("科学绘本 · ")}{chapter.title}</span><b>{chapter.question}</b></div>
         <div className="cb-dots">{chapter.pages.map((p,i)=><button key={i} className={`${i===n?'on':''} ${i<n?'done':''}`} title={KIND_LABEL[p.kind]} onClick={()=>i<=n && go(i)}>{NUM[i]}</button>)}</div>
-        {ttsSupported && <button className="btn small" onClick={()=>setVoice(v=>{ const nv=!v; try { localStorage.setItem('kos.bookvoice', nv?'on':'off'); } catch {} if (!nv) stopSpeaking(); return nv; })}>{voice?'🔊 朗读':'🔇 朗读'}</button>}
+        {ttsSupported && <button className="btn small" onClick={()=>setVoice(v=>{ const nv=!v; try { localStorage.setItem('kos.bookvoice', nv?'on':'off'); } catch {} if (!nv) stopSpeaking(); return nv; })}>{voice?tr("🔊 朗读"):tr("🔇 朗读")}</button>}
       </div>
 
       <div className="cb-stage">
@@ -201,31 +202,31 @@ export default function ChapterBook({chapter, onClose, onUnlock}) {
             : page.kind==='quiz' ? <div className="cb-panel cb-quiz">
                 <div className="cb-quiz-q">🤔 {quiz.q}</div>
                 <div className="cb-quiz-opts">{quiz.options.map((o,i)=><button key={i} disabled={quizAns!=null} className={`rp-quiz-opt ${quizAns!=null&&i===quiz.answer?'right':''} ${quizAns===i&&i!==quiz.answer?'wrong':''}`} onClick={()=>setQuizAns(i)}><b>{'ABC'[i]}</b>{o}</button>)}</div>
-                {quizAns!=null && <div className="cb-quiz-reveal slidein">{quizAns===quiz.answer?'✅ 答对了！':'❌ 差一点！'} {quiz.explain}</div>}
+                {quizAns!=null && <div className="cb-quiz-reveal slidein">{quizAns===quiz.answer?tr("✅ 答对了！"):tr("❌ 差一点！")} {quiz.explain}</div>}
               </div>
             : page.kind==='wrap' ? <div className="cb-wrapart"><Picture imgKey={`${chapter.id}/${n+1}`} staticSrc={bookArt(chapter.id, n+1)} prompt={page.prompt} context={{title:page.title, text:page.text.join(' ')}}/>
-                <div className="cb-badge pop-in"><span>🏅</span><b>{chapter.badge}</b><small>徽章到手！</small></div></div>
+                <div className="cb-badge pop-in"><span>🏅</span><b>{chapter.badge}</b><small>{tr("徽章到手！")}</small></div></div>
             : <Picture imgKey={`${chapter.id}/${n+1}`} staticSrc={bookArt(chapter.id, n+1)} prompt={page.prompt} context={{title:page.title, text:page.text.join(' ')}} chapter={chapter}
                 onTap={page.kind==='observe'||page.kind==='analogy' ? tapToBranch : undefined} busy={busy} tapMark={tapMark}/>}
           </div>
           <div className="cb-right">
-            <div className="cb-kind">{bp ? (bp.offTopic ? '🔍 好奇心支线' : <>🔍 好奇心<b className="cb-depth">支线 {level}/{depth}</b></>) : `${NUM[n]} ${KIND_LABEL[page.kind]}`}</div>
+            <div className="cb-kind">{bp ? (bp.offTopic ? tr("🔍 好奇心支线") : <>{tr("🔍 好奇心")}<b className="cb-depth">{tr("支线 ")}{level}/{depth}</b></>) : `${NUM[n]} ${KIND_LABEL[page.kind]}`}</div>
             <h2 className="cb-title">{bp ? bp.title : page.title}</h2>
             <div className={`cb-texts ${bp?'branch':''}`}>{texts.map((t,i)=><div key={i} className={`cb-text ${i===0?'caption':'bubble'}`} style={{animationDelay:`${.1+i*.2}s`}}>{t}</div>)}</div>
             {!bp && page.kind==='hook' && <div className="cb-guess">{page.guess.map((g,i)=><button key={i} className={`btn ${guess===i?'ink':''}`} onClick={()=>setGuess(i)}>{g}</button>)}
-              {guess!=null && <div className="cb-guess-note slidein">记住你的猜测，看完这本书再对答案！</div>}
-              {guess!=null && <button className="btn primary big cb-next-inline pop-in" onClick={()=>go(n+1)}>翻到下一页：{KIND_LABEL[chapter.pages[n+1].kind]} ▶</button>}</div>}
-            {!bp && page.kind==='wrap' && guess!=null && <div className={`cb-check ${guess===page.answer||guess===chapter.pages[0].answer?'ok':'no'}`}>{guess===chapter.pages[0].answer ? '✅ 你一开始就猜对了！' : `开头你猜的是「${chapter.pages[0].guess[guess]}」，现在你知道为什么不是啦！`}</div>}
-            {!bp && (page.kind==='observe'||page.kind==='analogy') && <div className="cb-hint">👆 点画里你好奇的东西，打开「好奇心支线」</div>}
-            {!bp && page.kind==='experiment' && <div className="cb-hint">{expDone ? '✅ 实验做完了！发现了什么？' : '🧪 做完实验再往下翻'}</div>}
-            {!bp && canNext && page.kind!=='hook' && <button className="btn primary cb-next-inline" onClick={()=>go(n+1)}>下一页：{KIND_LABEL[chapter.pages[n+1].kind]} ▶</button>}
-            {bp && (bp.cardId && getCard(bp.cardId)) && <div className="cb-cardref">🔬 本章知识卡：{getCard(bp.cardId).title}</div>}
-            {bp && canDeeper && <div className="cb-hint">👆 在放大的画里再点一个，还能再挖一层（最后一层）</div>}
+              {guess!=null && <div className="cb-guess-note slidein">{tr("记住你的猜测，看完这本书再对答案！")}</div>}
+              {guess!=null && <button className="btn primary big cb-next-inline pop-in" onClick={()=>go(n+1)}>{tr("翻到下一页：")}{KIND_LABEL[chapter.pages[n+1].kind]} ▶</button>}</div>}
+            {!bp && page.kind==='wrap' && guess!=null && <div className={`cb-check ${guess===page.answer||guess===chapter.pages[0].answer?'ok':'no'}`}>{guess===chapter.pages[0].answer ? tr("✅ 你一开始就猜对了！") : tr("开头你猜的是「{0}」，现在你知道为什么不是啦！", [chapter.pages[0].guess[guess]])}</div>}
+            {!bp && (page.kind==='observe'||page.kind==='analogy') && <div className="cb-hint">{tr("👆 点画里你好奇的东西，打开「好奇心支线」")}</div>}
+            {!bp && page.kind==='experiment' && <div className="cb-hint">{expDone ? tr("✅ 实验做完了！发现了什么？") : tr("🧪 做完实验再往下翻")}</div>}
+            {!bp && canNext && page.kind!=='hook' && <button className="btn primary cb-next-inline" onClick={()=>go(n+1)}>{tr("下一页：")}{KIND_LABEL[chapter.pages[n+1].kind]} ▶</button>}
+            {bp && (bp.cardId && getCard(bp.cardId)) && <div className="cb-cardref">{tr("🔬 本章知识卡：")}{getCard(bp.cardId).title}</div>}
+            {bp && canDeeper && <div className="cb-hint">{tr("👆 在放大的画里再点一个，还能再挖一层（最后一层）")}</div>}
             {bp && <div className="cb-branch-nav">
-              <button className="btn primary big" onClick={leaveBranch}>↩ 回到主线</button>
-              {!bp.offTopic && n < chapter.pages.length-1 && <button className="btn big" onClick={()=>go(n+1)}>📖 这一章还讲了什么</button>}
+              <button className="btn primary big" onClick={leaveBranch}>{tr("↩ 回到主线")}</button>
+              {!bp.offTopic && n < chapter.pages.length-1 && <button className="btn big" onClick={()=>go(n+1)}>{tr("📖 这一章还讲了什么")}</button>}
             </div>}
-            {!bp && page.kind==='wrap' && <div className="cb-end"><button className="btn" onClick={()=>{ setGuess(null); setQuizAns(null); setExpDone(false); go(0); }}>📖 再读一遍</button><button className="btn primary" onClick={onClose}>回游戏 ▶</button></div>}
+            {!bp && page.kind==='wrap' && <div className="cb-end"><button className="btn" onClick={()=>{ setGuess(null); setQuizAns(null); setExpDone(false); go(0); }}>{tr("📖 再读一遍")}</button><button className="btn primary" onClick={onClose}>{tr("回游戏 ▶")}</button></div>}
           </div>
         </div>
       </div>
@@ -233,7 +234,7 @@ export default function ChapterBook({chapter, onClose, onUnlock}) {
       <div className="cb-nav">
         <button className="rp-arrow" disabled={n===0 || !!bp} onClick={()=>go(n-1)}>◀</button>
         <div className="cb-progress"><i style={{width:`${(n+1)/chapter.pages.length*100}%`}}/></div>
-        <button className="rp-arrow next" disabled={!canNext || !!bp} onClick={()=>go(n+1)}>{n<chapter.pages.length-1 ? `${KIND_LABEL[chapter.pages[n+1].kind]} ▶` : '完'}</button>
+        <button className="rp-arrow next" disabled={!canNext || !!bp} onClick={()=>go(n+1)}>{n<chapter.pages.length-1 ? `${KIND_LABEL[chapter.pages[n+1].kind]} ▶` : tr("完")}</button>
       </div>
     </div>
   );

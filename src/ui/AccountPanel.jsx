@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useEffect, useState} from 'react';
 import {useGame} from '../game/store.js';
 import {isConfigured, providerEnabled, getSession, onAuthChange, signInWithGoogle, signOut, listKids, createKid} from '../net/auth.js';
@@ -25,32 +26,32 @@ function NewKidForm({onDone, onCancel}) {
   const [busy, setBusy] = useState(false), [err, setErr] = useState('');
   async function submit(e) {
     e.preventDefault();
-    if (!nickname.trim()) return setErr('给孩子起个昵称吧');
-    if (pin && !/^\d{4}$/.test(pin)) return setErr('PIN 需要是 4 位数字，或者留空');
+    if (!nickname.trim()) return setErr(tr("给孩子起个昵称吧"));
+    if (pin && !/^\d{4}$/.test(pin)) return setErr(tr("PIN 需要是 4 位数字，或者留空"));
     setBusy(true);
     const {data, error} = await createKid({nickname: nickname.trim(), avatar, pin: pin || null});
     setBusy(false);
-    if (error) return setErr('创建失败：' + error.message);
+    if (error) return setErr(tr("创建失败：") + error.message);
     onDone(data);
   }
   return (
     <form className="panel tone slidein col" style={{padding: 16}} onSubmit={submit}>
-      <div className="kicker">新建孩子档案</div>
-      <input className="kos-input" autoFocus value={nickname} onChange={e => setNickname(e.target.value)} placeholder="孩子的昵称（不用真名）" maxLength={24} style={inputStyle}/>
+      <div className="kicker">{tr("新建孩子档案")}</div>
+      <input autoFocus value={nickname} onChange={e => setNickname(e.target.value)} placeholder={tr("孩子的昵称（不用真名）")} maxLength={24} style={inputStyle}/>
       <div className="row">
-        <span style={{fontWeight: 800}}>选形象</span>
+        <span style={{fontWeight: 800}}>{tr("选形象")}</span>
         {AVATARS.map(c => (
-          <button type="button" key={c} onClick={() => { setAvatar(c); previewAvatar(c, nickname || '新玩家'); }} onMouseEnter={() => previewAvatar(c, nickname || '新玩家')} aria-label={c}
+          <button type="button" key={c} onClick={() => { setAvatar(c); previewAvatar(c, nickname || tr("新玩家")); }} onMouseEnter={() => previewAvatar(c, nickname || tr("新玩家"))} aria-label={c}
             className={`av-pick ${avatar === c ? 'on' : ''}`}>
             <Avatar color={c} name={nickname} size={40}/>
           </button>
         ))}
       </div>
-      <input className="kos-input" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder="4 位 PIN（可选）" style={{...inputStyle, width: 180}}/>
+      <input className="kos-input" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder={tr("4 位 PIN（可选）")} style={{...inputStyle, width: 180}}/>
       {err && <div style={{color: 'var(--red)', fontWeight: 800}}>{err}</div>}
       <div className="row">
-        <button className="btn primary small" disabled={busy}>{busy ? '创建中…' : '创建'}</button>
-        <button type="button" className="btn small ghost" onClick={onCancel}>取消</button>
+        <button className="btn primary small" disabled={busy}>{busy ? tr("创建中…") : tr("创建")}</button>
+        <button type="button" className="btn small ghost" onClick={onCancel}>{tr("取消")}</button>
       </div>
     </form>
   );
@@ -66,11 +67,11 @@ function PinPrompt({kid, onOk, onCancel}) {
     <div className="modal-back" onClick={onCancel}>
       <div className="modal panel pop col" style={{maxWidth: 360, alignItems: 'center'}} onClick={e => e.stopPropagation()}>
         <Avatar color={kid.avatar} name={kid.nickname} size={64}/>
-        <div className="panel-title" style={{fontSize: 22}}>{kid.nickname}，输入 PIN</div>
-        <input className="kos-input" autoFocus value={pin} onChange={e => check(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" type="password"
-          className={bad ? 'shake' : ''} style={{...inputStyle, width: 140, fontSize: 28, textAlign: 'center', letterSpacing: '.4em'}}/>
-        {bad && <div style={{color: 'var(--red)', fontWeight: 800}}>PIN 不对，再试一次</div>}
-        <button className="btn small ghost" onClick={onCancel}>取消</button>
+        <div className="panel-title" style={{fontSize: 22}}>{kid.nickname}{tr("，输入 PIN")}</div>
+        <input autoFocus value={pin} onChange={e => check(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" type="password"
+          className={bad ? 'kos-input shake' : 'kos-input'} style={{...inputStyle, width: 140, fontSize: 28, textAlign: 'center', letterSpacing: '.4em'}}/>
+        {bad && <div style={{color: 'var(--red)', fontWeight: 800}}>{tr("PIN 不对，再试一次")}</div>}
+        <button className="btn small ghost" onClick={onCancel}>{tr("取消")}</button>
       </div>
     </div>
   );
@@ -84,7 +85,7 @@ function ParentPanel({session}) {
 
   async function refresh() {
     const {data, error} = await listKids();
-    if (error) setErr('读取孩子档案失败：' + error.message); else { setErr(''); setKids(data); }
+    if (error) setErr(tr("读取孩子档案失败：") + error.message); else { setErr(''); setKids(data); }
   }
   useEffect(() => { refresh(); }, [session?.user?.id]);
 
@@ -92,20 +93,20 @@ function ParentPanel({session}) {
     setBusyId(kid.id);
     const {error} = await activateKid(kid);
     setBusyId(null);
-    if (error) setErr('云存档读取失败，先用本机存档：' + error.message);
+    if (error) setErr(tr("云存档读取失败，先用本机存档：") + error.message);
   }
 
 
   return (
     <div className="panel mt2 col" style={{padding: '14px 18px', textAlign: 'left'}}>
       <div className="row between wrap">
-        <span className="chip">家长 · {session.user?.email}</span>
-        <button className="btn small ghost" onClick={async () => { await deactivateKid(); await signOut(); }}>退出登录</button>
+        <span className="chip">{tr("家长 · ")}{session.user?.email}</span>
+        <button className="btn small ghost" onClick={async () => { await deactivateKid(); await signOut(); }}>{tr("退出登录")}</button>
       </div>
       {err && <div style={{color: 'var(--red)', fontWeight: 800}}>{err}</div>}
-      <div className="kicker">谁来玩？</div>
+      <div className="kicker">{tr("谁来玩？")}</div>
       <div className="row wrap">
-        {kids === null && <span className="muted">读取中…</span>}
+        {kids === null && <span className="muted">{tr("读取中…")}</span>}
         {kids?.map(kid => {
           const active = activeKid?.id === kid.id;
           return (
@@ -116,14 +117,14 @@ function ParentPanel({session}) {
                 <Avatar color={kid.avatar} name={kid.nickname}/>
                 <div className="col" style={{gap: 2}}>
                   <strong style={{fontSize: 18}}>{kid.nickname}</strong>
-                  <span className="muted" style={{fontSize: 12}}>{busyId === kid.id ? '读取存档…' : active ? '正在玩 ✓' : kid.pin ? '🔒 有 PIN' : '点我开始'}</span>
+                  <span className="muted" style={{fontSize: 12}}>{busyId === kid.id ? tr("读取存档…") : active ? tr("正在玩 ✓") : kid.pin ? tr("🔒 有 PIN") : tr("点我开始")}</span>
                 </div>
               </div>
             </div>
           );
         })}
-        {!adding && <button className="btn" onClick={() => setAdding(true)}>＋ 新建孩子档案</button>}
-        {kids?.length > 0 && <button className="btn ghost" onClick={() => setManaging(true)}>⚙ 管理档案</button>}
+        {!adding && <button className="btn" onClick={() => setAdding(true)}>{tr("＋ 新建孩子档案")}</button>}
+        {kids?.length > 0 && <button className="btn ghost" onClick={() => setManaging(true)}>{tr("⚙ 管理档案")}</button>}
       </div>
       {adding && <NewKidForm onCancel={() => setAdding(false)} onDone={kid => { setAdding(false); refresh(); choose(kid); }}/>}
       {managing && <ParentManager onClose={() => { setManaging(false); refresh(); }}/>}
@@ -151,13 +152,13 @@ export default function AccountPanel() {
 
   // No guest mode: a parent must sign in with Google and pick a kid profile before playing.
   if (session) return <ParentPanel session={session}/>;
-  if (googleReady === null || session === undefined) return <div className="panel mt2" style={{padding: '14px 20px', fontWeight: 800}}>正在检查登录状态…</div>;
-  if (googleReady === false) return <div className="panel mt2" style={{padding: '14px 20px', fontWeight: 800, color: 'var(--red)'}}>登录服务暂时不可用，请稍后刷新。</div>;
+  if (googleReady === null || session === undefined) return <div className="panel mt2" style={{padding: '14px 20px', fontWeight: 800}}>{tr("正在检查登录状态…")}</div>;
+  if (googleReady === false) return <div className="panel mt2" style={{padding: '14px 20px', fontWeight: 800, color: 'var(--red)'}}>{tr("登录服务暂时不可用，请稍后刷新。")}</div>;
   return (
     <div className="panel mt2 col login-panel" style={{padding: '18px 22px', alignItems: 'center', textAlign: 'center'}}>
-      <div className="login-h">家长先登录</div>
-      <button className="btn primary big login-go" onClick={() => signInWithGoogle()}><span className="login-g">G</span>用 Google 登录</button>
-      <span className="muted" style={{fontSize: 13, maxWidth: 360}}>登录后给孩子建一个档案（只需昵称，不用真名），进度会自动保存在云端。</span>
+      <div className="login-h">{tr("家长先登录")}</div>
+      <button className="btn primary big login-go" onClick={() => signInWithGoogle()}><span className="login-g">G</span>{tr("用 Google 登录")}</button>
+      <span className="muted" style={{fontSize: 13, maxWidth: 360}}>{tr("登录后给孩子建一个档案（只需昵称，不用真名），进度会自动保存在云端。")}</span>
     </div>
   );
 }

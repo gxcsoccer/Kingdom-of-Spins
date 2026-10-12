@@ -96,7 +96,8 @@
 .wm-hero-name{position:absolute;left:14px;top:50px;margin:0;writing-mode:vertical-rl;font-family:"STKaiti","Kaiti SC","KaiTi",serif;font-weight:900;font-size:clamp(54px,9vmin,120px);line-height:1;color:#fff;-webkit-text-stroke:5px #111;paint-order:stroke fill;text-shadow:7px 7px 0 var(--c)}
 .wm-hero-stamp{position:absolute;right:18px;top:18px;width:96px;height:96px;border-radius:50%;border:5px double #c8102e;color:#c8102e;display:grid;place-items:center;font-weight:900;font-size:20px;transform:rotate(-14deg);background:rgba(255,255,255,.75)}
 .wm-hero-team{position:absolute;right:18px;bottom:18px;background:var(--c);color:#fff;border:3px solid #111;padding:4px 12px;font-weight:900;box-shadow:3px 3px 0 #111}
-.wm-p-talk{display:grid;place-items:center;padding:18px;background:radial-gradient(rgba(17,17,17,.12) 1px,transparent 1.5px) 0 0/6px 6px,#fff}
+.wm-p-talk{display:grid;place-items:center;align-content:center;gap:26px;padding:18px 18px 44px;background:radial-gradient(rgba(17,17,17,.12) 1px,transparent 1.5px) 0 0/6px 6px,#fff}
+.wm-voice{position:relative;z-index:1;min-height:44px;padding:8px 16px;border:2px solid #111;background:#fff;font:inherit;font-weight:800;cursor:pointer}
 .wm-balloon{position:relative;max-width:92%;background:#fff;border:4px solid #111;border-radius:50%/42%;padding:26px 34px;font-weight:900;font-size:clamp(18px,3vmin,34px);line-height:1.4;text-align:center;box-shadow:5px 5px 0 #111;animation:wm-pop .45s .35s cubic-bezier(.2,1.6,.4,1) both}
 .wm-balloon::after{content:'';position:absolute;left:12%;bottom:-26px;border:14px solid transparent;border-top:26px solid #111;border-bottom:0;transform:rotate(18deg)}
 @keyframes wm-pop{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
@@ -116,14 +117,19 @@
 @keyframes wm-gopulse{0%,100%{scale:1}50%{scale:1.05}}
 
 @media (max-width:760px),(max-aspect-ratio:1/1){
-  .wm-sheet{grid-template-columns:1fr;grid-template-rows:42vh auto auto auto;overflow-y:auto}
-  .wm-p-hero{grid-row:auto}.wm-p-act{grid-column:auto}
+  .wm-sheet{grid-template-columns:1fr;grid-template-rows:42vh max-content max-content max-content;align-content:start;overflow-y:auto}
+  .wm-p-hero{grid-row:auto}.wm-p-act{grid-column:auto;flex-wrap:wrap;justify-content:center;gap:18px;padding-bottom:20px}
   .wm-hud-title{font-size:20px;padding:2px 12px}
   .wm-hud-chips{font-size:12px}.wm-hud-chips>*{padding:5px 8px}
   .wm-hud-demo{display:none}
   .wm-back{white-space:nowrap;font-size:14px;padding:8px 12px}
   .wm-go{white-space:nowrap;padding:6px 26px 8px;font-size:30px}
   .wm-doctor{max-width:88vw}.wm-doctor img{width:60px;height:60px}.wm-doctor-say{font-size:12.5px;margin-bottom:24px}
+}
+@media (max-width:480px){
+  .wm-balloon{padding:18px 22px}
+  .wm-p-act{flex-direction:column;align-items:stretch}
+  .wm-go{font-size:28px;padding-inline:16px}
 }
 @media (prefers-reduced-motion:reduce){
   .wm *,.wm *::before,.wm *::after{animation:none!important;transition:none!important}

@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {hush} from '../game/voiceClips.js';
 import {beyTitle} from './beyName.js';
@@ -45,7 +46,7 @@ export default function BattleScreen(){
   const opp=useMemo(()=>blader?{name:blader.name,bey:blader.bey,launch:blader.launch,color:blader.color,blader}:(()=>{const look=params.oppLook?bladerById(params.oppLook):null; // optional cosmetic opponent (versus mode: a defeated blader's portrait/taunt, no story effects)
     return {name:look?.name||'CPU',bey:params.oppBey||BEYS.titan,launch:look?.launch||{rpm:4900,tilt:4,speed:.35,aim:.5},color:look?.color||'#8d99a6',...(look?{blader:look}:{})};})(),[blader,params.oppBey,params.oppLook]);
   const target=save.demo?2:(params.rounds||WIN_ROUNDS);   // rounds to win (5 局 3 胜)
-  const myName=save.profile?.nickname||'你';
+  const myName=save.profile?.nickname||tr("你");
 
   // 结算页刷新保护：整场打完后把结果存进 sessionStorage，刷新同一个地址时直接回到结算页（奖励不会重复发放）。
   const [restored]=useState(peekSavedResult);
@@ -127,8 +128,8 @@ export default function BattleScreen(){
     else go(blader?'map':'versus');
   };
 
-  if(!myBey)return <div className="page"><div className="panel"><p>先选一只陀螺，再来挑战吧！</p><button className="btn primary" onClick={()=>go('starter')}>选择初始陀螺</button></div></div>;
-  if(phase==='error')return <div className="page"><div className="panel"><p>对战暂时没能启动，请再试一次</p><button className="btn primary" onClick={()=>{player?.dispose();setPlayer(null);setPhase(rounds.length?'roundEnd':'prep');}}>重新发射</button><button className="btn" onClick={exitBattle}>返回</button></div></div>;
+  if(!myBey)return <div className="page"><div className="panel"><p>{tr("先选一只陀螺，再来挑战吧！")}</p><button className="btn primary" onClick={()=>go('starter')}>{tr("选择初始陀螺")}</button></div></div>;
+  if(phase==='error')return <div className="page"><div className="panel"><p>{tr("对战暂时没能启动，请再试一次")}</p><button className="btn primary" onClick={()=>{player?.dispose();setPlayer(null);setPhase(rounds.length?'roundEnd':'prep');}}>{tr("重新发射")}</button><button className="btn" onClick={exitBattle}>{tr("返回")}</button></div></div>;
 
   return (
     <div className="page dark battle-page">
@@ -140,12 +141,12 @@ export default function BattleScreen(){
         {phase==='fight'&&<div className="fight-controls">
           {[1,2,4].map(s=><button key={s} className={`btn small ${speed===s?'yellow':''}`} onClick={()=>{player.setSpeed(s);setSpeed(s);}}>{s}×</button>)}
           <button className="btn small" onClick={()=>{sfx.setMuted(!muted);setMutedState(!muted);}}>{muted?'🔇':'🔊'}</button>
-          <span className="model-note" style={{color:'#bbb'}}>模型结果 · MuJoCo 4 kHz</span>
+          <span className="model-note" style={{color:'#bbb'}}>{tr("模型结果 · MuJoCo 4 kHz")}</span>
         </div>}
         {onPrep&&<LaunchSequence key={roundRef.current} me={{name:myName,avatar:/^[1-4]$/.test(String(save.profile?.avatar))?String(save.profile.avatar):null}} opp={opp} beys={save.collection} beyUid={myBey.uid} setBeyUid={setBeyUid}
           first={phase==='prep'&&!rounds.length} lastRound={rounds.at(-1)} onPredict={setPrediction} onLaunch={shoot}
           team={team} pilot={pilot} onPilot={pickPilot} makeMateLaunch={m=>mateLaunch(m.blader,myBey,`${m.id}-${save.battles}-${roundRef.current+1}`)}
-          lastLabel={rounds.length?`上一回合：${FINISH_LABEL[rounds.at(-1).result.reason]} · ${rounds.at(-1).result.winner?opp.name:myName} 赢下这局　局分 ${score[0]} : ${score[1]}`:''}/>}
+          lastLabel={rounds.length?tr("上一回合：{0} · {1} 赢下这局　局分 {2} : {3}", [FINISH_LABEL[rounds.at(-1).result.reason], rounds.at(-1).result.winner?opp.name:myName, score[0], score[1]]):''}/>}
       </div>
       {phase==='result'&&<ResultPanel restored={!!restored} {...{won,score,rounds,opp,blader,myBey,prediction,save,go,recordMatch,unlockCards,recruit,myName,addCoins,
         }}/>}
@@ -158,14 +159,14 @@ export function Hud({player,names,beys,score,target,color,round}){
   useEffect(()=>{if(!player)return;let raf;const f=()=>{const cur=player.getState(player.clock);setSt(cur);if(cur&&!player.paused)sfx.spinRpm(cur.bodies[0]?.rpm,cur.bodies[1]?.rpm);raf=requestAnimationFrame(f);};f();return()=>cancelAnimationFrame(raf);},[player]);
   const side=(i)=>{const b=st?.bodies?.[i],rpm=Math.max(0,Math.abs(b?.rpm||0));return (
     <div className={`hud-side ${i?'right':''}`} style={{background:i?'#ff9f1a':'#2f7bff'}}>
-      <div className="hud-top"><span className="hud-name"><b>{names[i]}</b><em> · {beyTitle(beys[i])}</em></span><span className="hud-pts">{score[i]}<small> 胜</small></span></div>
-      <div className="hud-bar"><span className="hud-bar-l">转速</span><i style={{width:`${Math.min(100,rpm/70)}%`,background:rpm<1200?'var(--red)':'var(--yellow)'}}/></div>
-      <div className="hud-meta">{Math.round(rpm).toLocaleString()} RPM · 倾角 {Math.round(b?.tilt||0)}°</div>
+      <div className="hud-top"><span className="hud-name"><b>{names[i]}</b><em> · {beyTitle(beys[i])}</em></span><span className="hud-pts">{score[i]}<small>{tr(" 胜")}</small></span></div>
+      <div className="hud-bar"><span className="hud-bar-l">{tr("转速")}</span><i style={{width:`${Math.min(100,rpm/70)}%`,background:rpm<1200?'var(--red)':'var(--yellow)'}}/></div>
+      <div className="hud-meta">{Math.round(rpm).toLocaleString()}{tr(" RPM · 倾角 ")}{Math.round(b?.tilt||0)}°</div>
     </div>);};
   return (
     <div className="hud">
       {side(0)}
-      <div className="hud-mid"><div>ROUND {Math.max(1,round)}</div><div className="hud-time">{(st?.time||0).toFixed(1)}s</div><div className="hud-target">{target*2-1} 局 {target} 胜</div></div>
+      <div className="hud-mid"><div>ROUND {Math.max(1,round)}</div><div className="hud-time">{(st?.time||0).toFixed(1)}s</div><div className="hud-target">{target*2-1}{tr(" 局 ")}{target}{tr(" 胜")}</div></div>
       {side(1)}
     </div>
   );

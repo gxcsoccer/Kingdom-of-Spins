@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import BeyShowcase from '../scene/BeyShowcase.jsx';
@@ -25,9 +26,9 @@ function kacha(pitch = 1) {
   } catch { /* audio is optional */ }
 }
 
-const VAR_LABEL = { bit: '轴尖 Bit', ring: '外圈配重', height: 'Ratchet 高度', wings: '翼片数' };
-const HEIGHT_LABEL = { 55: '55（矮·重心低）', 60: '60（中）', 70: '70（高·重心高）' };
-export const fmtChange = (key, v) => key === 'bit' ? TIPS[v]?.label ?? v : key === 'ring' ? `外圈 ${v}%` : key === 'height' ? HEIGHT_LABEL[v] ?? v : `${v} 片`;
+const VAR_LABEL = { bit: tr("轴尖 Bit"), ring: tr("外圈配重"), height: tr("Ratchet 高度"), wings: tr("翼片数") };
+const HEIGHT_LABEL = { 55: tr("55（矮·重心低）"), 60: tr("60（中）"), 70: tr("70（高·重心高）") };
+export const fmtChange = (key, v) => key === 'bit' ? TIPS[v]?.label ?? v : key === 'ring' ? tr("外圈 {0}%", [v]) : key === 'height' ? HEIGHT_LABEL[v] ?? v : tr("{0} 片", [v]);
 const getVal = (b, key) => key === 'bit' ? b.bit : key === 'ring' ? b.blade.ring : key === 'height' ? (b.ratchet?.height ?? 60) : b.blade.wings;
 function applyVal(b, key, v) {
   const n = structuredClone(b);
@@ -87,8 +88,8 @@ function WeightDisc({ bey, outer, onSet, locked, onLockedTry }) {
       <circle r={R_SPLIT + 30} fill="none" stroke="#fff" strokeWidth="2" strokeDasharray="5 4" opacity=".9" />
       <circle r={R_SPLIT} fill={c.secondary || '#eee'} stroke="#111" strokeWidth="3" />
       <circle r="14" fill={c.accent || '#ffd400'} stroke="#111" strokeWidth="3" />
-      <text y="-80" textAnchor="middle" className="wb-zone-l">外圈</text>
-      <text y="5" textAnchor="middle" className="wb-zone-l" style={{ fontSize: 9 }}>中心</text>
+      <text y="-80" textAnchor="middle" className="wb-zone-l">{tr("外圈")}</text>
+      <text y="5" textAnchor="middle" className="wb-zone-l" style={{ fontSize: 9 }}>{tr("中心")}</text>
       {blocks.map(b => {
         const [x, y] = drag?.id === b.id ? [drag.x, drag.y] : positions[b.id];
         return (
@@ -113,14 +114,14 @@ function InertiaGauge({ value, min, max, base }) {
         <path d="M -48.5 28 A 56 56 0 1 1 48.5 28" fill="#fff" stroke="#111" strokeWidth="4" />
         {Array.from({ length: 13 }, (_, i) => { const a = (-120 + i * 20 - 90) * Math.PI / 180, r1 = i % 3 ? 44 : 39; return <line key={i} x1={r1 * Math.cos(a)} y1={r1 * Math.sin(a)} x2={50 * Math.cos(a)} y2={50 * Math.sin(a)} stroke="#111" strokeWidth={i % 3 ? 2 : 3.5} />; })}
         <path d="M 30 -38 A 50 50 0 0 1 48 8" fill="none" stroke="#ff2d4a" strokeWidth="6" />
-        <text x="-30" y="22" fontSize="8" fontWeight="900">小</text><text x="24" y="22" fontSize="8" fontWeight="900">大</text>
+        <text x="-30" y="22" fontSize="8" fontWeight="900">{tr("小")}</text><text x="24" y="22" fontSize="8" fontWeight="900">{tr("大")}</text>
         <g className="wb-needle" style={{ transform: `rotate(${ang}deg)` }}>
           <path d="M -3 4 L 0 -46 L 3 4 Z" fill="#ff2d4a" stroke="#111" strokeWidth="1.5" />
         </g>
         <circle r="6" fill="#111" />
       </svg>
-      <div className="wb-gauge-t">转动惯量计</div>
-      <div className="wb-gauge-v">I = {(value * 1e6).toFixed(2)} ×10⁻⁶ kg·m² <b className={rel > 0 ? 'up' : rel < 0 ? 'down' : ''}>{rel > 0 ? `+${rel}%` : rel < 0 ? `${rel}%` : '原版'}</b></div>
+      <div className="wb-gauge-t">{tr("转动惯量计")}</div>
+      <div className="wb-gauge-v">I = {(value * 1e6).toFixed(2)} ×10⁻⁶ kg·m² <b className={rel > 0 ? 'up' : rel < 0 ? 'down' : ''}>{rel > 0 ? `+${rel}%` : rel < 0 ? `${rel}%` : tr("原版")}</b></div>
     </div>
   );
 }
@@ -135,7 +136,7 @@ function Skater({ open }) {
           : <path d="M0 -12 L-6 -4 L0 0 M0 -12 L6 -4 L0 0" stroke="#111" strokeWidth="3" fill="none" strokeLinecap="round" />}
         <path d="M-22 18 A 24 10 0 0 0 22 18" fill="none" stroke="#2f7bff" strokeWidth="2" strokeDasharray="3 3" />
       </svg>
-      <div><b>像花样滑冰：</b>{open ? '手臂张开 = 转动惯量大，转得稳、不容易被撞停' : '手臂收紧 = 转动惯量小，转得快但容易被带偏'}</div>
+      <div><b>{tr("像花样滑冰：")}</b>{open ? tr("手臂张开 = 转动惯量大，转得稳、不容易被撞停") : tr("手臂收紧 = 转动惯量小，转得快但容易被带偏")}</div>
     </div>
   );
 }
@@ -209,14 +210,14 @@ function Lever({ value, onSet, locked, onLockedTry }) {
   const y = dragY ?? yOf(idx < 0 ? 1 : idx);
   return (
     <div className={`wb-lever ${locked ? 'locked' : ''}`}>
-      <div className="wb-lever-t">Ratchet 高度</div>
+      <div className="wb-lever-t">{tr("Ratchet 高度")}</div>
       <div className="wb-lever-body">
         <div ref={trackRef} className="wb-lever-track" onPointerDown={down} onPointerMove={e => dragY != null && move(e)} onPointerUp={up} onPointerCancel={up}>
           {NOTCHES.map((n, i) => <div key={n} className="wb-notch" style={{ top: yOf(i) }} />)}
           <div className={`wb-handle ${dragY != null ? 'drag' : ''}`} style={{ top: y }}><span>{value}</span></div>
         </div>
         <div className="wb-lever-labels">
-          {NOTCHES.map((n, i) => <div key={n} style={{ top: yOf(i) }} className={n === value ? 'on' : ''}>{n}<small>{['重心 高', '重心 中', '重心 低'][i]}</small></div>)}
+          {NOTCHES.map((n, i) => <div key={n} style={{ top: yOf(i) }} className={n === value ? 'on' : ''}>{n}<small>{[tr("重心 高"), tr("重心 中"), tr("重心 低")][i]}</small></div>)}
         </div>
       </div>
     </div>
@@ -235,7 +236,7 @@ function WingToggle({ bey, value, onSet, locked, onLockedTry }) {
               {Array.from({ length: n }, (_, i) => <polygon key={i} points={wingOutline(spec, i).map(([x, y]) => `${x * k},${-y * k}`).join(' ')} fill={value === n ? '#ffd400' : '#fff'} stroke="#111" strokeWidth="3" strokeLinejoin="round" />)}
               <circle r="17" fill="#111" />
             </svg>
-            <b>{n} 片</b>
+            <b>{n}{tr(" 片")}</b>
           </button>
         );
       })}
@@ -244,10 +245,10 @@ function WingToggle({ bey, value, onSet, locked, onLockedTry }) {
 }
 
 export const QUESTIONS = [
-  { key: 'bit', icon: '🌀', q: '换个轴尖，会转得更久吗？', hint: '尖轴、圆轴、平轴、冲刺轴' },
-  { key: 'ring', icon: '⚖️', q: '重量放外圈，会更稳吗？', hint: '拖动金属配重块' },
-  { key: 'height', icon: '📏', q: 'Ratchet 高一点会怎样？', hint: '拉动高度拉杆' },
-  { key: 'wings', icon: '🪽', q: '翼片多一点会更猛吗？', hint: '2 片、3 片还是 4 片' },
+  { key: 'bit', icon: '🌀', q: tr("换个轴尖，会转得更久吗？"), hint: tr("尖轴、圆轴、平轴、冲刺轴") },
+  { key: 'ring', icon: '⚖️', q: tr("重量放外圈，会更稳吗？"), hint: tr("拖动金属配重块") },
+  { key: 'height', icon: '📏', q: tr("Ratchet 高一点会怎样？"), hint: tr("拉动高度拉杆") },
+  { key: 'wings', icon: '🪽', q: tr("翼片多一点会更猛吗？"), hint: tr("2 片、3 片还是 4 片") },
 ];
 export { VAR_LABEL };
 
@@ -262,7 +263,7 @@ function OptPreview({ k, base }) {
   if (k === 'ring') {
     const disc = outer => <svg viewBox="-24 -24 48 48" width="40" height="40"><circle r="21" fill="#e9eef5" stroke="#111" strokeWidth="2.5"/><circle r="5" fill="#111"/>
       {[0, 1, 2, 3, 4, 5].map(i => { const a = i * Math.PI / 3, r = outer ? 16 : 9; return <rect key={i} x={r * Math.cos(a) - 3} y={r * Math.sin(a) - 3} width="6" height="6" fill="#8d99a6" stroke="#111" strokeWidth="1.5"/>; })}</svg>;
-    return <span className="wb-prev"><span className="wb-opt">{disc(false)}<small>放中间</small></span><b className="wb-vs">vs</b><span className="wb-opt">{disc(true)}<small>放外圈</small></span><span className="wb-cur-tag">现在 外圈 {base.blade.ring}%</span></span>;
+    return <span className="wb-prev"><span className="wb-opt">{disc(false)}<small>{tr("放中间")}</small></span><b className="wb-vs">vs</b><span className="wb-opt">{disc(true)}<small>{tr("放外圈")}</small></span><span className="wb-cur-tag">{tr("现在 外圈 ")}{base.blade.ring}%</span></span>;
   }
   if (k === 'height') {
     const cur = base.ratchet?.height ?? 60;
@@ -273,7 +274,7 @@ function OptPreview({ k, base }) {
   return <span className="wb-prev">{[2, 3, 4].map(n => { const v = { ...base, blade: { ...base.blade, wings: n } }; const sp = specFromBey(v), k2 = 1 / .032 * 18;
     return <span key={n} className={`wb-opt ${base.blade.wings === n ? 'cur' : ''}`}><svg viewBox="-20 -20 40 40" width="36" height="36">
       {Array.from({ length: n }, (_, i) => <polygon key={i} points={wingOutline(sp, i).map(([x, y]) => `${(x * k2).toFixed(1)},${(-y * k2).toFixed(1)}`).join(' ')} fill={base.colors?.primary || '#2f7bff'} stroke="#111" strokeWidth="1.5"/>)}
-      <circle r="7" fill="#fff" stroke="#111" strokeWidth="1.5"/></svg><small>{n} 片</small></span>; })}</span>;
+      <circle r="7" fill="#fff" stroke="#111" strokeWidth="1.5"/></svg><small>{n}{tr(" 片")}</small></span>; })}</span>;
 }
 
 /** Step ① — compact question cards with real part previews; the doctor's suggestion (from this match) is marked. */
@@ -282,11 +283,11 @@ export function QuestionPicker({ onPick, base, suggestKey, why }) {
     <div className="wb-qs">
       {QUESTIONS.map((x, i) => (
         <button key={x.key} className={`wb-q ${suggestKey === x.key ? 'rec' : ''}`} style={{ '--i': i }} onClick={() => { kacha(1 + i * .1); onPick(x.key); }}>
-          {suggestKey === x.key && <span className="wb-rec">👨‍🔬 博士推荐{why ? ` · ${why}` : ''}</span>}
+          {suggestKey === x.key && <span className="wb-rec">{tr("👨‍🔬 博士推荐")}{why ? ` · ${why}` : ''}</span>}
           <span className="wb-q-text">{x.q}</span>
-          {base && <span className="wb-q-now">你的 {base.name} 现在：<b>{fmtChange(x.key, getVal(base, x.key))}</b></span>}
+          {base && <span className="wb-q-now">{tr("你的 ")}{base.name}{tr(" 现在：")}<b>{fmtChange(x.key, getVal(base, x.key))}</b></span>}
           {base && <OptPreview k={x.key} base={base}/>}
-          <span className="wb-q-go">选这个 ▶</span>
+          <span className="wb-q-go">{tr("选这个 ▶")}</span>
         </button>
       ))}
     </div>
@@ -298,9 +299,9 @@ export function DoctorRule({ Face }) {
   return (
     <div className="wb-rule strip">
       {Face}
-      <div className="wb-rule-say">做实验的秘诀：<b>一次只改一个地方！</b>同时换了轴尖又换了配重，赢了也不知道是谁的功劳～</div>
+      <div className="wb-rule-say">{tr("做实验的秘诀：")}<b>{tr("一次只改一个地方！")}</b>{tr("同时换了轴尖又换了配重，赢了也不知道是谁的功劳～")}</div>
       <div className="wb-rule-mini bad"><span>🌀+⚖️</span><b>？？</b></div>
-      <div className="wb-rule-mini good"><span>🌀</span><b>原来是它！</b></div>
+      <div className="wb-rule-mini good"><span>🌀</span><b>{tr("原来是它！")}</b></div>
     </div>
   );
 }
@@ -331,7 +332,7 @@ export default function Workbench({ base, varKey, onChange }) {
 
   const control = {
     bit: <div className="wb-ctl wb-ctl-bit">
-      <div ref={slotRef} key={snap} className={`wb-slot ${snap ? 'snap' : ''}`}><BitIcon tip={variant.bit} big /><div><b>轴尖插槽</b><br /><small>把下面的轴尖<b>拖进来</b>（或直接点）</small></div></div>
+      <div ref={slotRef} key={snap} className={`wb-slot ${snap ? 'snap' : ''}`}><BitIcon tip={variant.bit} big /><div><b>{tr("轴尖插槽")}</b><br /><small>{tr("把下面的轴尖")}<b>{tr("拖进来")}</b>{tr("（或直接点）")}</small></div></div>
       <BitTray value={variant.bit} slotRef={slotRef} onSet={k => { kacha(); setSnap(x => x + 1); setTo(k); }} locked={false} onLockedTry={no} />
     </div>,
     ring: <div className="wb-ctl wb-ctl-ring">
@@ -339,30 +340,30 @@ export default function Workbench({ base, varKey, onChange }) {
         <WeightDisc bey={variant} outer={outer} locked={false} onLockedTry={no} onSet={k => { setBlocks(k); setTo(k === baseOuter ? base.blade.ring : ringFromBlocks(k)); }} />
         <div className="wb-weights-side">
           <InertiaGauge value={inertia.v} min={inertia.lo} max={inertia.hi} base={inertia.base} />
-          <div className="wb-ring">外圈 {outer}/6 块 · 配重 {variant.blade.ring}%</div>
+          <div className="wb-ring">{tr("外圈 ")}{outer}{tr("/6 块 · 配重 ")}{variant.blade.ring}%</div>
         </div>
       </div>
       <Skater open={outer >= 3} />
     </div>,
     height: <div className="wb-ctl wb-ctl-height">
       <Lever value={variant.ratchet?.height ?? 60} onSet={v => setTo(v)} locked={false} onLockedTry={no} />
-      <div className="wb-height-tip"><b>Ratchet 越高</b>，陀螺的重心越高：更容易被撞到上半身、也更容易歪。<br /><b>越矮</b>重心越低，站得更稳。</div>
+      <div className="wb-height-tip"><b>{tr("Ratchet 越高")}</b>{tr("，陀螺的重心越高：更容易被撞到上半身、也更容易歪。")}<br /><b>{tr("越矮")}</b>{tr("重心越低，站得更稳。")}</div>
     </div>,
     wings: <div className="wb-ctl wb-ctl-wings">
       <WingToggle bey={base} value={variant.blade.wings} onSet={n => { kacha(1.1); setTo(n); }} locked={false} onLockedTry={no} />
-      <div className="wb-height-tip">翼片越多，<b>撞到对手的机会</b>越多，但每一片更小；翼片少，每次撞击更集中。</div>
+      <div className="wb-height-tip">{tr("翼片越多，")}<b>{tr("撞到对手的机会")}</b>{tr("越多，但每一片更小；翼片少，每次撞击更集中。")}</div>
     </div>,
   }[varKey];
 
   return (
     <div className="wb wb-one">
-      <section className="wb-card wb-control"><h4>{QUESTIONS.find(x => x.key === varKey)?.icon} 动手改一改：{VAR_LABEL[varKey]}</h4>{control}</section>
+      <section className="wb-card wb-control"><h4>{QUESTIONS.find(x => x.key === varKey)?.icon}{tr(" 动手改一改：")}{VAR_LABEL[varKey]}</h4>{control}</section>
       <section className="wb-card wb-center">
         <div className="wb-preview"><BeyShowcase bey={variant} tilt={.3} zoom={1.2} background standalone /></div>
         <div className="wb-ba">
-          <span className="wb-ba-chip a"><small>原版</small>{fmtChange(varKey, from)}</span>
+          <span className="wb-ba-chip a"><small>{tr("原版")}</small>{fmtChange(varKey, from)}</span>
           <b>→</b>
-          <span className={`wb-ba-chip b ${change ? 'on' : ''}`}><small>改装</small>{change ? change.toLabel : '还没改'}</span>
+          <span className={`wb-ba-chip b ${change ? 'on' : ''}`}><small>{tr("改装")}</small>{change ? change.toLabel : tr("还没改")}</span>
           {change && <button className="wb-undo" onClick={() => { setTo(null); setBlocks(null); }}>↩</button>}
         </div>
       </section>

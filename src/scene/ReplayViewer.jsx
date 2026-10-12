@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import BattleScene from './BattleScene.jsx';
 import './scene.css';
@@ -118,7 +119,7 @@ const ReplayViewer = forwardRef(function ReplayViewer({ beys, samples = [], even
     player.paused = false; player.lastWall = performance.now(); player.emit();
     onSeek?.(player.clock);
     const n = moments.indexOf(m);
-    setCaption({ key: Date.now(), num: CIRCLED[n] || n + 1, title: m.title || `关键时刻 ${n + 1}` });
+    setCaption({ key: Date.now(), num: CIRCLED[n] || n + 1, title: m.title || tr("关键时刻 {0}", [n + 1]) });
     clearTimeout(captionTimer.current);
     captionTimer.current = setTimeout(() => setCaption(null), 2600);
   }, [moments, player, onSeek]);
@@ -178,13 +179,13 @@ const ReplayViewer = forwardRef(function ReplayViewer({ beys, samples = [], even
               </div>
             )}
           </BattleScene>
-        ) : <div className="ks-rv-empty">没有回放数据</div>}
+        ) : <div className="ks-rv-empty">{tr("没有回放数据")}</div>}
       </div>
       <div className="ks-rv-bar">
         <div className="ks-rv-buttons">
-          <button className="ks-rv-btn" onClick={toggle} aria-label={ui.paused ? '播放' : '暂停'}>{ui.paused ? '▶' : '⏸'}</button>
-          <button className={`ks-rv-btn ${ui.speed < 1 ? 'on' : ''}`} onClick={slow}>¼× 慢动作</button>
-          <button className="ks-rv-btn" onClick={replay}>⟲ 重播</button>
+          <button className="ks-rv-btn" onClick={toggle} aria-label={ui.paused ? tr("播放") : tr("暂停")}>{ui.paused ? '▶' : '⏸'}</button>
+          <button className={`ks-rv-btn ${ui.speed < 1 ? 'on' : ''}`} onClick={slow}>{tr("¼× 慢动作")}</button>
+          <button className="ks-rv-btn" onClick={replay}>{tr("⟲ 重播")}</button>
           <span ref={timeRef} className="ks-rv-time">0.0s</span>
         </div>
         <div ref={trackRef} className="ks-rv-track" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
@@ -193,7 +194,7 @@ const ReplayViewer = forwardRef(function ReplayViewer({ beys, samples = [], even
             <div key={t} className={`ks-rv-tick ${major ? 'major' : ''}`} style={{ left: `${(t / duration) * 100}%` }}>{major && <span style={t > duration * .94 ? { left: 'auto', right: 4 } : undefined}>{Math.round(t)}s</span>}</div>
           ))}
           {collisions.map((e, i) => (
-            <div key={i} className="ks-rv-hit" title={`碰撞 ${fmt(e.time)}`} style={{ left: `${(e.time / duration) * 100}%`, width: 2 + 5 * (e.intensity ?? .5) }} />
+            <div key={i} className="ks-rv-hit" title={tr("碰撞 {0}", [fmt(e.time)])} style={{ left: `${(e.time / duration) * 100}%`, width: 2 + 5 * (e.intensity ?? .5) }} />
           ))}
           {finish && <div className="ks-rv-finish" style={{ left: `${(finish.time / duration) * 100}%` }}>FIN</div>}
           {moments.map((m, i) => (

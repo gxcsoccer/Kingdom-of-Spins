@@ -1,3 +1,5 @@
+import {createFallback} from '../src/ai/fallback.js';
+import {normalizeLocale, localizeTextFields, limitText} from '../src/i18n/index.js';
 // AI routes. Mounted by worker/index.js under /api/ai/*.
 // Provider order: 1) Claude through Cloudflare AI Gateway unified billing (env.AI binding, gateway "default",
 // model env.LLM_MODEL) → 2) optional env-gated Claude via Vercel AI Gateway / Anthropic API keys →
@@ -113,6 +115,11 @@ export const MODEL_RULES = `本游戏物理模型的硬规则（不得违背）�
 5. 越重的陀螺被撞时速度变化越小（动量 = 质量 × 速度）。`;
 // One helper for every route. Returns parsed JSON (json:true) or text. Throws only if every provider failed.
 export async function llm(env, {system, user, images=[], maxTokens=800, json:wantJson=true, kind='fusion', claudeOnly=false}) {
+  if (env?.RESPONSE_LOCALE === 'en') {
+    system = system.replace(/中文/g, 'English') + '\nOUTPUT LANGUAGE: English. All visible prose, names, labels, questions, options and explanations must be English. Keep JSON keys, IDs and verdict enum values unchanged. Chinese character limits mean short English sentences; keep spaces between words. Never translate player nicknames.';
+    user = user.replace(/中文/g, 'English') + '\nRespond in English using the required JSON schema.';
+    maxTokens = Math.ceil(maxTokens * 1.4);
+  }
   const ms = TIMEOUT_MS[kind] || 12000, claudeMs = CLAUDE_MS[kind] || 12000, model = modelFor(env, kind), errors = [];
   const parse = (text, via) => { const out = wantJson ? parseJSON(text) : text; return out && wantJson ? tagVia(out, via, errors.join('; ').slice(0,200)) : out; };
   if (cfClaudeAvailable(env)) {
@@ -140,7 +147,7 @@ async function runModel(env, messages, maxTokens=1400, kind='fusion') {
 }
 // Cut at a sentence/clause boundary instead of mid-word.
 export function clip(text='', max=70) {
-  const t = String(text).trim(); if (t.length<=max) return t;
+  const t = String(text).trim(); if (!/[\u3400-\u9fff]/.test(t)) return limitText(t,max); if (t.length<=max) return t;
   const cut = t.slice(0, max), i = Math.max(cut.lastIndexOf('。'), cut.lastIndexOf('！'), cut.lastIndexOf('？'), cut.lastIndexOf('；'));
   if (i >= max*.5) return cut.slice(0, i+1);
   const j = cut.lastIndexOf('，'); return (j >= max*.5 ? cut.slice(0, j) : cut.slice(0, max-1)) + '…';
@@ -159,6 +166,7 @@ const COACH = `你是陀螺王国的“融合博士”，一个热血少年漫�
 只输出一个 JSON 对象，不要任何其他文字。`;
 
 async function fusionChat(body, env) {
+  const {kidName, wishLook, diversifyLooks, specialMoveFor, LOOK_ENUMS, sanitizeCandidate, templateFusion, fusionName, keptParts, needsClarify, CLARIFY} = createFallback(env?.RESPONSE_LOCALE);
   const parents = Array.isArray(body.parents) ? body.parents.slice(0,2) : [];
   if (parents.length<2) return json({error:'need two parents'}, 400);
   const keepParent = body.keepParent===1 ? 1 : 0;
@@ -189,8 +197,8 @@ B（候选）：{"mode":"candidates","reply":"一句兴奋的开场","candidates
   try {
     const out = await runModel(env, [{role:'system', content:COACH}, {role:'user', content:user}]);
     if (out.mode==='ask' && !askedBefore && out.question) {
-      const options = (Array.isArray(out.options)?out.options:[]).map(o=>String(o).slice(0,24)).filter(Boolean).slice(0,3);
-      return json({reply:String(out.reply||CLARIFY.reply).slice(0,60), question:String(out.question).slice(0,60), options: options.length>=2?options:CLARIFY.options, via:out.__via});
+      const options = (Array.isArray(out.options)?out.options:[]).map(o=>limitText(o,24)).filter(Boolean).slice(0,3);
+      return json({reply:limitText(String(out.reply||CLARIFY.reply), 60), question:limitText(String(out.question), 60), options: options.length>=2?options:CLARIFY.options, via:out.__via});
     }
     const raw = Array.isArray(out.candidates) ? out.candidates.slice(0,3) : [];
     const wl = wishLook(allWish);
@@ -208,13 +216,14 @@ B（候选）：{"mode":"candidates","reply":"一句兴奋的开场","candidates
     const names = new Set(); uniq.forEach((c,i)=>{ if (names.has(c.name)) c.name = `${c.name} ${['II','X','Z'][i-1]||i}`; names.add(c.name); });
     if (uniq.length<3) for (const t of templateFusion({parents, wish:allWish, history:[{role:'assistant',question:'x'}], keepParent}).candidates||[]) if (uniq.length<3 && !seen.has(t.id)) { seen.add(t.id); uniq.push(t); }
     diversifyLooks(uniq);
-    return json({reply:String(out.reply||'融合完成！看看这几个方案！').slice(0,60), candidates:uniq, via:out.__via, aiNote:out.__note||undefined});
+    return json({reply:limitText(String(out.reply||'融合完成！看看这几个方案！'), 60), candidates:uniq, via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
     return json({...fallback(), error:String(e.message||e)});
   }
 }
 
 async function commentary(body, env) {
+  const {templateCommentary, STYLE_ZH, fmtT, fmtRpm, fmtV, tidyNumbers, suggestTryNext, ownName} = createFallback(env?.RESPONSE_LOCALE);
   const summary = body.summary || {};
   const names = Array.isArray(body.names) ? body.names.slice(0,2).map(String) : ['A','B'];
   const fallback = () => templateCommentary(summary, names);
@@ -248,18 +257,19 @@ tryNext 只能建议改“你的 ${names[0]}”的一个地方（外圈配重/�
     const card = getCard(out.science?.cardId) || getCard(fallback().science.cardId);
     const story = (Array.isArray(out.story)?out.story:[]).map(s=>clip(ownName(tidyNumbers(String(s)), names[0], names[1]),72)).filter(Boolean).slice(0,4);
     if (!story.length || !out.headline) throw new Error('incomplete');
-    let sciBody = tidyNumbers(String(out.science?.body||card.body)).slice(0,90);
-    if (!sciBody.includes('模型')) sciBody += '（在这个模型里）';
+    let sciBody = limitText(tidyNumbers(String(out.science?.body||card.body)), 90);
+    if (!/模型|model/i.test(sciBody)) sciBody += env.RESPONSE_LOCALE==='en' ? ' (in this model)' : '（在这个模型里）';
     // tryNext must target the player's own bey; otherwise use the deterministic suggestion.
     let tryNext = tidyNumbers(String(out.tryNext||''));
-    if (!tryNext || (names[1] && tryNext.includes(names[1]) && !tryNext.includes(names[0])) || !(tryNext.includes(names[0])||tryNext.includes('你的'))) tryNext = hint;
-    return json({headline:tidyNumbers(String(out.headline)).slice(0,20), story, science:{cardId:card.id, title:card.title, body:sciBody, layer:card.layer}, tryNext:tryNext.slice(0,60), via:out.__via, aiNote:out.__note||undefined});
+    if (!tryNext || (names[1] && tryNext.includes(names[1]) && !tryNext.includes(names[0])) || !(tryNext.includes(names[0])||/你的|your/i.test(tryNext))) tryNext = hint;
+    return json({headline:limitText(tidyNumbers(String(out.headline)), 20), story, science:{cardId:card.id, title:card.title, body:sciBody, layer:card.layer}, tryNext:limitText(tryNext,60), via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
     return json({...fallback(), error:String(e.message||e)});
   }
 }
 
 async function moments(body, env) {
+  const {STYLE_ZH, fmtT, fmtRpm, fmtV, tidyNumbers, ownName, templateMoments, templateMoment, momentCard, sanitizeQuiz, designTakeaway} = createFallback(env?.RESPONSE_LOCALE);
   const summary = body.summary || {}, list = Array.isArray(body.moments) ? body.moments.slice(0,6) : [];
   const names = Array.isArray(body.names) ? body.names.slice(0,2).map(String) : ['A','B'];
   const fallback = () => templateMoments(summary, list, names);
@@ -315,13 +325,14 @@ ${wantQuiz ? `- quiz：一个“你猜？”问题，问这个时刻会发生什
     });
     let takeaway = clip(ownName(tidyNumbers(String(out.takeaway||'')), names[0], names[1]),60);
     if (!takeaway || !takeaway.includes('你的')) takeaway = designTakeaway(summary, names);
-    return json({headline:String(out.headline||fallback().headline).slice(0,16), moments:merged, takeaway, via:out.__via, aiNote:out.__note||undefined});
+    return json({headline:limitText(String(out.headline||fallback().headline), 16), moments:merged, takeaway, via:out.__via, aiNote:out.__note||undefined});
   } catch (e) {
     return json({...fallback(), error:String(e.message||e)});
   }
 }
 
 async function experiment(body, env) {
+  const {fmtRpm, tidyNumbers, variableFacts, ownName, decisiveMetric, contradictsVerdict, templateExperiment} = createFallback(env?.RESPONSE_LOCALE);
   const names = Array.isArray(body.names) ? body.names.slice(0,2).map(String) : ['A','B'];
   const input = {names, variable:body.variable||{}, prediction:['more','less','same'].includes(body.prediction)?body.prediction:null, metric:body.metric||{}, stats:body.stats||{}, trials:Array.isArray(body.trials)?body.trials.slice(0,10):[], verdict:body.verdict, physics:body.physics&&typeof body.physics==='object'?body.physics:{}};
   const base = templateExperiment(input);       // deterministic verdict, consistency, card, prediction check
@@ -348,7 +359,7 @@ ${base.steps.expect}（这次数据${base.steps.textbookDir===0?'无法和课本
 只输出 JSON：{"conclusion":"","repeatLesson":"","dataWhy":"","nextIdea":""}`;
   try {
     const out = await runModel(env, [{role:'system', content:'你是陀螺王国的科学老师，带小学生做实验。中文短句，鼓励，诚实，只输出 JSON。'}, {role:'user', content:user}], 650, 'experiment');
-    const pick = (k, max) => { const v = ownName(tidyNumbers(String(out[k]||'')).trim(), names[0], names[1]); return (v || base[k]).slice(0, max); };
+    const pick = (k, max) => { const v = ownName(tidyNumbers(String(out[k]||'')).trim(), names[0], names[1]); return limitText(v || base[k], max); };
     let conclusion = pick('conclusion', 80), why = pick('why', 110);
     // Consistency guard: any text that claims the opposite winner/direction falls back to the template.
     const fixed = [];
@@ -358,7 +369,7 @@ ${base.steps.expect}（这次数据${base.steps.textbookDir===0?'无法和课本
     const life = base.steps.life;   // vetted analogy per variable (model analogies were sometimes physically wrong)
     const steps = {expect: base.steps.expect, why: dataWhy, life};
     why = dataWhy;   // the top-level explanation must describe THIS data, not just the textbook
-    if (!conclusion.includes('模型')) conclusion = conclusion.replace(/。?$/, '（在这个模型里）。');
+    if (!/模型|model/i.test(conclusion)) conclusion += env.RESPONSE_LOCALE==='en' ? ' (in this model)' : '（在这个模型里）。';
     return json({verdict:base.verdict, decisive:base.decisive, steps, conclusion, why, repeatLesson:pick('repeatLesson',70), predictionFeedback:base.predictionFeedback, cardId:base.cardId, nextIdea:pick('nextIdea',50), via:out.__via, aiNote:out.__note||undefined, fixed:fixed.length?fixed:undefined});
   } catch (e) {
     return json({...base, error:String(e.message||e)});
@@ -367,6 +378,7 @@ ${base.steps.expect}（这次数据${base.steps.textbookDir===0?'无法和课本
 
 // Vision: a kid's drawing/photo of a dream bey → validated Bey. Claude only.
 async function sketch(body, env) {
+  const {specialMoveFor, LOOK_ENUMS, sanitizeCandidate} = createFallback(env?.RESPONSE_LOCALE);
   if (!hasClaude(env)) return json({needKey:true, error:'需要家长开启高级 AI'}, 503);
   const m = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.imageDataUrl||''));
   if (!m) return json({error:'bad image'}, 400);
@@ -417,6 +429,7 @@ function flipCards(text, extra=[]) {
   return [...ids].map(getCard).filter(Boolean).slice(0,10);
 }
 async function flipStart(body, env) {
+  const {STYLE_ZH, sanitizePage, templateFlipPage} = createFallback(env?.RESPONSE_LOCALE);
   const card = getCard(body.cardId);
   const bey = body.bey && typeof body.bey==='object' ? body.bey : null;
   const mom = body.moment && typeof body.moment==='object' ? body.moment : null;
@@ -447,8 +460,9 @@ function chapterOf(body) {
   const cards = (Array.isArray(body?.chapter?.cards) ? body.chapter.cards : []).filter(id=>getCard(id));
   return {id:'', title:String(body?.chapter?.title||'').slice(0,20), question:String(body?.chapter?.question||'').slice(0,30), cards:cards.length ? cards : ['ph-inertia']};
 }
-const branchText = (v, n) => clean2(String(v||'').replace(/\s+/g,''), 80).slice(0, 80);
+const branchText = (v, n) => clean2(String(v||'').replace(/\s+/g,' '), n || 80);
 async function flipTap(body, env) {
+  const {templateFlipBranch, branchCardFor} = createFallback(env?.RESPONSE_LOCALE);
   const num = v => Number.isFinite(+v) ? Math.max(0, Math.min(1, +v)) : .5;
   const ch = chapterOf(body), x = num(body.x), y = num(body.y);
   const exclude = new Set((Array.isArray(body.exclude) ? body.exclude : []).map(String));
@@ -486,13 +500,14 @@ ${pool.map(id=>{const c=getCard(id);return `${id} ${c.title}：${c.body}`;}).joi
     const raw = (Array.isArray(out.panels) ? out.panels : []).slice(0,3).map(v=>branchText(typeof v==='string' ? v : v?.text));
     // Each line ≤28 字; line 1 must name what was tapped; anything off-spec falls back to the card's own line.
     const replaced = cardId !== out.cardId;   // 模型选的卡不在本章：它写的正文讲的是别的卡，整页改用模板
-    const panels = t.panels.map((p,i)=>{ const r = raw[i]; if (replaced || !r || r.length > 28 || (i===0 && !/你点的/.test(r))) return p; return {text:r}; });
+    const panels = t.panels.map((p,i)=>{ const r = raw[i]; if (replaced || !r || r.length > (env.RESPONSE_LOCALE==='en'?140:28) || (i===0 && !/你点的|you tapped/i.test(r))) return p; return {text:r}; });
     const title = clean2(out.title, 12) || t.title;
     return json({page:{...t, title, panels}, via: out.__via});
   } catch (e) { return json({page: fallback(), fallback:true, error:String(e.message||e).slice(0,200)}); }
 }
 // Free AI exploration (no built-in chapter): the original open-ended tap.
 async function flipTapFree(body, env) {
+  const {sanitizePage, templateFlipTap} = createFallback(env?.RESPONSE_LOCALE);
   const page = body.page || {}, x = Math.max(0, Math.min(1, +body.x||.5)), y = Math.max(0, Math.min(1, +body.y||.5));
   const trail = (Array.isArray(body.trail) ? body.trail : []).slice(-8).map(String);
   const fallback = () => templateFlipTap(page, x, y);
@@ -509,11 +524,12 @@ ${FLIP_FIELDS} 另加 tapped 字段：孩子点的东西（≤8字）。
 只输出 JSON，格式示例：${FLIP_SCHEMA.replace('{"title"','{"tapped":"外圈配重","title"')}`;
   try {
     const out = await llm(env, {system:FLIP_SYSTEM, user, images: m ? [{mediaType:m[1], data:m[2]}] : [], maxTokens:900, kind:'flip'});
-    return json({page: sanitizePage(out, cards[0]?.id), tapped: String(out.tapped||'').slice(0,10), via: out.__via, aiNote: out.__note||undefined});
+    return json({page: sanitizePage(out, cards[0]?.id), tapped: limitText(String(out.tapped||''), 10), via: out.__via, aiNote: out.__note||undefined});
   } catch (e) { return json({page: fallback(), fallback:true, error:String(e.message||e).slice(0,200)}); }
 }
 let kleinDownUntil = 0;
 async function flipImage(body, env) {
+  const {FLIP_STYLE} = createFallback(env?.RESPONSE_LOCALE);
   const prompt = String(body.prompt||'').slice(0,800);
   if (!prompt) return json({error:'empty prompt'}, 400);
   if (!env?.AI) return json({error:'no image model'}, 503);
@@ -535,6 +551,7 @@ async function flipImage(body, env) {
 
 // Vision: find 3 tappable objects actually drawn in a picture (hotspots are never pre-placed on generated art).
 async function flipLocate(body, env) {
+  const {branchCardFor} = createFallback(env?.RESPONSE_LOCALE);
   const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.imageDataUrl||''));
   if (!m) return json({error:'bad image'}, 400);
   const ctx = body.context || {};
@@ -562,7 +579,7 @@ const PACE_FORCE = 4;   // steps without a find/meet before the server reveals o
 const FIRST_FORCE = 2;  // the first find of a run comes quickly (by the 3rd step)
 const shuffle = a => { const b = [...a]; for (let i=b.length-1;i>0;i--) { const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]] = [b[j],b[i]]; } return b; };
 const bladerById = id => BLADERS.find(b=>b.id===id);
-const clean2 = (v, n) => String(v||'').replace(/[（(]?\b(?:bx|ph|mt|sm|gd|geo)-[a-z0-9-]+\b[)）]?/g,'').trim().slice(0, n);
+const clean2 = (v, n) => limitText(String(v||'').replace(/[（(]?\b(?:bx|ph|mt|sm|gd|geo)-[a-z0-9-]+\b[)）]?/g,'').trim(), n);
 function exploreManifest(region, state) {
   const found = new Set(state.found||[]), met = new Set(state.met||[]);
   return {beysLeft: region.beys.filter(id=>!found.has(id)), bladersLeft: region.bladers.filter(id=>!met.has(id))};
@@ -625,6 +642,7 @@ function scenePageFor(region, sceneKey, raw={}) {
 }
 // 寻宝 v2: outcomes are decided in the client (quest.js); the GM only writes flavour for what already happened.
 async function exploreFlavor(body, env) {
+  const {bankGate, GATE_BANK} = createFallback(env?.RESPONSE_LOCALE);
   const region = regionById(body.regionId);
   if (!region) return json({error:'unknown region'}, 400);
   const sc = sceneByKey(region.id, body.scene) || sceneByKey(region.id, START_SCENE[region.id]);
@@ -655,13 +673,14 @@ ${cardLines(geo)}
       if (e?.type==='geo_fact' && getCard(e.cardId)?.layer==='geo' && !events.length) events.push({type:'geo_fact', cardId:e.cardId});
       else if (e?.type==='gate' && !noGate && GATE_BANK[e.cardId] && !events.length) events.push(bankGate(e.cardId, '', clean2(e.lead||'',40), Array.isArray(body.quizSeen)?body.quizSeen:[]));
     }
-    return json({title:clean2(out.title||sc.title,12), panel:clip(String(out.panel||''),44), line:clip(String(out.line||''),36), narration:clip(String(out.narration||''),30), events, gmMemory:String(out.gmMemory||body.memory||'').slice(0,400), via:out.__via});
+    return json({title:clean2(out.title||sc.title,12), panel:clip(String(out.panel||''),44), line:clip(String(out.line||''),36), narration:clip(String(out.narration||''),30), events, gmMemory:limitText(out.gmMemory||body.memory||'',400), via:out.__via});
   } catch (e) {
     return json({title:sc.title, panel:o.type==='found'?`就在这里！`:a.type==='inspect'?`「${spot?.label||'这里'}」看起来很普通……`:`来到了${sc.title}。`, line:'', narration:'', events:[], gmMemory:String(body.memory||''), fallback:true});
   }
 }
 
 async function exploreStep(body, env) {
+  const {bankGate, GATE_BANK} = createFallback(env?.RESPONSE_LOCALE);
   const region = regionById(body.regionId);
   if (!region) return json({error:'unknown region'}, 400);
   if (region.comingSoon) return json({comingSoon:true, page:null, events:[], narration:'这片区域还在准备中哦。'});
@@ -735,6 +754,7 @@ ${cardLines(geo)}
 }
 
 async function ask(body, env) {
+  const {templateAsk} = createFallback(env?.RESPONSE_LOCALE);
   const question = String(body.question||'').slice(0,200);
   if (!question) return json({error:'empty question'}, 400);
   const cards = relevantCards(question + ' ' + String(body.context||''), 5);
@@ -749,13 +769,14 @@ ${cardLines(ground)}
     const out = await runModel(env, [{role:'system', content:'你是陀螺王国的融合博士，回答小学生关于陀螺和科学的问题。中文，短句，准确，有趣。只输出 JSON。'}, {role:'user', content:user}], 600, 'ask');
     if (!out.answer) throw new Error('no answer');
     const ids = (Array.isArray(out.cards)?out.cards:[]).filter(id=>getCard(id)).slice(0,2);
-    return json({via:out.__via, aiNote:out.__note||undefined, answer:String(out.answer).slice(0,140), cards:ids.map(id=>{const c=getCard(id);return {id,title:c.title,body:c.body,layer:c.layer};})});
+    return json({via:out.__via, aiNote:out.__note||undefined, answer:limitText(String(out.answer), 140), cards:ids.map(id=>{const c=getCard(id);return {id,title:c.title,body:c.body,layer:c.layer};})});
   } catch (e) {
     return json({...templateAsk(question), error:String(e.message||e)});
   }
 }
 
-export async function handle(request, env) {
+async function handleRequest(request, env) {
+  const {templateFusion, templateCommentary, templateAsk, templateMoments, templateExperiment, templateFlipPage, templateFlipTap} = createFallback(env?.RESPONSE_LOCALE);
   const path = new URL(request.url).pathname;
   // GET /api/ai/providers — live check of the Claude path (e.g. after loading AI Gateway credits).
   if (request.method==='GET' && path.endsWith('/providers')) {
@@ -774,7 +795,7 @@ export async function handle(request, env) {
     if (path.endsWith('/moments')) return json(templateMoments(body.summary||{}, body.moments||[], body.names));
     if (path.endsWith('/experiment')) return json(templateExperiment(body));
     if (path.endsWith('/sketch')) return json({needKey:true, error:'需要家长开启高级 AI'}, 503);
-    if (path.endsWith('/flip/start')) return json({page:templateFlipPage({cardId:body.cardId, topic:body.topic}), fallback:true});
+    if (path.endsWith('/flip/start')) return json({page:templateFlipPage({cardId:body.cardId, topic:body.topic, locale:env.RESPONSE_LOCALE}), fallback:true});
     if (path.endsWith('/flip/tap')) return body.chapter ? flipTap(body, env) : json({page:templateFlipTap(body.page||{}, body.x, body.y), fallback:true});
     if (path.endsWith('/flip/image')) return json({error:'no image model'}, 503);
   }
@@ -793,3 +814,13 @@ export async function handle(request, env) {
   return json({error:'not found'}, 404);
 }
 export {CARDS};
+
+export async function handle(request, env) {
+  let locale = 'zh-CN';
+  if (request.method === 'POST') {
+    try { locale = normalizeLocale((await request.clone().json())?.locale); } catch {}
+  }
+  const response = await handleRequest(request, {...env, RESPONSE_LOCALE:locale});
+  if (locale !== 'en' || !response.headers.get('content-type')?.includes('application/json')) return response;
+  return new Response(JSON.stringify(localizeTextFields(await response.json(), locale)), {status:response.status, headers:response.headers});
+}

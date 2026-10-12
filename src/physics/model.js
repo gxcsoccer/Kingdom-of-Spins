@@ -1,12 +1,13 @@
+import {tr} from '../i18n/index.js';
 import {rotate} from './math.js';
 // Idealized model: real rigid-body dynamics, simplified parts, NOT calibrated against real tops.
 export const DT=.00025;
 export const VERSION='MuJoCo 3.15.0 · RK4 · 4 kHz';
 export const TIPS={
-  needle:{label:'尖轴 Needle',desc:'接触面小，稳、耐转，不爱跑',radius:.0012,friction:.16,spinRadius:.00035},
-  ball:{label:'圆轴 Ball',desc:'均衡，能动也能守',radius:.002,friction:.22,spinRadius:.0009},
-  flat:{label:'平轴 Flat',desc:'抓地强，跑得快，攻击型',radius:.003,friction:.2,spinRadius:.002},
-  rush:{label:'冲刺 Rush',desc:'橡胶感大平面，爆发猛但掉转快',radius:.0034,friction:.28,spinRadius:.0026},
+  needle:{label:tr("尖轴 Needle"),desc:tr("接触面小，稳、耐转，不爱跑"),radius:.0012,friction:.16,spinRadius:.00035},
+  ball:{label:tr("圆轴 Ball"),desc:tr("均衡，能动也能守"),radius:.002,friction:.22,spinRadius:.0009},
+  flat:{label:tr("平轴 Flat"),desc:tr("抓地强，跑得快，攻击型"),radius:.003,friction:.2,spinRadius:.002},
+  rush:{label:tr("冲刺 Rush"),desc:tr("橡胶感大平面，爆发猛但掉转快"),radius:.0034,friction:.28,spinRadius:.0026},
 };
 export const BLADE_FRICTION=.06, ARENA_FRICTION=.05;
 export const STYLES=['attack','defense','stamina','balance'];

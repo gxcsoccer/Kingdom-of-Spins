@@ -9,3 +9,4 @@ supabase/.secrets
 art-delivery/
 art-gen/
 dist-accept/
+.claude/

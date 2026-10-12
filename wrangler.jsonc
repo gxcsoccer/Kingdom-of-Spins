@@ -6,6 +6,10 @@
   "account_id": "6db2310bdcab56f5bdf834fb50ac05bc",
   "main": "worker/index.js",
   "compatibility_date": "2026-10-01",
+  "vars": {
+    // Public English voice: https://fish.audio/m/99ae169b7b464781aaf876f483295582/
+    "FISH_EN_VOICE_ID": "99ae169b7b464781aaf876f483295582"
+  },
   
   "assets": {
     "directory": "./dist",

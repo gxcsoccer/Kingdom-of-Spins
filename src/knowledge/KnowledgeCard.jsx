@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useState} from 'react';
 import {LAYER_LABEL, getCard} from './cards.js';
 import {openFlipbook} from '../flipbook/store.js';
@@ -22,7 +23,7 @@ export default function KnowledgeCard({card, compact=false, isNew=false, book=tr
         <LayerBadge layer={c.layer}/>
       </div>
       <p className="kcard-body">{c.body}</p>
-      {book && chapterForCard(c.id) && <button type="button" className="kcard-book" onClick={e=>{e.stopPropagation(); openFlipbook({cardId:c.id});}}>📖 翻开绘本</button>}
+      {book && chapterForCard(c.id) && <button type="button" className="kcard-book" onClick={e=>{e.stopPropagation(); openFlipbook({cardId:c.id});}}>{tr("📖 翻开绘本")}</button>}
     </div>
   );
 }

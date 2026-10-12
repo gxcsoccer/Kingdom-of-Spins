@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 // Visual "look" of a bey (from fusion AI): blade silhouette, material finish, emblem, blade pattern.
 // Silhouettes are derived from the physics wing span (same wing count, same reach, never beyond it),
 // so the art never contradicts the collision hull.
@@ -9,10 +10,10 @@ export const EMBLEMS = ['dragon', 'wolf', 'eagle', 'shark', 'tiger', 'phoenix', 
 export const PATTERNS = ['none', 'stripes', 'flames', 'bolts', 'dots'];
 
 export const LOOK_ZH = {
-  shape: { blade: '利刃', claw: '龙爪刃', fang: '獠牙刃', wing: '后掠翼', flame: '火舌刃', shield: '圆盾刃', horn: '羊角刃', shuriken: '手里剑' },
-  finish: { toon: '漫画涂装', metal: '金属', crystal: '水晶', neon: '霓虹' },
-  emblem: { dragon: '龙', wolf: '狼', eagle: '鹰', shark: '鲨', tiger: '虎', phoenix: '凤凰', lightning: '闪电', flame: '火焰', star: '星', wave: '海浪', mountain: '山', fish: '鱼', ram: '山羊', shuriken: '手里剑', mask: '巨人', letter: '字母' },
-  pattern: { none: '', stripes: '条纹', flames: '火焰纹', bolts: '闪电纹', dots: '圆点纹' },
+  shape: { blade: tr("利刃"), claw: tr("龙爪刃"), fang: tr("獠牙刃"), wing: tr("后掠翼"), flame: tr("火舌刃"), shield: tr("圆盾刃"), horn: tr("羊角刃"), shuriken: tr("手里剑") },
+  finish: { toon: tr("漫画涂装"), metal: tr("金属"), crystal: tr("水晶"), neon: tr("霓虹") },
+  emblem: { dragon: tr("龙"), wolf: tr("狼"), eagle: tr("鹰"), shark: tr("鲨"), tiger: tr("虎"), phoenix: tr("凤凰"), lightning: tr("闪电"), flame: tr("火焰"), star: tr("星"), wave: tr("海浪"), mountain: tr("山"), fish: tr("鱼"), ram: tr("山羊"), shuriken: tr("手里剑"), mask: tr("巨人"), letter: tr("字母") },
+  pattern: { none: '', stripes: tr("条纹"), flames: tr("火焰纹"), bolts: tr("闪电纹"), dots: tr("圆点纹") },
 };
 
 export function normLook(look) {
@@ -29,7 +30,7 @@ export function normLook(look) {
 /** e.g. 「龙爪刃 · 霓虹 · 闪电纹 · 龙徽」 */
 export function lookWords(look) {
   const l = normLook(look); if (!l) return '';
-  return [LOOK_ZH.shape[l.shape], LOOK_ZH.finish[l.finish], LOOK_ZH.pattern[l.pattern], l.emblem !== 'letter' ? LOOK_ZH.emblem[l.emblem] + '徽' : '']
+  return [LOOK_ZH.shape[l.shape], LOOK_ZH.finish[l.finish], LOOK_ZH.pattern[l.pattern], l.emblem !== 'letter' ? tr("{0}徽章", [LOOK_ZH.emblem[l.emblem]]) : '']
     .filter(Boolean).join(' · ');
 }
 

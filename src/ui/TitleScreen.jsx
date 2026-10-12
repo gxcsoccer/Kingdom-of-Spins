@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useEffect,useRef,useState,lazy,Suspense} from 'react';
 import {BEYS} from '../game/beys.js';
 import {useGame} from '../game/store.js';
@@ -33,22 +34,22 @@ export default function TitleScreen(){
       <div className="ti-tone"/>
       <HeroBey id="dragoon" cls="l"/>
       <HeroBey id="bossdragoon" cls="r"/>
-      <span className="ti-sfx a">ギュイーン！</span>
-      <span className="ti-sfx b">轰！</span>
+      <span className="ti-sfx a" aria-hidden="true">ギュイーン！</span>
+      <span className="ti-sfx b" aria-hidden="true">轰！</span>
       <main className="ti-main">
         <div className="ti-logo">
-          {logoOk?<img src="/art/logo.png" alt="Kingdom of Spins 陀螺王国" onError={()=>setLogoOk(false)}/>:
-            <h1 className="ti-logo-fallback">KINGDOM<br/>OF <span>SPINS</span><small>陀螺王国！</small></h1>}
+          {logoOk?<img src="/art/logo.png" alt={tr("Kingdom of Spins 陀螺王国")} onError={()=>setLogoOk(false)}/>:
+            <h1 className="ti-logo-fallback">KINGDOM<br/>OF <span>SPINS</span></h1>}
         </div>
         {activeKid&&<div className="ti-cta">
-          <button className="ti-go" onClick={start}><span>{save.collection.length?'继续冒险':'开始冒险'}</span> ▶</button>
-          <button className="ti-vs" onClick={()=>go('versus')}>对战模式 ⚔</button>
-          <div className="ti-hello">欢迎，<b>{activeKid.nickname}</b>！</div>
+          <button className="ti-go" onClick={start}><span>{save.collection.length?tr("继续冒险"):tr("开始冒险")}</span> ▶</button>
+          <button className="ti-vs" onClick={()=>go('versus')}>{tr("对战模式 ⚔")}</button>
+          <div className="ti-hello">{tr("欢迎，")}<b>{activeKid.nickname}</b>！</div>
         </div>}
         <div className={`ti-account ${activeKid?'compact':''}`}><AccountPanel/></div>
         <HeroPortrait/>
       </main>
-      <p className="ti-note">⚙ 对战由 MuJoCo 真实刚体物理计算 · 理想化模型，没有用真陀螺校准——能教你物理规律，不能预测真实比赛</p>
+      <p className="ti-note">{tr("⚙ 对战由 MuJoCo 真实刚体物理计算 · 理想化模型，没有用真陀螺校准——能教你物理规律，不能预测真实比赛")}</p>
     </div>
   );
 }
@@ -60,6 +61,6 @@ function HeroPortrait(){
   return <div className="ti-hero" key={p.avatar+p.name}>
     <div className="ti-hero-burst"/>
     <img src={`/art/avatars/${p.avatar}.png`} alt={p.name}/>
-    <div className="ti-hero-name"><small>{preview&&preview.name==='新玩家'?'选这个形象？':'BLADER'}</small><b>{p.name}</b></div>
+    <div className="ti-hero-name"><small>{preview&&preview.name===tr('新玩家')?tr("选这个形象？"):'BLADER'}</small><b>{p.name}</b></div>
   </div>;
 }

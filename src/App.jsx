@@ -1,3 +1,5 @@
+import LanguagePicker from './i18n/LanguagePicker.jsx';
+import {tr} from './i18n/index.js';
 import {lazy,Suspense,Component,useEffect} from 'react';
 import {useGame} from './game/store.js';
 import {pathToScreen} from './game/router.js';
@@ -31,8 +33,8 @@ class ChunkBoundary extends Component{
   render(){
     if(!this.state.err){try{sessionStorage.removeItem('kos.reloaded');}catch{}return this.props.children;}
     return <div className="page" style={{display:'grid',placeItems:'center',minHeight:'100vh'}}><div className="panel" style={{padding:24,textAlign:'center'}}>
-      <div className="h-display" style={{fontSize:28}}>哎呀，画面卡住了</div><p style={{fontWeight:700}}>游戏刚刚更新过，点一下重新载入就好～</p>
-      <button className="btn primary" onClick={()=>location.reload()}>重新载入</button></div></div>;
+      <div className="h-display" style={{fontSize:28}}>{tr("哎呀，画面卡住了")}</div><p style={{fontWeight:700}}>{tr("游戏刚刚更新过，点一下重新载入就好～")}</p>
+      <button className="btn primary" onClick={()=>location.reload()}>{tr("重新载入")}</button></div></div>;
   }
 }
 
@@ -50,6 +52,7 @@ export default function App(){
     inviteUsed=true;useGame.getState().go('versus',{room:code.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5)});
   },[activeKid]);
   return <>
+    {(screen==='title'||!activeKid)&&<div className="app-language"><LanguagePicker/></div>}
     <ChunkBoundary key={screen+(nonce||0)}><Suspense fallback={<Loading/>}><Screen/></Suspense></ChunkBoundary>
     <Suspense fallback={null}><ShowcaseCanvas/></Suspense>
     <Suspense fallback={null}><FlipbookHost onUnlock={ids=>useGame.getState().unlockCards(ids)}/></Suspense>

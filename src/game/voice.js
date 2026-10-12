@@ -1,6 +1,7 @@
+import {speechLocale} from '../i18n/index.js';
 // Browser speech recognition helper (Chrome/Edge/Safari). Returns null when unsupported.
 export const voiceSupported=()=>typeof window!=='undefined'&&!!(window.SpeechRecognition||window.webkitSpeechRecognition);
-export function listen({lang='en-US',onText,onEnd,continuous=true}={}){
+export function listen({lang=speechLocale(),onText,onEnd,continuous=true}={}){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return null;
   const r=new SR();r.lang=lang;r.continuous=continuous;r.interimResults=true;
   r.onresult=e=>{let t='';for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;onText?.(t,e);};

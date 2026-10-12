@@ -1,3 +1,4 @@
+import {tr} from '../i18n/index.js';
 import {useState,lazy,Suspense} from 'react';
 import {useGame} from '../game/store.js';
 import {BEYS,STARTERS} from '../game/beys.js';
@@ -7,7 +8,7 @@ import * as sfx from '../game/sfx.js';
 import './starter.css';
 const BeyShowcase=lazy(()=>import('../scene/BeyShowcase.jsx'));
 
-const PART_TIP={blade:'Blade 刀刃：决定怎么撞',ratchet:'Ratchet 固锁：决定高度',bit:'Bit 轴尖：决定怎么跑'};
+const PART_TIP={blade:tr("Blade 刀刃：决定怎么撞"),ratchet:tr("Ratchet 固锁：决定高度"),bit:tr("Bit 轴尖：决定怎么跑")};
 
 function Art({bey}){
   const [ok,setOk]=useState(true);
@@ -28,7 +29,7 @@ export default function StarterScreen(){
     <div className="st">
       <div className="st-bg"/>
       <header className="st-head">
-        <span className="st-kicker">CHAPTER 1 · 选择你的第一只陀螺</span>
+        <span className="st-kicker">{tr("CHAPTER 1 · 选择你的第一只陀螺")}</span>
         <h1 className="st-title">CHOOSE YOUR <b>PARTNER</b></h1>
         <div className="st-parts">{Object.entries(PART_TIP).map(([k,t])=><span key={k}>{t}</span>)}</div>
       </header>
@@ -38,15 +39,15 @@ export default function StarterScreen(){
             onClick={()=>{setPick(id);sfx.beep(true);}} onPointerEnter={()=>setHover(id)} onPointerLeave={()=>setHover(h=>h===id?null:h)}>
             <span className="st-card-burst"/>
             <span className="st-art">{live?<Suspense fallback={<Art bey={b}/>}><BeyShowcase bey={b} rpm={on?4200:1600} zoom={1.2} background={false}/></Suspense>:<Art bey={b}/>}</span>
-            <span className="st-name">{b.name}<small>{b.zh}</small></span>
+            <span className="st-name">{b.name}{b.zh!==b.name&&<small>{b.zh}</small>}</span>
             <span className="st-row"><TypeBadge type={b.type}/><span className="st-parts-l">{b.ratchet.prongs}-{b.ratchet.height} · {b.bit}</span></span>
             <span className="st-lore">{b.lore}</span>
             <span className="st-stats"><StatBars bey={b} compact/></span>
-            {on&&<span className="st-stamp">就是你！</span>}
+            {on&&<span className="st-stamp">{tr("就是你！")}</span>}
           </button>);})}
       </div>
       <footer className="st-foot">
-        <button className="st-go" disabled={!pick} onClick={confirm}>{pick?<>就决定是你了，<b>{BEYS[pick].name}</b>！</>:'先点一只陀螺'}</button>
+        <button className="st-go" disabled={!pick} onClick={confirm}>{pick?<>{tr("就决定是你了，")}<b>{BEYS[pick].name}</b>！</>:tr("先点一只陀螺")}</button>
       </footer>
       {cut&&pick&&<div className="st-cut" style={{'--c':BEYS[pick].colors.primary}}>
         <div className="st-cut-band"><div className="st-cut-lines"/><span className="st-cut-art"><Art bey={BEYS[pick]}/></span><span className="st-cut-text">{BEYS[pick].name}<small>I CHOOSE YOU!!</small></span></div>
