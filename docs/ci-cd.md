@@ -6,7 +6,7 @@ Workflow: [`.github/workflows/ci-cd.yml`](../.github/workflows/ci-cd.yml). Runti
 
 1. Every pull request targeting `main` runs locked dependency installation, `pnpm test`, `pnpm build`, and a Wrangler dry-run. No production credentials are needed.
 2. A push to `main` (including a merged PR) runs those checks again and uploads the verified `dist/` as a workflow artifact.
-3. The deployment job downloads that exact artifact, checks out the same commit, and deploys the Worker and assets using the locked Wrangler dependency. `--keep-vars` preserves dashboard variables; existing Worker secrets stay in Cloudflare.
+3. The build job exposes the uploaded artifact ID as a job output. The deployment job downloads that exact artifact by ID, checks out the same commit, and deploys the Worker and assets using the locked Wrangler dependency. `--keep-vars` preserves dashboard variables; existing Worker secrets stay in Cloudflare.
 4. `pnpm check:deployment` checks `/api/health`, confirms the HTML points to this build's entry assets, and compares the deployed entry files, original logo, and English MP3 clips against the local artifact. It retries briefly for propagation. It does not call a paid AI/TTS provider or write a player save.
 
 PR jobs never deploy. Manual `workflow_dispatch` runs deploy only when the selected branch is `main`. Superseded PR checks are cancelled. Main runs share one concurrency group and are not interrupted halfway through a deployment; pending superseded runs may be replaced by GitHub. The job timeout is 15 minutes, and build artifacts are retained for 7 days.
@@ -32,6 +32,7 @@ The dedicated Cloudflare account API token should have **Individual Workers → 
 
 - Open the repository's **Actions → CI / CD** page to inspect check results, deployment logs, and the recorded commit.
 - To republish, select **Run workflow → main**. The selected main commit is tested before deployment.
+- If checks passed but deployment failed, **Re-run failed jobs** reuses the successful build's artifact ID even though the run attempt increases. **Re-run all jobs** builds and uploads a new artifact, then passes its new ID to deployment. If the artifact has expired or was deleted, rebuild with **Re-run all jobs** (or start a new workflow on current `main`).
 - To check the current local production build against the live site, run `pnpm check:deployment`. An optional URL argument targets another deployment: `pnpm check:deployment https://example.workers.dev`.
 
 Failures in tests, build, or dry-run prevent deployment. A smoke-check failure marks the run failed but does not automatically roll back; inspect the failure before changing production.
