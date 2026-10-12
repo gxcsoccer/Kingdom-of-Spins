@@ -1,3 +1,11 @@
+<p align="center">
+  <img src="public/art/logo.png" alt="Kingdom of Spins · 陀螺王国" width="560" />
+</p>
+
+<p align="center">
+  <strong>中文</strong> · <a href="README.en.md">English</a> · <a href="https://kingdom-of-spins.deskmind-site.workers.dev">在线体验</a>
+</p>
+
 # Kingdom of Spins · 陀螺王国
 
 一个由孩子设计玩法的 Beyblade X 风格陀螺对战游戏，参加 **Kids for AI Hackathon**。
@@ -6,6 +14,7 @@
 - **对战是真的在算物理**：MuJoCo 3.15 刚体物理（WASM，4 kHz，RK4）在浏览器的 Web Worker 里实时计算，不是预先做好的动画。
 - **AI「融合博士」**：孩子说出想要什么样的陀螺，AI 设计 2–3 个各有取舍的融合方案，讲解背后的 Beyblade X 知识和物理原理，赛后只引用真实对局数据做复盘。
 - **漫画风**：界面是日本少年漫画分镜（网点、粗黑框、拟声字），对战是卡通着色 3D。
+- **中英文体验**：界面、探索、科学绘本、AI 解说和配音支持中文与英文，优先适配 iPad，也支持手机。主 logo 和装饰性美术字保留原样。
 
 > ⚙ **诚实边界**：物理是理想化模型（简化的零件形状、估算的摩擦和阻力），没有用真陀螺校准过。它能教物理规律和科学方法，但不能预测真实比赛结果。界面和 AI 复盘都会标注「模型结果 / 在这个模型里」。
 
@@ -30,9 +39,11 @@
 | 融合设计 `POST /api/ai/fusion/chat` | 愿望太模糊时先追问一次；之后给出 2–3 个方案。服务端会把参数校验并夹到安全范围内：只有 Blade 可以变，Ratchet 和 Bit 从保留的那只父陀螺继承。每个方案都引用知识卡 |
 | 赛后复盘 `POST /api/ai/commentary` | 输入这一局的物理事件摘要（碰撞时刻、转速、终结方式），输出带时间的故事、一个科学知识点，以及"只改你陀螺的一个地方"的实验建议 |
 | 自由提问 `POST /api/ai/ask` | 孩子问"为什么外圈重就转得久？"，AI 结合知识卡用简短的话回答 |
-| 知识库 `src/knowledge/cards.js` | 41 张卡，分三层：**官方事实**（Beyblade X 结构、计分）、**物理知识**（转动惯量、摩擦、动量、进动、材料、科学方法）、**游戏设定**（原创融合规则） |
+| 绘图生成 `POST /api/ai/sketch` | 上传梦想陀螺的画，AI 识别外形、颜色和刃片，生成经过参数校验的设计与招式 |
+| 科学绘本与探索 | 从陀螺结构、对战瞬间和场景热点进入互动实验、知识卡与小测验 |
+| 知识库 `src/knowledge/cards.js` | 分三层：**官方事实**（Beyblade X 结构、计分）、**物理知识**（转动惯量、摩擦、动量、进动、材料、科学方法）、**游戏设定**（原创融合规则） |
 
-模型：Cloudflare Workers AI `@cf/openai/gpt-oss-120b`。AI 调用失败或超时时会回退到确定性的模板，游戏不会卡住。
+AI 优先通过 Cloudflare AI Gateway 调用 Claude；文字功能可以回退到 Workers AI 和确定性模板。绘图识别需要可用的视觉模型，失败时会提示重试。配音使用预生成角色语音、Fish Audio 和浏览器朗读，按语言和角色区分缓存。
 
 ## 技术架构
 
@@ -52,10 +63,11 @@ Supabase
 
 ## 本地运行
 
-需要 Node 22+ 和 pnpm。
+推荐 Node 24，与 CI 保持一致；pnpm 版本固定在 `package.json` 的 `packageManager` 字段。
 
 ```sh
-pnpm install --registry=https://registry.npmjs.org
+corepack enable
+pnpm install --frozen-lockfile
 pnpm worker:dev     # Cloudflare Worker（AI + 联机），127.0.0.1:8787
 pnpm dev            # 前端，http://127.0.0.1:5173（/api 和 /ws 会代理到 8787）
 pnpm test           # 单元测试：物理/Worker、存档同步、联机、AI、复盘、异步任务/录音清理、融合选材
@@ -65,6 +77,18 @@ pnpm deploy         # 构建并部署到 Cloudflare
 调平衡用的脚本：`node scripts/balance.mjs dragoon charge 3`、`node scripts/run-battle.mjs dragoon fish`。
 
 单元测试使用 Node 自带的测试运行器，云存档、Durable Object 存储、WebSocket 和计时器均在本地隔离，不需要登录或 AI API Key。`scripts/room-smoke.mjs`、`scripts/room-sync.proto.mjs` 和 `scripts/ai-test.mjs` 是另行运行的服务集成检查，不包含在 `pnpm test` 中。
+
+本地 AI/TTS 密钥放在被忽略的 `.dev.vars` 中。前端默认使用项目的公开 Supabase 配置；其他环境可在 `.env.local` 设置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`。客户端只能使用 publishable/anon key。
+
+## CI/CD
+
+[CI/CD 工作流](.github/workflows/ci-cd.yml) 自动完成：
+
+- **PR → `main`**：安装锁定的依赖，运行全部单元/集成测试、生产构建和 Worker 打包检查。
+- **合并到 `main`**：再次通过检查后，将该次构建产物发布到 Cloudflare Workers，并检查线上健康接口和静态资源。
+- **手动发布**：在 Actions 中选择 `CI / CD` → `Run workflow`，分支选 `main`。
+
+生产凭据只提供给发布任务；PR 不发布。详细配置、令牌权限、发布排队和回滚见 [CI/CD 说明](docs/ci-cd.md)。浏览器功能走查仍独立运行，覆盖范围见 [i18n 与 E2E 记录](docs/i18n-e2e.md)。
 
 ## 目录
 
