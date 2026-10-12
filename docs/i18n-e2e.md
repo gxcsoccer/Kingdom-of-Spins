@@ -23,7 +23,7 @@ A follow-up live check on 2026-10-12 confirmed the voice metadata is `trained`, 
 
 | Check | Result |
 | --- | --- |
-| `pnpm test` | 96 passed, 0 failed |
+| `pnpm test` | 100 passed, 0 failed |
 | `pnpm build` | Passed |
 | `pnpm exec wrangler deploy --dry-run` | Passed; no deployment |
 | `git diff --check` | Passed |
@@ -97,7 +97,7 @@ pnpm build
 pnpm exec wrangler deploy --dry-run
 ```
 
-The 13 localization tests in `scripts/i18n.test.mjs` cover catalog placeholders and UI coverage, locale persistence, name/ID preservation, English question routing, English wishes and fallback content, readable science prose, word limits, simultaneous locales, AI postprocessing, browser voice selection, and the English TTS reference.
+The 15 localization tests in `scripts/i18n.test.mjs` cover catalog placeholders and UI coverage, locale persistence, name/ID preservation, English question routing, English wishes and fallback content, readable science prose, word limits (including the sketch route), simultaneous locales, AI postprocessing, browser voice selection, and the English TTS reference.
 
 ### English character voices
 
@@ -112,8 +112,17 @@ The live preview worker uses `pnpm exec wrangler dev --port 8795 --persist-to .w
 
 ### PR validation and remaining coverage
 
-The final PR validation reran all **96 Node tests**, production build, Worker dry-run, whitespace checks, and the **21-case Ego Lite layout sweep** against this branch. Artifacts: `/tmp/kos-pr-validation/`. The Node suite includes unit and handler/integration tests; no line or branch coverage percentage has been measured.
+The initial PR validation reran all **96 Node tests**, production build, Worker dry-run, whitespace checks, and the **21-case Ego Lite layout sweep**. Artifacts: `/tmp/kos-pr-validation/`. The post-review fixes below bring the suite to **100 passing tests**. The Node suite includes unit and handler/integration tests; no line or branch coverage percentage has been measured.
 
 The layout sweep is a repeatable checked-in script. It waits for finite entrance animations, images, and typed exploration prose before capturing screenshots, and checks that both versus previews are mounted. The functional walkthroughs described above were agent-operated browser sessions with recorded evidence; they are not yet a single automated E2E suite or a CI gate. This repository currently has no GitHub Actions workflow running them.
 
 Remaining validation: physical iPad/iPhone Safari, real Google sign-in and account/profile switching end-to-end, two-device multiplayer, microphone permission/recognition flows, and human voice-performance review. Live review generation hit a provider failure during the walkthrough, so that run only establishes the English fallback behavior. These limitations should remain visible in the PR rather than describing the test coverage as exhaustive.
+
+### Post-review regressions
+
+Two P2 findings were reproduced with four new tests before fixing them:
+
+- Reverse translation now leaves Chinese prose untouched and excludes English templates containing only placeholders/separators. Chinese discovery messages such as `找到啦！Fish 就藏在「木箱」里！` and unknown English text are preserved; identifiable authored English messages still translate back to Chinese.
+- The sketch route uses `limitText` for move names and shouts. `Dragon Lightning Strike` and `Dragon power, unleash the lightning!` remain complete; overlong English ends at word boundaries, Chinese stays within its existing budgets, and generated move fallbacks still work.
+
+All **100 tests**, the production build, Worker dry-run, and whitespace checks passed after the fixes. Ego Lite TaskSpace 151 checked the Chinese discovery bubble without changing the fixture's serialized save, then uploaded a repository art fixture through the English drawing UI, generated a candidate, selected a prediction, and saved the top. The drawing request used the real `worker/ai.js` handler through a temporary local server with a deterministic model stub; this was not a live model-quality test. Both move fields remained complete in the UI and saved collection, and the narration request carried the full English move name. iPad portrait had no document horizontal overflow. Artifacts: `/tmp/kos-p2-review/`.

@@ -5,7 +5,7 @@ import {FLAVOR} from '../src/explore/flavor.js';
 import {localizeExploreState} from '../src/explore/localization.js';
 import {bankGate, GATE_BANK} from '../src/ai/fallback.js';
 import {mapLabels} from '../src/explore/mapLabels.js';
-import {translate} from '../src/i18n/index.js';
+import {translate, translateSavedText} from '../src/i18n/index.js';
 
 function savedScene(region, scene) {
   const flavor = FLAVOR[region][scene.key];
@@ -60,6 +60,30 @@ test('saved dynamic discovery messages translate their nested names and spots',(
   assert.doesNotMatch(english.narration,/[\u3400-\u9fff]/);
   assert.match(english.narration,/Hop/);assert.match(english.narration,/Submerged path/);
   assert.equal(localizeExploreState(english,'zh-CN').narration,gm.narration);
+});
+
+test('Chinese exploration prose stays unchanged without switching languages',()=>{
+  for (const [region, scenes] of Object.entries(SCENES)) {
+    const original={v:2,trail:scenes.map(scene=>savedScene(region,scene)),done:[]};
+    const display=localizeExploreState(original,'zh-CN');
+    assert.deepEqual(display.trail,original.trail);
+  }
+  for (const narration of ['找到啦！Fish 就藏在「木箱」里！','找到啦！跳跳 就藏在「淹没的小路」里！','Alex the Explorer 就在这张图里！点点画里的东西找找看。']) {
+    const original={v:2,narration,trail:[{...savedScene('harbor',sceneByKey('harbor','high_tide')),line:narration,panels:[{text:narration}]}]};
+    const before=JSON.stringify(original),display=localizeExploreState(original,'zh-CN');
+    assert.equal(display.narration,narration);
+    assert.deepEqual(display.trail,original.trail);
+    assert.equal(JSON.stringify(original),before);
+  }
+});
+
+test('reverse translation does not infer a message from spaces or punctuation alone',()=>{
+  for (const text of ['My custom English sentence','Alex the Explorer','Custom! Greeting!','Fish 木箱']) {
+    assert.equal(translateSavedText(text,'zh-CN'),text);
+  }
+  const source='找到啦！跳跳 就藏在「淹没的小路」里！';
+  const english=translateSavedText(source,'en');
+  assert.equal(translateSavedText(english,'zh-CN'),source);
 });
 
 test('resuming a pending Chinese exploration quiz translates prose but preserves answers',()=>{

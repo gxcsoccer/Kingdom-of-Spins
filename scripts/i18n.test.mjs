@@ -101,6 +101,36 @@ test('English model responses retain words and English-only postprocessing',asyn
   const book=await request('flip/tap',{chapter:'inertia',x:0.5,y:0.5,spots:[{x:0.5,y:0.5,label:'Outer rim',cardId:'ph-inertia'}]},{tapped:'Outer rim',related:true,cardId:'ph-inertia',title:'The outer rim',panels});
   assert.deepEqual(book.page.panels.map(p=>p.text),panels);
 });
+const sketchResponse=async(locale,specialMove)=>{
+  const output={name:'Dragon',zh:locale==='en'?'Dream Dragon':'梦想龙',lore:locale==='en'?'A dragon from your drawing.':'画里的龙。',
+    style:'attack',look:{emblem:'dragon'},specialMove};
+  const env={AI:{run:async()=>({content:[{type:'text',text:JSON.stringify(output)}]})}};
+  const response=await handle(new Request('http://local/api/ai/sketch',{method:'POST',body:JSON.stringify({locale,
+    imageDataUrl:'data:image/png;base64,aW1hZ2U=',keepParts:{ratchet:{height:70,prongs:4},bit:'needle'}})}),env);
+  assert.equal(response.status,200);
+  const result=await response.json();assert.equal(result.error,undefined);assert.equal(result.via,'claude');
+  assert.deepEqual(result.bey.ratchet,{height:70,prongs:4});assert.equal(result.bey.bit,'needle');
+  return result.bey;
+};
+test('sketch preserves complete English move names and shouts through the route',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const specialMove={name:'Dragon Lightning Strike',shout:'Dragon power, unleash the lightning!'};
+  const bey=await sketchResponse('en',specialMove);
+  assert.deepEqual(bey.specialMove,specialMove);
+  assert.equal(bey.drawn,true);assert.equal(hasHan(bey),false);
+});
+test('sketch applies word-aware English limits, Chinese limits, and move fallbacks',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const english={name:'Dragon Lightning Strike across the Endless Thunder Mountain',
+    shout:'Dragon power, unleash the lightning and send a mighty thunderstorm racing across the entire arena to the distant mountains!'};
+  const bey=await sketchResponse('en',english);
+  assert.deepEqual(bey.specialMove,{name:'Dragon Lightning Strike across the Endless…',
+    shout:'Dragon power, unleash the lightning and send a mighty thunderstorm racing across the entire arena…'});
+  const chinese=await sketchResponse('zh-CN',{name:'一二三四五六七八九十十一',shout:'一二三四五六七八九十一二三四五六七八九十一'});
+  assert.deepEqual(chinese.specialMove,{name:'一二三四五六七八九…',shout:'一二三四五六七八九十一二三四五六七八九…'});
+  const fallback=await sketchResponse('en',undefined);
+  assert.deepEqual(fallback.specialMove,createFallback('en').specialMoveFor(fallback.look,fallback.type));
+});
 test('English speech voice selection prefers an English voice, never a Chinese voice',()=>{
   const voices=[{lang:'zh-CN',name:'Chinese'},{lang:'en-GB',name:'British'},{lang:'en-US',name:'English'}];
   assert.equal(speechVoice({getVoices:()=>voices},'en-US').name,'English');

@@ -66,10 +66,12 @@ export function localizeTextFields(value, language = locale) {
 // Only for authored prose stored in a save, never player names or identifiers.
 // Saves may contain either language after switching back and forth.
 const sourceByEnglish = Object.fromEntries(Object.entries(en).reverse().map(([source, english]) => [english, source]));
-const sourcePatterns = textPatterns(Object.entries(sourceByEnglish));
+// Separators alone (e.g. "{1} {0}") cannot identify an authored English message.
+const sourcePatterns = textPatterns(Object.entries(sourceByEnglish).filter(([english]) =>
+  /[a-z]/i.test(english.replace(/\{\d+\}/g, ''))));
 export function translateSavedText(text, language = locale, depth = 0) {
   if (language === 'en') return translateText(text, language);
-  if (typeof text !== 'string') return text;
+  if (typeof text !== 'string' || /[\u3400-\u9fff]/.test(text)) return text;
   if (Object.hasOwn(sourceByEnglish, text)) return sourceByEnglish[text];
   if (depth >= 6) return text;
   for (const {re, slots, value} of sourcePatterns) {

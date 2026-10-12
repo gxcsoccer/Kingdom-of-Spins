@@ -404,7 +404,7 @@ ${cards.map(c=>`- ${c.id} ${c.title}：${c.body}`).join('\n')}
     bey.parents = []; delete bey.keptFrom; bey.drawn = true;
     const sm = out.specialMove || {};
     const smf = specialMoveFor(bey.look, bey.type);
-    bey.specialMove = {name:String(sm.name||smf.name).slice(0,10), shout:String(sm.shout||smf.shout).slice(0,20)};
+    bey.specialMove = {name:limitText(sm.name||smf.name,10), shout:limitText(sm.shout||smf.shout,20)};
     if (!out.zh) bey.zh = '梦想陀螺';
     if (!out.lore) bey.lore = '从小画家的画里诞生的陀螺。';
     return json({bey, via:out.__via, aiNote:out.__note||undefined});
